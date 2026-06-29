@@ -1,0 +1,33 @@
+# Production overlay. Run with both files explicitly so the dev override is NOT auto-merged:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Puts Caddy in front of n8n for automatic HTTPS (Let's Encrypt) and stops n8n
+# from ever being exposed directly on the host.
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+services:
+  n8n:
+    environment:
+      - N8N_PROTOCOL=https
+      - N8N_HOST=${N8N_HOST}
+      - WEBHOOK_URL=https://${N8N_HOST}/
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      - N8N_HOST=${N8N_HOST}
+      - NC_HOST=${NC_HOST}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - n8n
+      - nocodb

@@ -1,0 +1,29 @@
+# Auto-loaded by `docker compose up` when no -f flags are given.
+# Local-dev convenience only — never used in production (docker-compose.prod.yml is explicit -f instead).
+
+services:
+  n8n:
+    ports:
+      - '5678:5678'
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678/
+
+  postgres:
+    ports:
+      - '5432:5432'
+
+  adminer:
+    image: adminer
+    restart: unless-stopped
+    ports:
+      - '8080:8080'
+    environment:
+      - ADMINER_DEFAULT_SERVER=postgres
+    depends_on:
+      - postgres
+
+  nocodb:
+    ports:
+      - '8081:8080'
