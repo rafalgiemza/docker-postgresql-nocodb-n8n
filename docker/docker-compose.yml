@@ -16,6 +16,9 @@ services:
       - NC_DB_USER
       - NC_DB_PASSWORD
       - NC_DB
+      - APP_DB_USER
+      - APP_DB_PASSWORD
+      - APP_DB
     volumes:
       - db_storage:/var/lib/postgresql/data
       - ./init-data.sh:/docker-entrypoint-initdb.d/init-data.sh
