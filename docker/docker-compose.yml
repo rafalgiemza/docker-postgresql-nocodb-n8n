@@ -87,6 +87,7 @@ services:
     environment:
       - NC_DB=pg://postgres:5432?u=${NC_DB_USER}&p=${NC_DB_PASSWORD}&d=${NC_DB}
       - NC_DISABLE_TELE=true
+      - NC_ALLOW_LOCAL_EXTERNAL_DBS=${NC_ALLOW_LOCAL_EXTERNAL_DBS}
     volumes:
       - nocodb_storage:/usr/app/data
     depends_on:
