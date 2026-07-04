@@ -1,2 +1,3 @@
-docker/.env
+!docker/.env.example
+docker/.env*
 docker/cloud-init.yaml
