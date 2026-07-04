@@ -2,6 +2,7 @@ volumes:
   db_storage:
   n8n_storage:
   nocodb_storage:
+  planka_storage:
 
 services:
   postgres:
@@ -19,6 +20,9 @@ services:
       - APP_DB_USER
       - APP_DB_PASSWORD
       - APP_DB
+      - PLANKA_DB_USER
+      - PLANKA_DB_PASSWORD
+      - PLANKA_DB
     volumes:
       - db_storage:/var/lib/postgresql/data
       - ./init-data.sh:/docker-entrypoint-initdb.d/init-data.sh
@@ -103,3 +107,26 @@ services:
         limits:
           cpus: '1'
           memory: 1G
+
+  planka:
+    image: ghcr.io/plankanban/planka:latest
+    restart: unless-stopped
+    volumes:
+      - planka_storage:/app/data
+    environment:
+      - BASE_URL=https://${PLANKA_HOST}/
+      - DATABASE_URL=postgresql://${PLANKA_DB_USER}:${PLANKA_DB_PASSWORD}@postgres:5432/${PLANKA_DB}
+      - SECRET_KEY=${PLANKA_SECRET_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:1337/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
