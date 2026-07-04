@@ -119,6 +119,9 @@ services:
       - BASE_URL=https://${PLANKA_HOST}/
       - DATABASE_URL=postgresql://${PLANKA_DB_USER}:${PLANKA_DB_PASSWORD}@postgres:5432/${PLANKA_DB}
       - SECRET_KEY=${PLANKA_SECRET_KEY}
+      - DEFAULT_ADMIN_EMAIL=${PLANKA_DEFAULT_ADMIN_EMAIL}
+      - DEFAULT_ADMIN_PASSWORD=${PLANKA_DEFAULT_ADMIN_PASSWORD}
+      - DEFAULT_ADMIN_USERNAME=${PLANKA_DEFAULT_ADMIN_USERNAME}
     depends_on:
       postgres:
         condition: service_healthy
