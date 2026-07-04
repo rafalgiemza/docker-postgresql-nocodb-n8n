@@ -31,3 +31,4 @@ services:
     depends_on:
       - n8n
       - nocodb
+      - planka

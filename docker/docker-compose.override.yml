@@ -27,3 +27,9 @@ services:
   nocodb:
     ports:
       - '8081:8080'
+
+  planka:
+    ports:
+      - '3337:1337'
+    environment:
+      - BASE_URL=http://localhost:3000

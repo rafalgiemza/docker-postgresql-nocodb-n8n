@@ -29,3 +29,12 @@ if [ -n "${APP_DB_USER:-}" ] && [ -n "${APP_DB_PASSWORD:-}" ] && [ -n "${APP_DB:
 else
 	echo "SETUP INFO: No Environment variables given for the app database user!"
 fi
+
+if [ -n "${PLANKA_DB_USER:-}" ] && [ -n "${PLANKA_DB_PASSWORD:-}" ] && [ -n "${PLANKA_DB:-}" ]; then
+	psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+		CREATE USER ${PLANKA_DB_USER} WITH PASSWORD '${PLANKA_DB_PASSWORD}';
+		CREATE DATABASE ${PLANKA_DB} OWNER ${PLANKA_DB_USER};
+	EOSQL
+else
+	echo "SETUP INFO: No Environment variables given for the Planka database user!"
+fi
