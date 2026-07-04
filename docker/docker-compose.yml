@@ -137,6 +137,20 @@ services:
           cpus: '0.5'
           memory: 512M
 
+  adminer:
+    image: adminer:latest
+    restart: unless-stopped
+    environment:
+      - ADMINER_DEFAULT_SERVER=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+
   caddy:
     image: caddy:latest
     restart: unless-stopped
@@ -151,10 +165,12 @@ services:
       - N8N_HOST=${N8N_HOST}
       - NC_HOST=${NC_HOST}
       - PLANKA_HOST=${PLANKA_HOST}
+      - ADMINER_HOST=${ADMINER_HOST}
     depends_on:
       - n8n
       - nocodb
       - planka
+      - adminer
     deploy:
       resources:
         limits:

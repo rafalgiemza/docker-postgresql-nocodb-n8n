@@ -9,3 +9,7 @@
 {$PLANKA_HOST} {
 	reverse_proxy planka:1337
 }
+
+{$ADMINER_HOST} {
+	reverse_proxy adminer:8080
+}
