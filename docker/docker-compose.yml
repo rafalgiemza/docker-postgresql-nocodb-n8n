@@ -3,6 +3,8 @@ volumes:
   n8n_storage:
   nocodb_storage:
   planka_storage:
+  caddy_data:
+  caddy_config:
 
 services:
   postgres:
@@ -130,3 +132,27 @@ services:
         limits:
           cpus: '0.5'
           memory: 512M
+
+  caddy:
+    image: caddy:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - N8N_HOST=${N8N_HOST}
+      - NC_HOST=${NC_HOST}
+      - PLANKA_HOST=${PLANKA_HOST}
+    depends_on:
+      - n8n
+      - nocodb
+      - planka
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
