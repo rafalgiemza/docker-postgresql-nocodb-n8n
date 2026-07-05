@@ -7,7 +7,14 @@
 }
 
 {$PLANKA_HOST} {
-	reverse_proxy planka:1337
+	reverse_proxy planka:1337 {
+		header_up Connection upgrade
+		header_up Upgrade websocket
+		header_up X-Real-IP {http.request.remote.host}
+		header_up X-Forwarded-For {http.request.remote.host}
+		header_up X-Forwarded-Proto {http.request.proto}
+		header_up X-Forwarded-Host {http.request.host}
+	}
 }
 
 {$ADMINER_HOST} {
