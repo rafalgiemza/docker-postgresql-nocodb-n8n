@@ -38,12 +38,3 @@ if [ -n "${PLANKA_DB_USER:-}" ] && [ -n "${PLANKA_DB_PASSWORD:-}" ] && [ -n "${P
 else
 	echo "SETUP INFO: No Environment variables given for the Planka database user!"
 fi
-
-if [ -n "${APP_DB_USER:-}" ] && [ -n "${APP_DB_PASSWORD:-}" ] && [ -n "${APP_DB:-}" ] && [ -f /docker-entrypoint-initdb.d/schema.sql ]; then
-	echo "SETUP INFO: Running schema.sql on ${APP_DB} database..."
-	psql -v ON_ERROR_STOP=1 --username "${APP_DB_USER}" --dbname "${APP_DB}" -f /docker-entrypoint-initdb.d/schema.sql
-else
-	if [ ! -f /docker-entrypoint-initdb.d/schema.sql ]; then
-		echo "SETUP INFO: schema.sql file not found, skipping database schema initialization!"
-	fi
-fi
