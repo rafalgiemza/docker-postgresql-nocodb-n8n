@@ -261,29 +261,29 @@ OVERRIDING SYSTEM VALUE VALUES
 -- ----------------------------------------------------------------------------
 -- Tasks (mirror of Planka cards; representative sample, not every stage)
 -- ----------------------------------------------------------------------------
-INSERT INTO tasks (id, deal_id, planka_card_id, stage, task_type, title, assignee_id, status, completed_at)
+INSERT INTO tasks (id, deal_id, meeting_id, planka_card_id, stage, task_type, title, assignee_id, status, completed_at)
 OVERRIDING SYSTEM VALUE VALUES
     -- Scenario 1
-    (1, 1, 'plk-101', 'qualified',      'verify_lead',               'Verify lead: Jedrzej Kowalski', 1, 'done', now() - interval '23 days'),
-    (2, 1, 'plk-102', 'analysis',       'paste_transcript_discovery','Paste/approve transcript: discovery Jedrzej', 1, 'done', now() - interval '20 days'),
-    (3, 1, 'plk-103', 'recommendation', 'needs_analysis',            'Needs analysis + recommendation: Jedrzej', 2, 'done', now() - interval '18 days'),
-    (4, 1, 'plk-104', 'adjustment',     'adjust_offer',              'Adjust offer after demo: Jedrzej (60h -> 40h)', 1, 'done', now() - interval '13 days'),
-    (5, 1, 'plk-105', 'offer_sent',     'send_offer',                'Send offer v2: Jedrzej', 1, 'done', now() - interval '12 days'),
+    (1, 1, NULL, 'plk-101', 'qualified',      'verify_lead',               'Verify lead: Jedrzej Kowalski', 1, 'done', now() - interval '23 days'),
+    (2, 1, 1, 'plk-102', 'analysis',       'paste_transcript_discovery','Paste/approve transcript: discovery Jedrzej', 1, 'done', now() - interval '20 days'),
+    (3, 1, NULL, 'plk-103', 'recommendation', 'needs_analysis',            'Needs analysis + recommendation: Jedrzej', 2, 'done', now() - interval '18 days'),
+    (4, 1, NULL, 'plk-104', 'adjustment',     'adjust_offer',              'Adjust offer after demo: Jedrzej (60h -> 40h)', 1, 'done', now() - interval '13 days'),
+    (5, 1, NULL, 'plk-105', 'offer_sent',     'send_offer',                'Send offer v2: Jedrzej', 1, 'done', now() - interval '12 days'),
     -- Scenario 2
-    (6, 2, 'plk-201', 'qualified',      'verify_lead',               'Verify lead: Patrycja Nowak', 1, 'done', now() - interval '20 days'),
-    (7, 2, 'plk-202', 'analysis',       'add_participant',           'Add second participant (Piotr) mentioned in discovery', 1, 'done', now() - interval '16 days'),
-    (8, 2, 'plk-203', 'recommendation', 'needs_analysis',            'Needs analysis + recommendations: Patrycja + Piotr', 2, 'done', now() - interval '15 days'),
+    (6, 2, NULL, 'plk-201', 'qualified',      'verify_lead',               'Verify lead: Patrycja Nowak', 1, 'done', now() - interval '20 days'),
+    (7, 2, NULL, 'plk-202', 'analysis',       'add_participant',           'Add second participant (Piotr) mentioned in discovery', 1, 'done', now() - interval '16 days'),
+    (8, 2, NULL, 'plk-203', 'recommendation', 'needs_analysis',            'Needs analysis + recommendations: Patrycja + Piotr', 2, 'done', now() - interval '15 days'),
     -- Scenario 3
-    (9, 3, 'plk-301', 'analysis',       'verify_participants',       'Verify 5 AI-drafted participants from discovery', 1, 'done', now() - interval '28 days'),
-    (10, 3, 'plk-302', 'audit',         'audit_results',             'Audit results: group A (3 participants)', 3, 'done', now() - interval '21 days'),
-    (11, 3, 'plk-303', 'audit',         'audit_results',             'Audit results: group B (2 participants)', 3, 'done', now() - interval '20 days'),
-    (12, 3, 'plk-304', 'audit',         'confirm_audits_complete',   'Confirm audits complete: Olatech', 3, 'done', now() - interval '19 days'),
-    (13, 3, 'plk-305', 'adjustment',    'adjust_offer',              'Adjust offer: Olatech (regroup by level)', 1, 'done', now() - interval '11 days'),
+    (9, 3, NULL, 'plk-301', 'analysis',       'verify_participants',       'Verify 5 AI-drafted participants from discovery', 1, 'done', now() - interval '28 days'),
+    (10, 3, 6, 'plk-302', 'audit',         'audit_results',             'Audit results: group A (3 participants)', 3, 'done', now() - interval '21 days'),
+    (11, 3, 7, 'plk-303', 'audit',         'audit_results',             'Audit results: group B (2 participants)', 3, 'done', now() - interval '20 days'),
+    (12, 3, NULL, 'plk-304', 'audit',         'confirm_audits_complete',   'Confirm audits complete: Olatech', 3, 'done', now() - interval '19 days'),
+    (13, 3, NULL, 'plk-305', 'adjustment',    'adjust_offer',              'Adjust offer: Olatech (regroup by level)', 1, 'done', now() - interval '11 days'),
     -- Scenario 4
-    (14, 4, 'plk-401', 'audit',         'audit_results',             'Follow-up audit results: Iwona Szulc', 3, 'done', now() - interval '12 days'),
-    (15, 4, 'plk-402', 'lost',          'provide_lost_reason',       'Provide lost reason: JanTrans', 1, 'done', now() - interval '5 days'),
+    (14, 4, 11, 'plk-401', 'audit',         'audit_results',             'Follow-up audit results: Iwona Szulc', 3, 'done', now() - interval '12 days'),
+    (15, 4, NULL, 'plk-402', 'lost',          'provide_lost_reason',       'Provide lost reason: JanTrans', 1, 'done', now() - interval '5 days'),
     -- Scenario 5
-    (16, 5, 'plk-501', 'disqualified',  'verify_lead',               'Verify lead: Zbigniew Spamowski (disqualified)', 1, 'done', now() - interval '9 days');
+    (16, 5, NULL, 'plk-501', 'disqualified',  'verify_lead',               'Verify lead: Zbigniew Spamowski (disqualified)', 1, 'done', now() - interval '9 days');
 
 -- ----------------------------------------------------------------------------
 -- Realign identity sequences after explicit-ID inserts

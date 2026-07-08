@@ -137,6 +137,10 @@ CREATE TABLE deals (
                                 'lost'              -- opportunity lost (terminal)
                             )),
     estimated_value         NUMERIC(12, 2),   -- pipeline value estimate, before offer pricing
+    planka_card_id          TEXT UNIQUE,      -- card on the Pipeline board (Tasks-board cards live in tasks)
+    pipeline_synced_status  TEXT,             -- last status synced to the Pipeline board; the sync flow
+                                              -- acts only when status <> pipeline_synced_status (stateful,
+                                              -- self-healing: if Planka is down, next run catches up)
     disqualification_reason TEXT,             -- why the lead was rejected at qualification
     lost_reason             TEXT
                             CHECK (lost_reason IN ('budget', 'timing', 'competitor', 'no_response', 'other')),
@@ -374,6 +378,9 @@ COMMENT ON TABLE offers IS 'Immutable offer versions; v1 draft = sketch presente
 CREATE TABLE tasks (
     id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     deal_id             BIGINT NOT NULL REFERENCES deals (id) ON DELETE RESTRICT,
+    meeting_id          BIGINT REFERENCES meetings (id) ON DELETE RESTRICT,
+                                          -- set for meeting-bound tasks (paste_transcript_demo/audit,
+                                          -- audit_results); NULL for deal-level tasks
     planka_card_id      TEXT UNIQUE,      -- NULL until the card is created in Planka
     stage               TEXT NOT NULL,    -- process stage this task belongs to (mirrors deals.status values)
     task_type           TEXT NOT NULL,    -- machine key for the n8n state machine, e.g. 'verify_lead',
@@ -389,6 +396,7 @@ CREATE TABLE tasks (
 );
 
 CREATE INDEX idx_tasks_deal_id ON tasks (deal_id);
+CREATE INDEX idx_tasks_meeting_id ON tasks (meeting_id);
 CREATE INDEX idx_tasks_assignee_status ON tasks (assignee_id, status);
 
 CREATE TRIGGER trg_tasks_updated_at
