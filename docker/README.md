@@ -29,7 +29,7 @@ Zero kroków ręcznych — `make up` wystarcza. `minio-init` (one-shot, patrz `m
 
 **Gotcha, jeśli będziesz to kiedyś zmieniał:** NocoDB nie proxuje pobierania załączników przez siebie — zwraca przeglądarce bezpośredni, podpisany link do `NC_S3_ENDPOINT`. Dlatego `MINIO_ENDPOINT` musi być tym samym, publicznie rozwiązywalnym adresem co dla przeglądarki (`https://${MINIO_HOST}`), a jednocześnie osiągalnym z kontenera `nocodb`. Rozwiązane network aliasem `${MINIO_HOST}` na serwisie `caddy` — kontener rozwiązuje tę nazwę na Caddy'ego przez wewnętrzne DNS Dockera, przeglądarka przez publiczne DNS; oba trafiają do tego samego Caddy'ego → `minio:9000`. W deweloperskim `docker-compose.override.yml` ominięte prościej: port MinIO publikowany na hosta, `NC_S3_ENDPOINT=http://localhost:9000`.
 
-**Prod:** wymaga rekordu DNS dla `MINIO_HOST` (`s3.<domena>`) wskazującego na ten sam adres VPS co `N8N_HOST`/`NC_HOST` — bez niego Caddy nie wystawi certu i podgląd/pobieranie załączników w NocoDB będzie martwe (upload i tak zadziała, bo idzie przez backend NocoDB, nie przez przeglądarkę).
+**Prod:** wymaga rekordu DNS dla `MINIO_HOST` (`minio.<domena>`) wskazującego na ten sam adres VPS co `N8N_HOST`/`NC_HOST` — bez niego Caddy nie wystawi certu i podgląd/pobieranie załączników w NocoDB będzie martwe (upload i tak zadziała, bo idzie przez backend NocoDB, nie przez przeglądarkę).
 
 ## FAZA 3 — Offer Builder (n8n + NocoDB)
 
