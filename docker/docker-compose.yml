@@ -18,8 +18,10 @@ services:
       - NC_DB_USER
       - NC_DB_PASSWORD
       - NC_DB
-      - APP_DB_USER
-      - APP_DB_PASSWORD
+      - APPDATA_OWNER_USER
+      - APPDATA_OWNER_PASSWORD
+      - NOCODB_CRM_USER
+      - NOCODB_CRM_PASSWORD
       - APP_DB
     volumes:
       - db_storage:/var/lib/postgresql/data

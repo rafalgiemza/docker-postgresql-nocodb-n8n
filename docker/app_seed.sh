@@ -9,5 +9,5 @@ fi
 
 echo "🌱 Seedowanie danych..."
 docker exec -i docker-postgres-1 psql \
-  --username "${APP_DB_USER}" \
+  --username "${APPDATA_OWNER_USER}" \
   --dbname "${APP_DB}" < ./seed.sql

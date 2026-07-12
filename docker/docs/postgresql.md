@@ -75,9 +75,9 @@ DROP DATABASE appdata;
 
 ### Opcja A: Z poziomu terminala hosta (najprostsza)
 ```bash
-docker exec -it docker-postgres-1 createdb -U postgres -O appdata appdata
+docker exec -it docker-postgres-1 createdb -U postgres -O appdata_owner appdata
 ```
-*Gdzie `-O appdata` oznacza ustawienie właściciela (owner) na użytkownika `appdata`.*
+*Gdzie `-O appdata_owner` oznacza ustawienie właściciela (owner) na użytkownika `appdata_owner`.*
 
 ### Opcja B: Z poziomu konsoli psql
 Połącz się z bazą jako superuser:
@@ -87,10 +87,10 @@ docker exec -it docker-postgres-1 psql -U postgres
 W konsoli `psql` wykonaj:
 ```sql
 -- Upewnij się, że użytkownik/rola istnieje (jeśli nie, utwórz go):
--- CREATE USER appdata WITH PASSWORD 'twoje_haslo';
+-- CREATE USER appdata_owner WITH PASSWORD 'twoje_haslo';
 
 -- Stwórz bazę danych z wybranym właścicielem:
-CREATE DATABASE appdata OWNER appdata;
+CREATE DATABASE appdata OWNER appdata_owner;
 ```
 
 ---
@@ -102,14 +102,14 @@ Plik `schema.sql` zawiera definicje tabel, indeksów, triggerów i komentarzy dl
 ### Opcja A: Przez strumień wejściowy (Zalecane — uruchom z katalogu `docker/` na hoście)
 Najwygodniejszy sposób, który przesyła plik bezpośrednio z Twojego systemu do kontenera:
 ```bash
-docker exec -i docker-postgres-1 psql -U appdata -d appdata < schema.sql
+docker exec -i docker-postgres-1 psql -U appdata_owner -d appdata < schema.sql
 ```
 *💡 **Wskazówka:** Używamy flagi `-i` (interactive) zamiast `-it`, aby poprawnie przekierować strumień pliku.*
 
 ### Opcja B: Z poziomu zamontowanego wolumenu w kontenerze
 Plik `schema.sql` jest automatycznie montowany w kontenerze pod ścieżką `/docker-entrypoint-initdb.d/schema.sql` (zgodnie z `docker-compose.yml`). Możesz go uruchomić bezpośrednio w kontenerze:
 ```bash
-docker exec -it docker-postgres-1 psql -U appdata -d appdata -f /docker-entrypoint-initdb.d/schema.sql
+docker exec -it docker-postgres-1 psql -U appdata_owner -d appdata -f /docker-entrypoint-initdb.d/schema.sql
 ```
 
 ---
@@ -122,7 +122,7 @@ Ponieważ plik `seed.sql` nie jest domyślnie montowany wewnątrz kontenera, naj
 
 ### Uruchom z katalogu `docker/` na hoście:
 ```bash
-docker exec -i docker-postgres-1 psql -U appdata -d appdata < seed.sql
+docker exec -i docker-postgres-1 psql -U appdata_owner -d appdata < seed.sql
 ```
 
 Jeśli wolisz wykonać to jako superużytkownik `postgres`:
@@ -163,12 +163,12 @@ docker compose stop n8n nocodb
 #### Krok 2: Usuń i utwórz bazę na nowo jako czystą
 ```bash
 docker exec -it docker-postgres-1 dropdb -U postgres appdata
-docker exec -it docker-postgres-1 createdb -U postgres -O appdata appdata
+docker exec -it docker-postgres-1 createdb -U postgres -O appdata_owner appdata
 ```
 
 #### Krok 3: Wczytaj plik kopii zapasowej do nowo utworzonej bazy
 ```bash
-docker exec -i docker-postgres-1 psql -U appdata -d appdata < backup_appdata.sql
+docker exec -i docker-postgres-1 psql -U appdata_owner -d appdata < backup_appdata.sql
 ```
 *(Wskazówka: Do wczytywania kopii używamy flagi `-i`, aby poprawnie przekazać strumień pliku).*
 
@@ -184,7 +184,7 @@ docker compose up -d n8n nocodb
 Do katalogu `docker/` został dodany skrypt `migrate.sh`, który w pełni automatyzuje proces wgrywania schematu bazy danych z pliku `schema.sql`.
 
 Skrypt jest idealny do użycia zarówno lokalnie, jak i na serwerze VPS, ponieważ:
-- **Automatycznie wczytuje zmienne** z lokalnego pliku `.env` (odczytuje nazwę bazy `APP_DB` oraz użytkownika `APP_DB_USER`).
+- **Automatycznie wczytuje zmienne** z lokalnego pliku `.env` (odczytuje nazwę bazy `APP_DB` oraz właściciela `APPDATA_OWNER_USER`).
 - **Dynamicznie wyszukuje kontener** bazy danych na podstawie etykiet Docker Compose (dzięki czemu działa poprawnie niezależnie od nazwy katalogu/projektu na VPS).
 - **Zabezpiecza proces** poprzez flagę `ON_ERROR_STOP=1`, natychmiast przerywając działanie przy napotkaniu błędu w pliku SQL.
 
@@ -221,13 +221,13 @@ docker compose stop n8n nocodb
 
 # 2. Usuń i stwórz bazę na nowo
 docker exec -it docker-postgres-1 dropdb -U postgres appdata
-docker exec -it docker-postgres-1 createdb -U postgres -O appdata appdata
+docker exec -it docker-postgres-1 createdb -U postgres -O appdata_owner appdata
 
 # 3. Wgraj schemat bazy danych
-docker exec -i docker-postgres-1 psql -U appdata -d appdata < schema.sql
+docker exec -i docker-postgres-1 psql -U appdata_owner -d appdata < schema.sql
 
 # 4. Wgraj dane testowe
-docker exec -i docker-postgres-1 psql -U appdata -d appdata < seed.sql
+docker exec -i docker-postgres-1 psql -U appdata_owner -d appdata < seed.sql
 
 # 5. Uruchom zatrzymane serwisy z powrotem
 docker compose up -d n8n nocodb

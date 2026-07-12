@@ -18,7 +18,7 @@ Stare pliki `old-sql/schema.sql`, `old-sql/schema1_big.sql`, `old-sql/seed.sql` 
 | 3 osobne bazy w jednym Postgresie: `n8n`, `nocodb`, `appdata` | ✅ **już zgodne z `.ai/backups.md`** | `docker/init-data.sh`, `docker/.env.example` |
 | Caddy + TLS dla n8n i nocodb | ✅ gotowe | `docker/Caddyfile` |
 | Backup | ✅ gotowe (lokalnie) — dumpuje `n8n`/`nocodb`/`appdata` + role (`--roles-only`) + tar attachmentów NocoDB; offsite transfer robiony ręcznie, cron do dodania później | `docker/Makefile` |
-| NocoDB dostęp do danych biznesowych | ❌ **łączy się jako właściciel całej bazy `appdata`**, nie jako ograniczony user na widokach | `docker/init-data.sh` (`GRANT ALL PRIVILEGES`) |
+| NocoDB dostęp do danych biznesowych | 🟡 role rozdzielone (`appdata_owner` / `nocodb_crm_user`), `GRANT ALL PRIVILEGES` usunięty; grant na `crm.*` czeka na migrację `0010_grants_nocodb_crm_user.sql` (§3), bo schemat jeszcze nie istnieje | `docker/init-data.sh`, `docker/.env.example` |
 | Schemat danych CRM | ❌ wczesny szkic (`clients/deals/offers…`), nie model docelowy z PRD §2 | `old-sql/*.sql` (referencja, nie do wgrania) |
 | Segmentacja sieci Docker (`edge`/`internal`/`data`) | ❌ brak — jedna płaska sieć | — |
 | PgBouncer | ❌ brak | — |
