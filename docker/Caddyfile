@@ -6,3 +6,7 @@
 	reverse_proxy nocodb:8080
 }
 
+{$MINIO_HOST} {
+	reverse_proxy minio:9000
+}
+

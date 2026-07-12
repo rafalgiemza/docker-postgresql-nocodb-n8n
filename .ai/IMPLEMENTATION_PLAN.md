@@ -22,7 +22,7 @@ Stare pliki `old-sql/schema.sql`, `old-sql/schema1_big.sql`, `old-sql/seed.sql` 
 | Schemat danych CRM | ✅ gotowe — pełny model wg PRD §2 (rdzeń, audyt, oferty + trigger cenowy, widoki `crm.v_*`, granty) | `docker/schema.sql`, `docker/seed.sql` |
 | Segmentacja sieci Docker (`edge`/`internal`/`data`) | ❌ brak — jedna płaska sieć | — |
 | PgBouncer | ❌ brak | — |
-| MinIO | ❌ brak | — |
+| MinIO | ✅ gotowe — serwis + `minio-init` (one-shot: buckety `offers`/`templates` (versioning ON), `recordings`/`transcripts`/`backups`, lifecycle 90/30 dni, user `nocodb` scoped tylko do `attachments`), NocoDB podłączony przez `NC_S3_*`, `s3.` domena w Caddy (network alias, żeby jeden `NC_S3_ENDPOINT` działał i z kontenera, i z przeglądarki) | `docker/docker-compose.yml`, `docker/minio-init.sh`, `docker/Caddyfile`, `docker/.env.example` |
 | **crm-api (renderer PPTX/PDF)** | ❌ nie zaczęte — **poza zakresem MVP, patrz §6** | — |
 | Uptime Kuma | ❌ brak | — |
 | Job queue / triggery cenowe / historia etapów | ❌ brak | — |
@@ -105,7 +105,7 @@ Dane referencyjne do zasiania (`0011_seed_...`): cennik ze slajdu 8 (PRD §2.5),
 
 ### FAZA 1 — Domknięcie infrastruktury (rozszerzenie tego, co już jest)
 1. Sieci `edge`/`internal`/`data` w `docker-compose.yml`
-2. MinIO + buckety (`offers` versioning ON, `templates` versioning ON, `recordings` lifecycle 90 dni, `transcripts`, `backups` lifecycle 30 dni) — potrzebne już teraz na nagrania/transkrypty, nawet bez renderera
+2. ✅ MinIO + buckety (`offers` versioning ON, `templates` versioning ON, `recordings` lifecycle 90 dni, `transcripts`, `backups` lifecycle 30 dni) — potrzebne już teraz na nagrania/transkrypty i na załączniki/awatary NocoDB, nawet bez renderera. `NC_S3_*` w `nocodb` wskazuje na `MINIO_ENDPOINT` (`https://${MINIO_HOST}`) — ten sam URL musi działać z wewnątrz Dockera (backend NocoDB) i z przeglądarki (presigned download), bo NocoDB zawsze zwraca bezpośrednie, podpisane linki do S3, nie proxuje pobierania przez siebie. Rozwiązane network aliasem na `caddy` (patrz `docker-compose.yml`) zamiast dwóch osobnych endpointów. W dev (`docker-compose.override.yml`) omija się to przez publikację portu 9000 i `NC_S3_ENDPOINT=http://localhost:9000`.
 3. Uptime Kuma (monitoring wszystkiego + dysk + cert expiry)
 4. ✅ Naprawa uprawnień NocoDB (§2.2 wyżej) — zrobione
 5. Domena `back-office.coaction.pl` w Caddy (decyzja z PRD §11 — już zaakceptowana przez klienta) — mechanizm gotowy i przetestowany na UAT (`back-office.giemza.dev`), samo `coaction.pl` czeka na DNS od klienta, patrz FAZA 7

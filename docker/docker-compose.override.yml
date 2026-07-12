@@ -17,3 +17,12 @@ services:
   nocodb:
     ports:
       - '8081:8080'
+    environment:
+      # Bypasses Caddy/the public MINIO_HOST — MinIO's port is published
+      # straight to the host below, same trick as N8N_HOST=localhost above.
+      - NC_S3_ENDPOINT=http://localhost:9000
+
+  minio:
+    ports:
+      - '9000:9000'
+      - '9001:9001'

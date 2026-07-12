@@ -2,8 +2,12 @@ volumes:
   db_storage:
   n8n_storage:
   nocodb_storage:
+  minio_storage:
   caddy_data:
   caddy_config:
+
+networks:
+  default: {}
 
 services:
   postgres:
@@ -94,11 +98,19 @@ services:
       - NC_DB=pg://postgres:5432?u=${NC_DB_USER}&p=${NC_DB_PASSWORD}&d=${NC_DB}
       - NC_DISABLE_TELE=true
       - NC_ALLOW_LOCAL_EXTERNAL_DBS=${NC_ALLOW_LOCAL_EXTERNAL_DBS}
+      - NC_S3_BUCKET_NAME=${MINIO_BUCKET_ATTACHMENTS}
+      - NC_S3_REGION=us-east-1
+      - NC_S3_ACCESS_KEY=${NOCODB_MINIO_ACCESS_KEY}
+      - NC_S3_ACCESS_SECRET=${NOCODB_MINIO_SECRET_KEY}
+      - NC_S3_ENDPOINT=${MINIO_ENDPOINT}
+      - NC_S3_FORCE_PATH_STYLE=true
     volumes:
       - nocodb_storage:/usr/app/data
     depends_on:
       postgres:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ['CMD-SHELL', 'wget -qO- http://localhost:8080/ || exit 1']
       interval: 10s
@@ -109,6 +121,48 @@ services:
         limits:
           cpus: '1'
           memory: 1G
+
+  minio:
+    image: quay.io/minio/minio:${MINIO_VERSION}
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_storage:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # One-shot: creates buckets (PRD §8.5) and a least-privilege NocoDB user, then exits.
+  minio-init:
+    image: quay.io/minio/mc:latest
+    restart: 'no'
+    entrypoint: ['/bin/sh', '/minio-init.sh']
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_BUCKET_ATTACHMENTS=${MINIO_BUCKET_ATTACHMENTS}
+      - MINIO_BUCKET_OFFERS=${MINIO_BUCKET_OFFERS}
+      - MINIO_BUCKET_TEMPLATES=${MINIO_BUCKET_TEMPLATES}
+      - MINIO_BUCKET_RECORDINGS=${MINIO_BUCKET_RECORDINGS}
+      - MINIO_BUCKET_TRANSCRIPTS=${MINIO_BUCKET_TRANSCRIPTS}
+      - MINIO_BUCKET_BACKUPS=${MINIO_BUCKET_BACKUPS}
+      - NOCODB_MINIO_ACCESS_KEY=${NOCODB_MINIO_ACCESS_KEY}
+      - NOCODB_MINIO_SECRET_KEY=${NOCODB_MINIO_SECRET_KEY}
+    volumes:
+      - ./minio-init.sh:/minio-init.sh:ro
+    depends_on:
+      minio:
+        condition: service_healthy
 
   caddy:
     image: caddy:latest
@@ -123,9 +177,19 @@ services:
     environment:
       - N8N_HOST=${N8N_HOST}
       - NC_HOST=${NC_HOST}
+      - MINIO_HOST=${MINIO_HOST}
+    networks:
+      default:
+        aliases:
+          # Lets containers on this network (e.g. nocodb) resolve the same
+          # public S3 hostname used in browser-facing presigned URLs, so one
+          # NC_S3_ENDPOINT works both internally and externally — traffic is
+          # routed through Caddy either way. See docker/README.md.
+          - ${MINIO_HOST}
     depends_on:
       - n8n
       - nocodb
+      - minio
     deploy:
       resources:
         limits:

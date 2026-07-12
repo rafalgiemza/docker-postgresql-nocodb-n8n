@@ -23,6 +23,14 @@ docker-compose stop
 
 The default name of the database, user and password for PostgreSQL can be changed in the [`.env`](.env) file in the current directory.
 
+## MinIO — załączniki/awatary NocoDB (PRD §1.1/§8.5)
+
+Zero kroków ręcznych — `make up` wystarcza. `minio-init` (one-shot, patrz `minio-init.sh`) tworzy przy starcie buckety (`offers`/`templates` z versioningiem, `recordings`/`transcripts`/`backups`) oraz rolę `nocodb` ograniczoną wyłącznie do bucketu `attachments` (nigdy root `MINIO_ROOT_USER`). `nocodb` w compose ma już wpięte `NC_S3_*` na tę rolę — pole typu Attachment (i avatar użytkownika) w NocoDB działa od razu, bez konfiguracji w UI.
+
+**Gotcha, jeśli będziesz to kiedyś zmieniał:** NocoDB nie proxuje pobierania załączników przez siebie — zwraca przeglądarce bezpośredni, podpisany link do `NC_S3_ENDPOINT`. Dlatego `MINIO_ENDPOINT` musi być tym samym, publicznie rozwiązywalnym adresem co dla przeglądarki (`https://${MINIO_HOST}`), a jednocześnie osiągalnym z kontenera `nocodb`. Rozwiązane network aliasem `${MINIO_HOST}` na serwisie `caddy` — kontener rozwiązuje tę nazwę na Caddy'ego przez wewnętrzne DNS Dockera, przeglądarka przez publiczne DNS; oba trafiają do tego samego Caddy'ego → `minio:9000`. W deweloperskim `docker-compose.override.yml` ominięte prościej: port MinIO publikowany na hosta, `NC_S3_ENDPOINT=http://localhost:9000`.
+
+**Prod:** wymaga rekordu DNS dla `MINIO_HOST` (`s3.<domena>`) wskazującego na ten sam adres VPS co `N8N_HOST`/`NC_HOST` — bez niego Caddy nie wystawi certu i podgląd/pobieranie załączników w NocoDB będzie martwe (upload i tak zadziała, bo idzie przez backend NocoDB, nie przez przeglądarkę).
+
 ## FAZA 3 — Offer Builder (n8n + NocoDB)
 
 Runbook dla `.ai/IMPLEMENTATION_PLAN.md` FAZA 3. Zakłada, że `make migrate` i `make seed` już przeszły (widoki `crm.v_*`, role `nocodb_crm_user`/`n8n_crm_user`, dane referencyjne).
