@@ -1,0 +1,63 @@
+{
+  "id": "d4d8f1b3-6c4d-4eae-be5b-4d5e6f7a8b02",
+  "name": "WF-2 — Po discovery call",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "discovery-zakonczony",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1a5c8e0-3f1a-4b7a-8b2e-1a2b3c4d5e21",
+      "name": "Webhook: Discovery zakończony",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "wf2-discovery-zakonczony"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH dc AS (\n  INSERT INTO appdata.discovery_calls (opportunity_id, scheduled_at, ended_at, duration_min, external_event_id, meeting_url, attendees)\n  VALUES ($1::bigint, $2::timestamptz, $3::timestamptz, $4::int, $5, $6, $7::jsonb)\n  RETURNING id\n), opp AS (\n  UPDATE appdata.opportunities\n  SET stage = 'badanie_potrzeb'\n  WHERE id = $1::bigint\n  RETURNING id, client_id\n), owner AS (\n  SELECT owner_user_id FROM appdata.clients WHERE id = (SELECT client_id FROM opp)\n), task AS (\n  INSERT INTO appdata.tasks (entity_type, entity_id, assignee_user_id, title, stage_ref)\n  VALUES ('opportunity', $1::bigint, (SELECT owner_user_id FROM owner), 'Wklej / zatwierdź transkrypcję — opportunity #' || $1::bigint, 'badanie_potrzeb')\n  RETURNING id\n)\nSELECT\n  (SELECT id FROM dc)   AS discovery_call_id,\n  (SELECT id FROM opp)  AS opportunity_id,\n  (SELECT id FROM task) AS task_id;",
+        "options": {
+          "queryReplacement": "={{ [$json.body.opportunity_id, $json.body.scheduled_at || null, $json.body.ended_at || null, $json.body.duration_min || null, $json.body.external_event_id || null, $json.body.meeting_url || null, JSON.stringify($json.body.attendees || [])] }}"
+        }
+      },
+      "id": "b2b6d9f1-4a2b-4c8b-9c3f-2b3c4d5e6f22",
+      "name": "Postgres: Zapisz discovery call",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [460, 300],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_W_UI",
+          "name": "appdata (n8n_crm_user)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": true, \"discovery_call_id\": $json.discovery_call_id, \"opportunity_id\": $json.opportunity_id, \"task_id\": $json.task_id } }}",
+        "options": {}
+      },
+      "id": "c3c7e0a2-5b3c-4d9c-ad4a-3c4d5e6f7a23",
+      "name": "Odpowiedz",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "Webhook: Discovery zakończony": {
+      "main": [[{ "node": "Postgres: Zapisz discovery call", "type": "main", "index": 0 }]]
+    },
+    "Postgres: Zapisz discovery call": {
+      "main": [[{ "node": "Odpowiedz", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}
