@@ -4,7 +4,7 @@ export
 DC_CMD = docker compose -f docker-compose.yml -f docker-compose.prod.yml
 TS := $(shell date +%F_%H%M%S)
 
-.PHONY: up down ps logs migrate seed backup
+.PHONY: up down ps logs migrate seed seed-demo backup
 
 up:
 	$(DC_CMD) up -d
@@ -23,6 +23,9 @@ migrate:
 
 seed:
 	./app_seed.sh
+
+seed-demo:
+	./app_seed_demo.sh
 
 backup:
 	@mkdir -p ./backups

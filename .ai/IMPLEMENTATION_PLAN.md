@@ -119,10 +119,12 @@ Dane referencyjne do zasiania (`0011_seed_...`): cennik ze slajdu 8 (PRD §2.5),
 5. ✅ Trigger cenowy i trigger historii etapów działają niezależnie od renderera — to one dają efekt „cena przelicza się na żywo" w demo
 
 ### FAZA 3 — n8n + NocoDB (offer builder, bez generowania pliku) 🟡 w trakcie
-1. 🟡 n8n: credentials (PG bezpośrednio, Anthropic, NocoDB API), Git sync workflowów — DB-side gotowe: rola `n8n_crm_user`, scoped na `crm.v_offer_builder` (`docker/schema.sql` §15, `docker/init-data.sh`, `docker/.env.example`); credential w n8n UI jeszcze nie skonfigurowany
-2. WF-6 okrojone: **„Zatwierdź ofertę"** zamiast „Generuj ofertę" — ustawia `offers.status='ready'`, bez wywołania `crm-api` (którego jeszcze nie ma)
-3. NocoDB: widok „Offer Builder" wg PRD §5, pola nazwane jak slajdy (pola `⬇ PPTX`/`⬇ PDF` i `Status generowania` chwilowo ukryte/nieużywane)
-4. Test pętli: `60h → 45h` → cena przelicza się (trigger PG) na żywo w NocoDB
+Pełny runbook: `docker/README.md` §„FAZA 3 — Offer Builder (n8n + NocoDB)".
+0. ✅ Fixture danych demo (`docker/seed_demo.sql` + `make seed-demo`) — jedna kompletna oferta (client→opportunity→audit→recommendation→offer, 2 pozycje) do otwarcia w `crm.v_offer_builder`, który wspiera tylko SELECT/UPDATE, nie INSERT. Re-runnable.
+1. 🟡 n8n: credential Postgres do `n8n_crm_user` — udokumentowany (host/user/hasło z `.env`), ale **jeszcze nie utworzony w n8n UI** (krok ręczny, poza zasięgiem automatyzacji). Git sync workflowów: potwierdzone z użytkownikiem, że n8n tu jest Community Edition (bez natywnego Source Control) — wersjonowanie robimy ręcznym `n8n export:workflow --all`, udokumentowane w runbooku. Anthropic/NocoDB API credentiale — nadal do zrobienia (FAZA 5 dla Anthropic; NocoDB API tylko jeśli wrócimy do PATCH statusu generowania, poza zakresem MVP).
+2. ✅ WF-6 okrojone (`docker/n8n-workflows/wf6-zatwierdz-oferte.json`): Webhook → `UPDATE crm.v_offer_builder SET status='ready' WHERE offer_id=$1` → Respond. Zweryfikowany przez `n8n import:workflow` na lokalnym n8n (2.27.5) — importuje się czysto, żadnych ostrzeżeń o wersjach node'ów. Pozostaje: podpięcie prawdziwego credentiala i aktywacja w UI (placeholder `REPLACE_W_UI` w pliku celowo — sekrety nie idą do Gita).
+3. 🟡 NocoDB: widok „Offer Builder" — mapowanie pól na PRD §5 (okrojone, bez `Szablon`/`Status generowania`/`⬇ PPTX`/`⬇ PDF`) udokumentowane w runbooku; budowa samego widoku w NocoDB UI jeszcze nie zrobiona.
+4. ✅ Test pętli `60h → 45h` zweryfikowany na poziomie SQL: `UPDATE crm.v_offer_builder SET item1_hours=45, item1_pricing_tier_id=(...)` → `total_price_pln` 20400.00 → 16500.00 PLN natychmiast (trigger PG, bez udziału n8n). Pozostaje powtórzyć klikając w NocoDB UI po zbudowaniu widoku (pkt 3).
 
 ### FAZA 4 — DEMO 🎯 (bez pliku wyjściowego)
 Przemek otwiera rekord, zmienia `60h → 45h`, widzi przeliczoną cenę, zmienia testimoniale, klika „Zatwierdź ofertę" → status `ready`. Payoff demo to **żywa wycena i dobór treści**, nie plik PPTX.
