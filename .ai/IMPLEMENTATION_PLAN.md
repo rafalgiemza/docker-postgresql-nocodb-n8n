@@ -18,7 +18,7 @@ Stare pliki `old-sql/schema.sql`, `old-sql/schema1_big.sql`, `old-sql/seed.sql` 
 | 3 osobne bazy w jednym Postgresie: `n8n`, `nocodb`, `appdata` | ✅ **już zgodne z `.ai/backups.md`** | `docker/init-data.sh`, `docker/.env.example` |
 | Caddy + TLS dla n8n i nocodb | ✅ gotowe | `docker/Caddyfile` |
 | Backup | ✅ gotowe (lokalnie) — dumpuje `n8n`/`nocodb`/`appdata` + role (`--roles-only`) + tar attachmentów NocoDB; offsite transfer robiony ręcznie, cron do dodania później | `docker/Makefile` |
-| NocoDB dostęp do danych biznesowych | 🟡 role rozdzielone (`appdata_owner` / `nocodb_crm_user`), `GRANT ALL PRIVILEGES` usunięty; grant na `crm.*` czeka na migrację `0010_grants_nocodb_crm_user.sql` (§3), bo schemat jeszcze nie istnieje | `docker/init-data.sh`, `docker/.env.example` |
+| NocoDB dostęp do danych biznesowych | 🟡 role rozdzielone (`appdata_owner` / `nocodb_crm_user`), `GRANT ALL PRIVILEGES` usunięty; grant na `crm.*` czeka na sekcję grantów w `schema.sql` (§3), bo schemat jeszcze nie istnieje | `docker/init-data.sh`, `docker/.env.example` |
 | Schemat danych CRM | ❌ wczesny szkic (`clients/deals/offers…`), nie model docelowy z PRD §2 | `old-sql/*.sql` (referencja, nie do wgrania) |
 | Segmentacja sieci Docker (`edge`/`internal`/`data`) | ❌ brak — jedna płaska sieć | — |
 | PgBouncer | ❌ brak | — |
@@ -83,24 +83,11 @@ Wdrażamy zgodnie z PRD §8.1, ale **n8n i NocoDB łączą się bezpośrednio do
 
 ## 3. Schemat bazy danych — pisany od zera
 
-Zamiast migrować `old-sql/`, tworzymy nowy katalog migracji wg PRD §2, w jednej logicznej kolejności:
+Zamiast migrować `old-sql/`, piszemy nowy schemat wg PRD §2 od zera, w jednym pliku `docker/schema.sql`, wgrywanym hurtem przez już istniejący `docker/app_migrate.sh` (`psql < ./schema.sql` — skrypt nie wymaga zmian, dziś tylko brakuje samego pliku).
 
-```
-docker/migrations/
-  0001_enums.sql
-  0002_core_organizations_people_clients.sql
-  0003_opportunities_and_stage_history.sql       -- + trigger historii etapów
-  0004_discovery_transcripts_extractions.sql      -- pg_trgm, tsvector 'simple'
-  0005_audits_scores_recommendations.sql
-  0006_pricing_offers_offer_items.sql             -- + trigger cenowy
-  0007_testimonials_offer_templates_snapshots.sql
-  0008_tasks_job_queue_files.sql
-  0009_views_crm_schema.sql                       -- v_pipeline, v_offer_builder, ...
-  0010_grants_nocodb_crm_user.sql                 -- REVOKE CREATE, grant tylko na crm.*
-  0011_seed_pricing_tiers_testimonials_users.sql
-```
+**Decyzja (faza testowa, greenfield):** *nie* wdrażamy jeszcze wersjonowanych migracji (dbmate) — ani test, ani prod jeszcze nie istnieją, więc nie ma nic do zachowania między wdrożeniami. Jeden płaski, w pełni re-runnable `schema.sql` (zaczynający się od `DROP SCHEMA IF EXISTS appdata/crm CASCADE`) jest szybszy do iterowania w tej fazie i unika narzutu obsługi migracji, których jeszcze nikt nie musi cofać na żywych danych. Wprowadzenie dbmate wraca jako ostatni krok w FAZIE 6, gdy powstanie pierwsze środowisko z danymi do zachowania (patrz §4, FAZA 6, punkt 6).
 
-Rekomendacja narzędzia: **dbmate** (pojedynczy binarz, czyste SQL migracje, pasuje do istniejącego stylu `app_migrate.sh`) zamiast jednego dużego `schema.sql` wykonywanego za każdym razem. Zastępuje to obecny `docker/app_migrate.sh` (dziś: jeden plik `schema.sql` wgrywany hurtem, bez wersjonowania).
+Sekcje pliku `schema.sql`, w kolejności deklaracji (tabele w porządku topologicznym względem FK, bez potrzeby migracji między-plikowych): schematy+rozszerzenia → enumy → trigger helper `set_updated_at()` → rdzeń (`users`→`organizations`→`people`→`clients`) → `files` → `pricing_tiers`+`offer_templates` → `opportunities`+historia etapów → `discovery_calls` → audyt (`participants`→`audits`→`audit_scores`→`recommendations`→`recommendation_goals`) → `transcripts`+`extractions` → `offers`+`offer_items` (+ trigger cenowy) → `testimonials`+`offer_snapshots` → `tasks`+`job_queue` → widoki `crm.*` (7 z PRD §2.7 + `v_opportunity_dates`) → granty dla `nocodb_crm_user`.
 
 Kluczowe elementy nie do pominięcia (z PRD, ryzykowne miejsca):
 - `search_tsv` z `to_tsvector('simple', ...)` — **nie `'polish'`**, transkrypty są dwujęzyczne
@@ -125,7 +112,7 @@ Dane referencyjne do zasiania (`0011_seed_...`): cennik ze slajdu 8 (PRD §2.5),
 6. PgBouncer — **odłożony razem z crm-api** (§6); jego jedyny konsument w PRD to `crm-api`, więc bez sensu wdrażać wcześniej
 
 ### FAZA 2 — Baza danych
-1. Migracje z §3 wyżej (dbmate, w Git)
+1. `schema.sql` z §3 wyżej (w Git, wgrywany przez `docker/app_migrate.sh`)
 2. Seed: `pricing_tiers`, `testimonials`, `users`
 3. Widoki `crm.v_*` + `INSTEAD OF` triggery gdzie trzeba
 4. Grant `nocodb_crm_user` tylko na `crm.*`, `REVOKE CREATE ON SCHEMA appdata/public`
@@ -149,6 +136,7 @@ WF-1…WF-5, WF-7 (bez inspekcji szablonu — nieaktualne bez renderera), WF-8, 
 3. Zabezpieczyć `N8N_ENCRYPTION_KEY` w password managerze klienta — bez niego dump `n8n` DB jest bezużyteczny
 4. **Restore drill na czystym VPS — obowiązkowy przed oddaniem** (dumpy + role + `.env` + MinIO)
 5. Runbook (restart, restore, dodanie pola) + szkolenie klienta
+6. **Wprowadzenie wersjonowanych migracji (dbmate)** — przejście z płaskiego `docker/schema.sql` na `docker/migrations/*.sql` w dbmate, dopiero gdy powstanie pierwsze środowisko z danymi do zachowania między wdrożeniami (dziś: faza testowa, greenfield, nic do ochrony). Ostatni krok całego wdrożenia — po tym punkcie schemat przestaje być "jednym plikiem wgrywanym hurtem" i staje się właściwie wersjonowany, z historią `schema_migrations` i bezpiecznymi rollbackami.
 
 ---
 
@@ -181,5 +169,5 @@ Z PRD §11, wciąż aktualne:
 
 Nowe, z przeglądu repo i korekty zakresu:
 5. Czy `old-sql/*.sql` można usunąć z repo po napisaniu nowego schematu, czy zostawić jako archiwum referencyjne?
-6. dbmate czy inne narzędzie migracji — akceptacja wyboru?
+6. dbmate czy inne narzędzie migracji — akceptacja wyboru? (odłożone do FAZY 6, nieblokujące dla MVP — patrz §3 i §4)
 7. **Jak MVP „zamyka" ofertę bez pliku** — status `ready` w NocoDB wystarczy jako koniec MVP, czy potrzebny jest jakiś ręczny eksport/kopiowanie danych do istniejącego szablonu jako tymczasowy obejście do czasu renderera?
