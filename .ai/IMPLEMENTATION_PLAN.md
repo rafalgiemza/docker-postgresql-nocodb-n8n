@@ -18,8 +18,8 @@ Stare pliki `old-sql/schema.sql`, `old-sql/schema1_big.sql`, `old-sql/seed.sql` 
 | 3 osobne bazy w jednym Postgresie: `n8n`, `nocodb`, `appdata` | ✅ **już zgodne z `.ai/backups.md`** | `docker/init-data.sh`, `docker/.env.example` |
 | Caddy + TLS dla n8n i nocodb | ✅ gotowe | `docker/Caddyfile` |
 | Backup | ✅ gotowe (lokalnie) — dumpuje `n8n`/`nocodb`/`appdata` + role (`--roles-only`) + tar attachmentów NocoDB; offsite transfer robiony ręcznie, cron do dodania później | `docker/Makefile` |
-| NocoDB dostęp do danych biznesowych | 🟡 role rozdzielone (`appdata_owner` / `nocodb_crm_user`), `GRANT ALL PRIVILEGES` usunięty; grant na `crm.*` czeka na sekcję grantów w `schema.sql` (§3), bo schemat jeszcze nie istnieje | `docker/init-data.sh`, `docker/.env.example` |
-| Schemat danych CRM | ❌ wczesny szkic (`clients/deals/offers…`), nie model docelowy z PRD §2 | `old-sql/*.sql` (referencja, nie do wgrania) |
+| NocoDB dostęp do danych biznesowych | ✅ gotowe — role rozdzielone (`appdata_owner` / `nocodb_crm_user`), `GRANT ALL PRIVILEGES` usunięty, granty na `crm.*` wgrane | `docker/init-data.sh`, `docker/.env.example`, `docker/schema.sql` §14 |
+| Schemat danych CRM | ✅ gotowe — pełny model wg PRD §2 (rdzeń, audyt, oferty + trigger cenowy, widoki `crm.v_*`, granty) | `docker/schema.sql`, `docker/seed.sql` |
 | Segmentacja sieci Docker (`edge`/`internal`/`data`) | ❌ brak — jedna płaska sieć | — |
 | PgBouncer | ❌ brak | — |
 | MinIO | ❌ brak | — |
@@ -27,7 +27,7 @@ Stare pliki `old-sql/schema.sql`, `old-sql/schema1_big.sql`, `old-sql/seed.sql` 
 | Uptime Kuma | ❌ brak | — |
 | Job queue / triggery cenowe / historia etapów | ❌ brak | — |
 
-**Wniosek:** infrastruktura bazowa (VPS + n8n + NocoDB + Postgres + Caddy) jest na dobrym poziomie i częściowo już realizuje zalecenia z `backups.md`. Priorytetem MVP jest teraz: naprawa dostępu NocoDB (§2.2), schemat bazy (§3) i pipeline n8n/NocoDB kończący się na **gotowej, wycenionej ofercie w danych** — bez renderowania pliku.
+**Wniosek:** infrastruktura bazowa (VPS + n8n + NocoDB + Postgres + Caddy) jest na dobrym poziomie i już realizuje zalecenia z `backups.md`. Naprawa dostępu NocoDB (§2.2) i schemat bazy (§3) są gotowe. Priorytetem MVP jest teraz pipeline n8n/NocoDB (FAZA 3, §4) kończący się na **gotowej, wycenionej ofercie w danych** — bez renderowania pliku.
 
 ---
 
@@ -44,10 +44,10 @@ Zostajemy przy **3 fizycznych bazach** w jednym klastrze Postgresa (już tak jes
 
 Powód (z `backups.md`): widoki nie mogą odpytywać danych z innej *fizycznej* bazy — muszą żyć w tej samej bazie co tabele źródłowe, stąd podział na schematy, nie na bazy.
 
-### 2.2 Naprawa dostępu NocoDB → appdata ⚠️ priorytet
-Dziś `APP_DB_USER` jest **właścicielem** całej bazy `appdata` (`GRANT ALL PRIVILEGES`) i tym userem łączy się NocoDB. To jest dokładnie sytuacja, przed którą ostrzega `backups.md` — NocoDB może teoretycznie zmienić strukturę tabel bazowych.
+### 2.2 Naprawa dostępu NocoDB → appdata ✅ zrobione
+Zrobione — `appdata_owner` (właściciel, migracje/seed) i `nocodb_crm_user` (rola NocoDB, tylko `crm.*`) rozdzielone w `docker/init-data.sh` + `docker/.env.example`, grant na `crm.*` wgrany w `docker/schema.sql` §14. Analogiczna rola `n8n_crm_user` (scoped na `crm.v_offer_builder`) dodana w `docker/schema.sql` §15 pod FAZĘ 3.
 
-Docelowo:
+Docelowy kształt (zrealizowany):
 ```sql
 -- właściciel danych (migracje, seed) — NIE używany przez NocoDB
 CREATE ROLE appdata_owner WITH LOGIN PASSWORD '...';
@@ -81,9 +81,9 @@ Wdrażamy zgodnie z PRD §8.1, ale **n8n i NocoDB łączą się bezpośrednio do
 
 ---
 
-## 3. Schemat bazy danych — pisany od zera
+## 3. Schemat bazy danych — pisany od zera ✅ zrobione
 
-Zamiast migrować `old-sql/`, piszemy nowy schemat wg PRD §2 od zera, w jednym pliku `docker/schema.sql`, wgrywanym hurtem przez już istniejący `docker/app_migrate.sh` (`psql < ./schema.sql` — skrypt nie wymaga zmian, dziś tylko brakuje samego pliku).
+`docker/schema.sql` (930 linii) i `docker/seed.sql` napisane wg PRD §2 od zera i wgrywane przez `docker/app_migrate.sh`. Zawiera wszystkie sekcje z porządku deklaracji niżej, docelowe widoki `crm.v_*` (§2.7) oraz granty dla `nocodb_crm_user` i `n8n_crm_user`. Reszta tego paragrafu to spec, wg którego plik został napisany — zostawiona jako odniesienie.
 
 **Decyzja (faza testowa, greenfield):** *nie* wdrażamy jeszcze wersjonowanych migracji (dbmate) — ani test, ani prod jeszcze nie istnieją, więc nie ma nic do zachowania między wdrożeniami. Jeden płaski, w pełni re-runnable `schema.sql` (zaczynający się od `DROP SCHEMA IF EXISTS appdata/crm CASCADE`) jest szybszy do iterowania w tej fazie i unika narzutu obsługi migracji, których jeszcze nikt nie musi cofać na żywych danych. Wprowadzenie dbmate wraca jako ostatni krok w FAZIE 6, gdy powstanie pierwsze środowisko z danymi do zachowania (patrz §4, FAZA 6, punkt 6).
 
@@ -107,19 +107,19 @@ Dane referencyjne do zasiania (`0011_seed_...`): cennik ze slajdu 8 (PRD §2.5),
 1. Sieci `edge`/`internal`/`data` w `docker-compose.yml`
 2. MinIO + buckety (`offers` versioning ON, `templates` versioning ON, `recordings` lifecycle 90 dni, `transcripts`, `backups` lifecycle 30 dni) — potrzebne już teraz na nagrania/transkrypty, nawet bez renderera
 3. Uptime Kuma (monitoring wszystkiego + dysk + cert expiry)
-4. Naprawa uprawnień NocoDB (§2.2 wyżej)
-5. Domena `back-office.coaction.pl` w Caddy (decyzja z PRD §11 — już zaakceptowana przez klienta)
+4. ✅ Naprawa uprawnień NocoDB (§2.2 wyżej) — zrobione
+5. Domena `back-office.coaction.pl` w Caddy (decyzja z PRD §11 — już zaakceptowana przez klienta) — jeszcze nie podpięta, `.env.example` ma placeholder `back-office.giemza.dev`
 6. PgBouncer — **odłożony razem z crm-api** (§6); jego jedyny konsument w PRD to `crm-api`, więc bez sensu wdrażać wcześniej
 
-### FAZA 2 — Baza danych
-1. `schema.sql` z §3 wyżej (w Git, wgrywany przez `docker/app_migrate.sh`)
-2. Seed: `pricing_tiers`, `testimonials`, `users`
-3. Widoki `crm.v_*` + `INSTEAD OF` triggery gdzie trzeba
-4. Grant `nocodb_crm_user` tylko na `crm.*`, `REVOKE CREATE ON SCHEMA appdata/public`
-5. Trigger cenowy i trigger historii etapów działają niezależnie od renderera — to one dają efekt „cena przelicza się na żywo" w demo
+### FAZA 2 — Baza danych ✅ zrobione
+1. ✅ `schema.sql` z §3 wyżej (w Git, wgrywany przez `docker/app_migrate.sh`)
+2. ✅ Seed: `pricing_tiers`, `testimonials`, `users` (dane placeholder, `docker/seed.sql` — realne dane wchodzą w Fazie 6)
+3. ✅ Widoki `crm.v_*` + `INSTEAD OF` triggery gdzie trzeba
+4. ✅ Grant `nocodb_crm_user` tylko na `crm.*`, `REVOKE CREATE ON SCHEMA appdata/public`
+5. ✅ Trigger cenowy i trigger historii etapów działają niezależnie od renderera — to one dają efekt „cena przelicza się na żywo" w demo
 
-### FAZA 3 — n8n + NocoDB (offer builder, bez generowania pliku)
-1. n8n: credentials (PG bezpośrednio, Anthropic, NocoDB API), Git sync workflowów
+### FAZA 3 — n8n + NocoDB (offer builder, bez generowania pliku) 🟡 w trakcie
+1. 🟡 n8n: credentials (PG bezpośrednio, Anthropic, NocoDB API), Git sync workflowów — DB-side gotowe: rola `n8n_crm_user`, scoped na `crm.v_offer_builder` (`docker/schema.sql` §15, `docker/init-data.sh`, `docker/.env.example`); credential w n8n UI jeszcze nie skonfigurowany
 2. WF-6 okrojone: **„Zatwierdź ofertę"** zamiast „Generuj ofertę" — ustawia `offers.status='ready'`, bez wywołania `crm-api` (którego jeszcze nie ma)
 3. NocoDB: widok „Offer Builder" wg PRD §5, pola nazwane jak slajdy (pola `⬇ PPTX`/`⬇ PDF` i `Status generowania` chwilowo ukryte/nieużywane)
 4. Test pętli: `60h → 45h` → cena przelicza się (trigger PG) na żywo w NocoDB
@@ -163,7 +163,7 @@ Przesunięte z pierwotnej FAZY 0/3. Kiedy przyjdzie kolej (po demo, gdy klient p
 
 Z PRD §11, wciąż aktualne:
 1. Czy Przemek akceptuje brak ręcznej edycji PPTX (docelowo, gdy renderer wróci w zakres)?
-2. Kto dostaje taski — lista: Przemek / Ola / Dorota / Kasia / Paulina?
+2. Kto dostaje taski — częściowo potwierdzone (rozmowa z klientem 2026-07-12, patrz `docker/seed.sql`): Przemek (sales), Dorota (auditor, B2B), Ola/Aleksandra (auditor, B2C) zasiane jako `appdata.users`. Wciąż otwarte: role Kasi (Growth Manager) i Pauliny (opiekunka finansowa) — nie zamodelowane w `appdata.users.role` CHECK (brak `finance`/`marketing`).
 3. Offsite backup — Backblaze B2 czy Hetzner Storage Box?
 4. Dostawca ASR — Deepgram / AssemblyAI / OpenAI Whisper API?
 
