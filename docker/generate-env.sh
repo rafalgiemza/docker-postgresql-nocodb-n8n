@@ -26,7 +26,7 @@ COUNT=0
 while IFS= read -r line || [[ -n "$line" ]]; do
     if [[ "$line" =~ ^([A-Z0-9_]+)=change.*$ ]]; then
         echo "${BASH_REMATCH[1]}=$(openssl rand -hex 32)" >> "$ENV_FILE"
-        ((COUNT++))
+        COUNT=$((COUNT + 1))
     else
         echo "$line" >> "$ENV_FILE"
     fi
