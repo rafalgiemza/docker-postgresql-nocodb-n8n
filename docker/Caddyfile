@@ -1,11 +1,8 @@
-# No TLS here on purpose: SSL is terminated at the mikr.us edge (see `domena`
-# tool docs), which forwards plain HTTP to this port. Both hostnames share
-# CADDY_HTTP_PORT and are routed by Host header.
-http://{$N8N_HOST}:{$CADDY_HTTP_PORT} {
+{$N8N_HOST} {
 	reverse_proxy n8n:5678
 }
 
-http://{$NC_HOST}:{$CADDY_HTTP_PORT} {
+{$NC_HOST} {
 	reverse_proxy nocodb:8080
 }
 

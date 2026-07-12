@@ -1,14 +1,11 @@
 # Production overlay. Run with both files explicitly so the dev override is NOT auto-merged:
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 #
-# Puts Caddy in front of n8n and NocoDB, routed by Host header, and stops
-# them from ever being exposed directly on the host. TLS is NOT terminated
-# here — this is built for hosting behind mikr.us's `domena` subdomain proxy,
-# which terminates SSL at its own edge and forwards plain HTTP to
-# CADDY_HTTP_PORT. Register both N8N_HOST and NC_HOST with mikr.us pointing
-# at the same CADDY_HTTP_PORT, e.g.:
-#   domena n8n-coaction.byst.re 8000
-#   domena back-office-coaction.byst.re 8000
+# Puts Caddy in front of n8n and NocoDB for automatic HTTPS (Let's Encrypt)
+# and stops them from ever being exposed directly on the host. Assumes the
+# VPS is reachable directly on its own IPv6 address (e.g. via a Cloudflare
+# proxied AAAA record) — Caddy needs real inbound traffic on 80/443 to
+# terminate TLS and complete the ACME challenge itself.
 
 volumes:
   caddy_data:
@@ -25,11 +22,11 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     ports:
-      - '${CADDY_HTTP_PORT}:${CADDY_HTTP_PORT}'
+      - '80:80'
+      - '443:443'
     environment:
       - N8N_HOST=${N8N_HOST}
       - NC_HOST=${NC_HOST}
-      - CADDY_HTTP_PORT=${CADDY_HTTP_PORT}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
