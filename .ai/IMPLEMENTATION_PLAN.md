@@ -108,7 +108,7 @@ Dane referencyjne do zasiania (`0011_seed_...`): cennik ze slajdu 8 (PRD §2.5),
 2. MinIO + buckety (`offers` versioning ON, `templates` versioning ON, `recordings` lifecycle 90 dni, `transcripts`, `backups` lifecycle 30 dni) — potrzebne już teraz na nagrania/transkrypty, nawet bez renderera
 3. Uptime Kuma (monitoring wszystkiego + dysk + cert expiry)
 4. ✅ Naprawa uprawnień NocoDB (§2.2 wyżej) — zrobione
-5. Domena `back-office.coaction.pl` w Caddy (decyzja z PRD §11 — już zaakceptowana przez klienta) — jeszcze nie podpięta, `.env.example` ma placeholder `back-office.giemza.dev`
+5. Domena `back-office.coaction.pl` w Caddy (decyzja z PRD §11 — już zaakceptowana przez klienta) — mechanizm gotowy i przetestowany na UAT (`back-office.giemza.dev`), samo `coaction.pl` czeka na DNS od klienta, patrz FAZA 7
 6. PgBouncer — **odłożony razem z crm-api** (§6); jego jedyny konsument w PRD to `crm-api`, więc bez sensu wdrażać wcześniej
 
 ### FAZA 2 — Baza danych ✅ zrobione
@@ -137,6 +137,12 @@ WF-1…WF-5, WF-7 (bez inspekcji szablonu — nieaktualne bez renderera), WF-8, 
 4. **Restore drill na czystym VPS — obowiązkowy przed oddaniem** (dumpy + role + `.env` + MinIO)
 5. Runbook (restart, restore, dodanie pola) + szkolenie klienta
 6. **Wprowadzenie wersjonowanych migracji (dbmate)** — przejście z płaskiego `docker/schema.sql` na `docker/migrations/*.sql` w dbmate, dopiero gdy powstanie pierwsze środowisko z danymi do zachowania między wdrożeniami (dziś: faza testowa, greenfield, nic do ochrony). Ostatni krok całego wdrożenia — po tym punkcie schemat przestaje być "jednym plikiem wgrywanym hurtem" i staje się właściwie wersjonowany, z historią `schema_migrations` i bezpiecznymi rollbackami.
+
+### FAZA 7 — Prod: wystawienie n8n/NocoDB pod domenami klienta 🟡 UAT zrobione, prod czeka na klienta
+1. ✅ Model sieciowy: VPS (Mikrus) ma własny dedykowany adres IPv6 (`2a01:4f9:3a:3f89::268`), Cloudflare AAAA (proxied, ☁️) kieruje na niego bezpośrednio — Caddy sam robi automatic HTTPS (Let's Encrypt) na 80/443, routing po Host header, zgodnie z tym, co już jest w `docker/Caddyfile`/`docker-compose.prod.yml`. `ufw` ma otwarte 80/443 na IPv4 i IPv6.
+2. ❌ Odrzucone: mikr.us `domena` (współdzielony port na edge'u mikr.us) — przetestowane i wycofane, bo `domena` proxuje na warstwie HTTP (nie robi SNI/TCP passthrough), co łamie automatic HTTPS Caddy'ego (błędy 521, pętle przekierowań). Nie używać do tego serwisu.
+3. ✅ UAT zrobiony na domenie Rafała: `n8n.giemza.dev` + `back-office.giemza.dev`, certy Let's Encrypt (prod CA, nie staging) wydane poprawnie, oba serwisy działają end-to-end przez Cloudflare.
+4. 🟡 Prod (`coaction.pl`) — czeka na akceptację klienta. Po akceptacji: klient dodaje analogiczne rekordy AAAA (`n8n.coaction.pl`, `back-office.coaction.pl` → ten sam adres IPv6 VPS-a), Rafał podmienia `N8N_HOST`/`NC_HOST`/`WEBHOOK_URL` w `.env` z `giemza.dev` na `coaction.pl` i robi `make down && make up`. Zero zmian w kodzie poza `.env`.
 
 ---
 
