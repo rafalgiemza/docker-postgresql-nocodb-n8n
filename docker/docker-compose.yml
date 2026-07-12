@@ -2,7 +2,6 @@ volumes:
   db_storage:
   n8n_storage:
   nocodb_storage:
-  planka_storage:
   caddy_data:
   caddy_config:
 
@@ -19,12 +18,13 @@ services:
       - NC_DB_USER
       - NC_DB_PASSWORD
       - NC_DB
-      - APP_DB_USER
-      - APP_DB_PASSWORD
+      - APPDATA_OWNER_USER
+      - APPDATA_OWNER_PASSWORD
+      - NOCODB_CRM_USER
+      - NOCODB_CRM_PASSWORD
+      - N8N_CRM_USER
+      - N8N_CRM_PASSWORD
       - APP_DB
-      - PLANKA_DB_USER
-      - PLANKA_DB_PASSWORD
-      - PLANKA_DB
     volumes:
       - db_storage:/var/lib/postgresql/data
       - ./init-data.sh:/docker-entrypoint-initdb.d/init-data.sh
@@ -110,32 +110,6 @@ services:
           cpus: '1'
           memory: 1G
 
-  planka:
-    image: ghcr.io/plankanban/planka:latest
-    restart: unless-stopped
-    volumes:
-      - planka_storage:/app/data
-    environment:
-      - BASE_URL=https://${PLANKA_HOST}/
-      - DATABASE_URL=postgresql://${PLANKA_DB_USER}:${PLANKA_DB_PASSWORD}@postgres:5432/${PLANKA_DB}
-      - SECRET_KEY=${PLANKA_SECRET_KEY}
-      - DEFAULT_ADMIN_EMAIL=${PLANKA_DEFAULT_ADMIN_EMAIL}
-      - DEFAULT_ADMIN_PASSWORD=${PLANKA_DEFAULT_ADMIN_PASSWORD}
-      - DEFAULT_ADMIN_USERNAME=${PLANKA_DEFAULT_ADMIN_USERNAME}
-    depends_on:
-      postgres:
-        condition: service_healthy
-    healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- http://localhost:1337/health || exit 1']
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-
   caddy:
     image: caddy:latest
     restart: unless-stopped
@@ -149,11 +123,9 @@ services:
     environment:
       - N8N_HOST=${N8N_HOST}
       - NC_HOST=${NC_HOST}
-      - PLANKA_HOST=${PLANKA_HOST}
     depends_on:
       - n8n
       - nocodb
-      - planka
     deploy:
       resources:
         limits:
