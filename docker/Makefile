@@ -26,6 +26,7 @@ seed:
 
 backup:
 	@mkdir -p ./backups
+	docker exec docker-postgres-1 pg_dumpall -U postgres --roles-only > ./backups/roles_$(TS).sql
 	docker exec docker-postgres-1 pg_dump -U postgres -d $(POSTGRES_DB) > ./backups/n8n_$(TS).sql
 	docker exec docker-postgres-1 pg_dump -U postgres -d $(NC_DB) > ./backups/nocodb_meta_$(TS).sql
 	docker exec docker-postgres-1 pg_dump -U postgres -d $(APP_DB) > ./backups/appdata_$(TS).sql

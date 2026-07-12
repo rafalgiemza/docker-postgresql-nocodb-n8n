@@ -17,7 +17,7 @@ Stare pliki `old-sql/schema.sql`, `old-sql/schema1_big.sql`, `old-sql/seed.sql` 
 | Rozdział dev/prod (`override.yml` / `prod.yml`) | ✅ gotowe | `docker/docker-compose.*.yml` |
 | 3 osobne bazy w jednym Postgresie: `n8n`, `nocodb`, `appdata` | ✅ **już zgodne z `.ai/backups.md`** | `docker/init-data.sh`, `docker/.env.example` |
 | Caddy + TLS dla n8n i nocodb | ✅ gotowe | `docker/Caddyfile` |
-| Backup | ⚠️ **częściowy** — dumpuje tylko `appdata`, nie `n8n`, nie `nocodb`, brak dumpu ról, brak offsite | `docker/Makefile` |
+| Backup | ✅ gotowe (lokalnie) — dumpuje `n8n`/`nocodb`/`appdata` + role (`--roles-only`) + tar attachmentów NocoDB; offsite transfer robiony ręcznie, cron do dodania później | `docker/Makefile` |
 | NocoDB dostęp do danych biznesowych | ❌ **łączy się jako właściciel całej bazy `appdata`**, nie jako ograniczony user na widokach | `docker/init-data.sh` (`GRANT ALL PRIVILEGES`) |
 | Schemat danych CRM | ❌ wczesny szkic (`clients/deals/offers…`), nie model docelowy z PRD §2 | `old-sql/*.sql` (referencja, nie do wgrania) |
 | Segmentacja sieci Docker (`edge`/`internal`/`data`) | ❌ brak — jedna płaska sieć | — |
@@ -144,16 +144,8 @@ Przemek otwiera rekord, zmienia `60h → 45h`, widzi przeliczoną cenę, zmienia
 WF-1…WF-5, WF-7 (bez inspekcji szablonu — nieaktualne bez renderera), WF-8, Cal.com webhook, AI-ekstrakcja (Anthropic), migracja danych z Excela (1600 rekordów, skrypt jednorazowy, patrz §3).
 
 ### FAZA 6 — Backup, hardening, przekazanie
-1. **Rozszerzyć `docker/Makefile` `backup`** wg `backups.md` — dziś dumpuje tylko `appdata`:
-   ```
-   backup:
-       pg_dumpall --roles-only > backups/roles_$(DATE).sql
-       pg_dump -Fc -d n8n      > backups/db_n8n_$(DATE).dump
-       pg_dump -Fc -d nocodb   > backups/db_nocodb_$(DATE).dump
-       pg_dump -Fc -d appdata  > backups/db_appdata_$(DATE).dump
-       mc mirror minio/... offsite/...   # PRD §8.4
-   ```
-2. Offsite: MinIO `mc mirror` → Backblaze B2 / Hetzner Storage Box (PRD §11, do potwierdzenia z klientem)
+1. ✅ **`docker/Makefile` `backup`** rozszerzony — dumpuje role (`--roles-only`), `n8n`, `nocodb`, `appdata` oraz tar attachmentów NocoDB, wszystko pod wspólnym `$(TS)`. (Format plain SQL, nie `-Fc`, na razie wystarczający.)
+2. Offsite: transfer robiony ręcznie przez klienta/Rafała; cron do dodania później. Docelowo MinIO `mc mirror` → Backblaze B2 / Hetzner Storage Box (PRD §11, do potwierdzenia z klientem)
 3. Zabezpieczyć `N8N_ENCRYPTION_KEY` w password managerze klienta — bez niego dump `n8n` DB jest bezużyteczny
 4. **Restore drill na czystym VPS — obowiązkowy przed oddaniem** (dumpy + role + `.env` + MinIO)
 5. Runbook (restart, restore, dodanie pola) + szkolenie klienta
