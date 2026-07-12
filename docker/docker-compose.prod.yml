@@ -1,8 +1,11 @@
 # Production overlay. Run with both files explicitly so the dev override is NOT auto-merged:
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 #
-# Puts Caddy in front of n8n for automatic HTTPS (Let's Encrypt) and stops n8n
-# from ever being exposed directly on the host.
+# Puts Caddy in front of n8n and NocoDB for automatic HTTPS (Let's Encrypt)
+# and stops them from ever being exposed directly on the host. Assumes the
+# VPS is reachable directly on its own IPv6 address (e.g. via a Cloudflare
+# proxied AAAA record) — Caddy needs real inbound traffic on 80/443 to
+# terminate TLS and complete the ACME challenge itself.
 
 volumes:
   caddy_data:
@@ -31,4 +34,3 @@ services:
     depends_on:
       - n8n
       - nocodb
-      - planka

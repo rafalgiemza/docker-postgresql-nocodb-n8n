@@ -6,7 +6,7 @@
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
-Uruchamia n8n, NocoDB, Planka, PostgreSQL, Caddy w tle.
+Uruchamia n8n, NocoDB, PostgreSQL, Caddy w tle.
 
 ### 2. STOP — Zatrzymaj wszystkie serwisy
 ```bash
@@ -25,25 +25,61 @@ Pokazuje status każdego kontenera (Up, Down, Restarting).
 # Wszystkie serwisy
 docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f
 
-# Konkretny serwis (np. planka)
-docker logs -f docker-planka-1
+# Konkretny serwis (np. nocodb)
+docker logs -f docker-nocodb-1
 
 # Ostatnie 50 linii
-docker logs docker-planka-1 | tail -50
+docker logs docker-nocodb-1 | tail -50
 ```
 `-f` oznacza "follow" (live streaming).
 
 ### 5. RESTART — Zrestartuj konkretny serwis
 ```bash
 # Jeden serwis
-docker restart docker-planka-1
+docker restart docker-nocodb-1
 
 # Kilka serwisów
-docker restart docker-planka-1 docker-caddy-1
+docker restart docker-nocodb-1 docker-caddy-1
 
 # Wszystkie
 docker compose -f docker-compose.yml -f docker-compose.prod.yml restart
 ```
+
+---
+
+## Stop/Restart Commands — Ważne rozróżnienia
+
+### Zatrzymaj TYLKO konkretny serwis (bezpiecznie)
+```bash
+# Opcja 1: docker stop
+docker stop docker-caddy-1
+
+# Opcja 2: docker compose stop
+docker compose -f docker-compose.yml -f docker-compose.prod.yml stop caddy
+```
+Kontener zostaje (można go wznowić), inne serwisy działają.
+
+### Zatrzymaj i usuń WSZYSTKIE kontenery
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml down
+```
+⚠️ Usuwa kontenery, ale **nie usuwa** volumes (dane są bezpieczne).
+
+### Zrestartuj konkretny serwis (najczęściej używane)
+```bash
+docker restart docker-caddy-1
+```
+Idealny do szybkiego naprawienia serwisu.
+
+### Porównanie
+| Komenda | Wszystkie? | Usuwa kontenery? | Bezpieczna? |
+|--------|-----------|------------------|-----------|
+| `docker stop <name>` | ❌ Tylko jeden | ❌ Nie | ✅ Tak |
+| `docker compose stop <name>` | ❌ Tylko jeden | ❌ Nie | ✅ Tak |
+| `docker restart <name>` | ❌ Tylko jeden | ❌ Nie | ✅ Tak |
+| `docker compose down` | ✅ Wszystkie | ✅ Tak | ⚠️ Ostrożnie |
+
+**Pro tip:** Zawsze używaj `restart` lub `stop`, a nie `down`! 🛡️
 
 ---
 
@@ -63,7 +99,7 @@ Interaktywna konsola PostgreSQL.
 
 ### Sprawdź zmienne środowiska
 ```bash
-docker exec docker-planka-1 env | grep PLANKA
+docker exec docker-nocodb-1 env | grep NC_
 ```
 
 ### Backup bazy danych
@@ -85,7 +121,6 @@ docker system prune -a --volumes
 |--------|-----------|-----------|------|
 | **n8n** | 5678 | https://n8n.giemza.dev | Workflow automation |
 | **NocoDB** | 8081 | https://nocodb.giemza.dev | Database UI |
-| **Planka** | 3000 | https://planka.giemza.dev | Kanban board |
 | **PostgreSQL** | 5432 | (internal) | Database |
 | **Caddy** | 80, 443 | 80, 443 | Reverse proxy + SSL |
 
@@ -93,8 +128,8 @@ docker system prune -a --volumes
 
 ## Useful URLs
 
-- **Dev**: http://localhost:5678 (n8n), http://localhost:8081 (nocodb), http://localhost:3000 (planka)
-- **Prod**: https://n8n.giemza.dev, https://nocodb.giemza.dev, https://planka.giemza.dev
+- **Dev**: http://localhost:5678 (n8n), http://localhost:8081 (nocodb)
+- **Prod**: https://n8n.giemza.dev, https://nocodb.giemza.dev
 
 ---
 
@@ -117,11 +152,6 @@ docker system prune -a --volumes
    ```bash
    docker compose ps
    # Wszystkie powinny być "healthy"
-   ```
-
-4. **Dla Planki: stwórz admin usera**
-   ```bash
-   docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm planka npm run db:create-admin-user
    ```
 
 ---

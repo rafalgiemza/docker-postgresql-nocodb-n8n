@@ -1,0 +1,63 @@
+{
+  "id": "d4d8f1b3-6c4d-4eae-be5b-4d5e6f7a8b04",
+  "name": "WF-6 (okrojone) — Zatwierdź ofertę",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "zatwierdz-oferte",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1a5c8e0-3f1a-4b7a-8b2e-1a2b3c4d5e01",
+      "name": "Webhook: Zatwierdź ofertę",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "wf6-zatwierdz-oferte"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE crm.v_offer_builder SET status = 'ready' WHERE offer_id = $1 RETURNING offer_id, status;",
+        "options": {
+          "queryReplacement": "={{ [$json.body.offer_id] }}"
+        }
+      },
+      "id": "b2b6d9f1-4a2b-4c8b-9c3f-2b3c4d5e6f02",
+      "name": "Postgres: Zatwierdź ofertę",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [460, 300],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_W_UI",
+          "name": "appdata (n8n_crm_user)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": true, \"offer_id\": $json.offer_id, \"status\": $json.status } }}",
+        "options": {}
+      },
+      "id": "c3c7e0a2-5b3c-4d9c-ad4a-3c4d5e6f7a03",
+      "name": "Odpowiedz",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "Webhook: Zatwierdź ofertę": {
+      "main": [[{ "node": "Postgres: Zatwierdź ofertę", "type": "main", "index": 0 }]]
+    },
+    "Postgres: Zatwierdź ofertę": {
+      "main": [[{ "node": "Odpowiedz", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}
