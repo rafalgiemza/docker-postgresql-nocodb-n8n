@@ -927,4 +927,21 @@ GRANT SELECT                          ON crm.v_testimonials       TO nocodb_crm_
 GRANT SELECT                          ON crm.v_pricing            TO nocodb_crm_user;
 GRANT SELECT                          ON crm.v_opportunity_dates  TO nocodb_crm_user;
 
+-- ============================================================================
+-- 15. Granty dla n8n_crm_user (IMPLEMENTATION_PLAN.md §FAZA 3 — WF-6 okrojone)
+--
+-- Osobna rola od nocodb_crm_user, żeby n8n i NocoDB zostały rozróżnialne w
+-- pg_stat_activity/logach i żeby zaostrzanie uprawnień jednego nie dotykało
+-- drugiego. Zakres na start: tylko crm.v_offer_builder (to, czego potrzebuje
+-- trimmed WF-6 do ustawienia status='ready'). Widoki potrzebne WF-1..5
+-- (FAZA 5) dopisywane tutaj w miarę powstawania tych workflowów.
+-- ============================================================================
+
+REVOKE ALL ON SCHEMA appdata FROM n8n_crm_user;
+REVOKE ALL ON SCHEMA public  FROM n8n_crm_user;
+
+GRANT USAGE ON SCHEMA crm TO n8n_crm_user;
+
+GRANT SELECT, UPDATE ON crm.v_offer_builder TO n8n_crm_user;
+
 COMMIT;
