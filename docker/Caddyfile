@@ -10,3 +10,7 @@
 	reverse_proxy minio:9000
 }
 
+{$LIBRECHAT_HOST} {
+	reverse_proxy librechat:3080
+}
+

@@ -3,6 +3,10 @@ volumes:
   n8n_storage:
   nocodb_storage:
   minio_storage:
+  mongo_storage:
+  librechat_images:
+  librechat_uploads:
+  librechat_logs:
   caddy_data:
   caddy_config:
 
@@ -164,6 +168,75 @@ services:
       minio:
         condition: service_healthy
 
+  # LibreChat — team AI chat (PRD §1.1). Own MongoDB, zero coupling to the
+  # CRM Postgres data. Deliberately minimal: no admin-panel/Meilisearch/
+  # RAG API/vectordb from upstream's full compose — none of those are in
+  # scope or budgeted for in the PRD RAM table.
+  #
+  # Ready-to-migrate (PRD §8.7): gated behind the "local-mongo" profile
+  # (toggled by COMPOSE_PROFILES in .env) so that switching MONGO_URI to an
+  # external/managed Mongo is a pure .env change — set COMPOSE_PROFILES= and
+  # MONGO_URI=<external uri>, then `make down && make up`. No compose edits.
+  mongodb:
+    image: mongo:${MONGO_VERSION}
+    restart: unless-stopped
+    profiles: ['local-mongo']
+    volumes:
+      - mongo_storage:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', 'db.adminCommand("ping")']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  librechat:
+    image: ghcr.io/danny-avila/librechat:${LIBRECHAT_VERSION}
+    restart: unless-stopped
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3080
+      - MONGO_URI=${MONGO_URI}
+      - DOMAIN_CLIENT=https://${LIBRECHAT_HOST}
+      - DOMAIN_SERVER=https://${LIBRECHAT_HOST}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - CREDS_KEY=${CREDS_KEY}
+      - CREDS_IV=${CREDS_IV}
+      - ALLOW_REGISTRATION=${ALLOW_REGISTRATION}
+      # See docker/.env.example for why this is renamed from OPENROUTER_API_KEY.
+      - OPENROUTER_KEY=${OPENROUTER_API_KEY}
+      - NO_INDEX=true
+    volumes:
+      - ./librechat.yaml:/app/librechat.yaml:ro
+      - librechat_images:/app/client/public/images
+      - librechat_uploads:/app/uploads
+      - librechat_logs:/app/api/logs
+    depends_on:
+      mongodb:
+        condition: service_healthy
+        # Not required: with COMPOSE_PROFILES= (local-mongo disabled) this
+        # service won't exist/start, and librechat must still come up,
+        # connecting to the external MONGO_URI instead.
+        required: false
+    healthcheck:
+      # 127.0.0.1, not localhost: this image only binds 0.0.0.0 (IPv4), and
+      # localhost resolves to ::1 first here, so wget would hit nothing and
+      # report a false "unhealthy".
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3080/ || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 768M
+
   caddy:
     image: caddy:latest
     restart: unless-stopped
@@ -178,6 +251,7 @@ services:
       - N8N_HOST=${N8N_HOST}
       - NC_HOST=${NC_HOST}
       - MINIO_HOST=${MINIO_HOST}
+      - LIBRECHAT_HOST=${LIBRECHAT_HOST}
     networks:
       default:
         aliases:
@@ -190,6 +264,7 @@ services:
       - n8n
       - nocodb
       - minio
+      - librechat
     deploy:
       resources:
         limits:

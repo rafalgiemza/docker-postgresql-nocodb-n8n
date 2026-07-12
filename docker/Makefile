@@ -4,7 +4,7 @@ export
 DC_CMD = docker compose -f docker-compose.yml -f docker-compose.prod.yml
 TS := $(shell date +%F_%H%M%S)
 
-.PHONY: up down ps logs migrate seed seed-demo backup
+.PHONY: up down ps logs migrate seed seed-demo backup wire-apps
 
 up:
 	$(DC_CMD) up -d
@@ -27,6 +27,12 @@ seed:
 seed-demo:
 	./app_seed_demo.sh
 
+# Podłącza NocoDB (source appdata/crm + widoki) i n8n (credential appdata) —
+# wymaga NC_API_TOKEN/N8N_API_KEY w .env (Krok 0 ręcznego bootstrapu, patrz
+# docs/init-nocodb.md). Uruchom po `make migrate && make seed`.
+wire-apps:
+	./crm-wire-init.sh
+
 backup:
 	@mkdir -p ./backups
 	docker exec docker-postgres-1 pg_dumpall -U postgres --roles-only > ./backups/roles_$(TS).sql
@@ -34,3 +40,4 @@ backup:
 	docker exec docker-postgres-1 pg_dump -U postgres -d $(NC_DB) > ./backups/nocodb_meta_$(TS).sql
 	docker exec docker-postgres-1 pg_dump -U postgres -d $(APP_DB) > ./backups/appdata_$(TS).sql
 	docker run --rm -v docker_nocodb_storage:/data:ro -v $(CURDIR)/backups:/backup alpine tar -czf /backup/nocodb_attachments_$(TS).tar.gz -C /data .
+	docker exec docker-mongodb-1 mongodump --archive --db=LibreChat --quiet > ./backups/mongo_$(TS).archive
