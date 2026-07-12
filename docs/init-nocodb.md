@@ -2,6 +2,17 @@
 
 NocoDB nigdy nie łączy się jako superuser i nie widzi surowych tabel — używa osobnej, ograniczonej roli ograniczonej wyłącznie do schematu `crm` (widoki `v_*`).
 
+**To podłączenie jest teraz w większości zautomatyzowane** przez `docker/crm-wire-init.sh` (`make wire-apps`, uruchamiane po `make migrate && make seed`) — tworzy source, syncuje tabele, dodaje widoki Kanban/Grid/Calendar. Zostają dwa manualne kroki, bo są jednorazowym bootstrapem konta (patrz "Krok 0" niżej): założenie super-admina i wygenerowanie `NC_API_TOKEN`. Instrukcje poniżej to (a) opis Kroku 0, i (b) ścieżka debugowania/ręcznego odtworzenia, gdy `crm-wire-init.sh` zawiedzie.
+
+## Krok 0 — jednorazowy bootstrap (ręcznie, raz na hard-reset)
+
+1. Otwórz NocoDB UI → **Sign Up** (pierwsza osoba, która się zaloguje, zostaje super-adminem).
+2. Podłącz źródło ręcznie wg kroków 1-2 poniżej — **to jednocześnie test, który rozstrzyga, czy widoki `crm.v_*` (z triggerami INSTEAD OF) w ogóle dają się edytować w gridzie NocoDB**. Zmień dowolną edytowalną kolumnę (np. `next_action` w `v_pipeline`), zapisz, i sprawdź w Postgresie, że zmiana faktycznie doszła do `appdata.opportunities`. Jeśli komórka jest zablokowana/read-only mimo poprawnych grantów — to ograniczenie NocoDB dla widoków z INSTEAD OF, nie coś do naprawienia w schemacie; zgłoś to, zanim ktokolwiek zacznie polegać na automatyzacji widoków.
+3. Sprawdź też, jak renderuje się kolumna `stage` w `v_pipeline` — jako Single Select (nadaje się do grupowania w Kanban) czy zwykły tekst. Jeśli tekst, kolumnę trzeba będzie ręcznie przestawić na Single Select z opcjami odpowiadającymi `appdata.opp_stage`, zanim Kanban z `crm-wire-init.sh` będzie miał sens.
+4. Wygeneruj token: ikona konta → **API Tokens** → utwórz → wklej jako `NC_API_TOKEN` w `.env`.
+
+Po tym możesz skasować ręcznie podłączone źródło (albo zostawić — `crm-wire-init.sh` znajdzie je po nazwie i nie zduplikuje) i uruchomić `make wire-apps`, które odtworzy/dopełni resztę (Kanban, widoki per-osoba, widok notatek) automatycznie.
+
 ## 1. Pobranie danych logowania
 
 Na hoście, w katalogu `docker/`:

@@ -905,6 +905,57 @@ FROM appdata.pricing_tiers
 WHERE valid_to IS NULL OR valid_to >= CURRENT_DATE;
 
 -- ============================================================================
+-- 13.5. Notatki do szans sprzedaży: appdata.opportunity_notes + crm.v_opportunity_notes
+--
+-- Poza PRD/IMPLEMENTATION_PLAN.md — decyzja z 2026-07-12: historia notatek po
+-- spotkaniu, powiązana z leadem/opportunity. Wiele wpisów w czasie, nic nie
+-- jest nadpisywane (w przeciwieństwie do opportunities.notes, pojedynczego
+-- pola nadpisywanego przy każdej edycji przez crm.v_pipeline). Tylko SELECT +
+-- INSERT — to log historyczny jak appdata.opportunity_stage_history (bez
+-- UPDATE/DELETE), nie edytowalny rekord.
+-- ============================================================================
+
+CREATE TABLE appdata.opportunity_notes (
+    id              bigserial PRIMARY KEY,
+    opportunity_id  bigint NOT NULL REFERENCES appdata.opportunities (id),
+    author_user_id  bigint REFERENCES appdata.users (id),
+    body            text NOT NULL,
+    created_at      timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_opportunity_notes_opportunity_id
+    ON appdata.opportunity_notes (opportunity_id, created_at);
+
+CREATE VIEW crm.v_opportunity_notes AS
+SELECT
+    n.id            AS note_id,
+    n.opportunity_id,
+    n.author_user_id,
+    u.full_name     AS author_name,
+    n.body,
+    n.created_at
+FROM appdata.opportunity_notes n
+LEFT JOIN appdata.users u ON u.id = n.author_user_id;
+
+CREATE FUNCTION crm.v_opportunity_notes_instead_of_insert()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = appdata, crm, pg_temp
+AS $$
+BEGIN
+    INSERT INTO appdata.opportunity_notes (opportunity_id, author_user_id, body)
+    VALUES (NEW.opportunity_id, NEW.author_user_id, NEW.body)
+    RETURNING id, created_at INTO NEW.note_id, NEW.created_at;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_v_opportunity_notes_instead_of_insert
+    INSTEAD OF INSERT ON crm.v_opportunity_notes
+    FOR EACH ROW EXECUTE FUNCTION crm.v_opportunity_notes_instead_of_insert();
+
+-- ============================================================================
 -- 14. Granty dla nocodb_crm_user (PRD §8.2 — obrona przed schema drift)
 --
 -- NocoDB podpięty do zewnętrznego Postgresa potrafi zmodyfikować schemat przy
@@ -926,6 +977,7 @@ GRANT SELECT, UPDATE                  ON crm.v_tasks              TO nocodb_crm_
 GRANT SELECT                          ON crm.v_testimonials       TO nocodb_crm_user;
 GRANT SELECT                          ON crm.v_pricing            TO nocodb_crm_user;
 GRANT SELECT                          ON crm.v_opportunity_dates  TO nocodb_crm_user;
+GRANT SELECT, INSERT                  ON crm.v_opportunity_notes  TO nocodb_crm_user;
 
 -- ============================================================================
 -- 15. Granty dla n8n_crm_user (IMPLEMENTATION_PLAN.md §FAZA 3/5 — WF-1..WF-6)
