@@ -1,15 +1,8 @@
-{$N8N_HOST} {
+{$N8N_HOST}, {$N8N_HOST2} {
 	reverse_proxy n8n:5678
 }
 
-{$NC_HOST} {
+{$NC_HOST}, {$NC_HOST2} {
 	reverse_proxy nocodb:8080
 }
 
-{$PLANKA_HOST} {
-	reverse_proxy planka:1337
-}
-
-{$ADMINER_HOST} {
-	reverse_proxy adminer:8080
-}
