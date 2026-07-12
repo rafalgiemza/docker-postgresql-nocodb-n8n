@@ -118,9 +118,7 @@ services:
       - caddy_config:/config
     environment:
       - N8N_HOST=${N8N_HOST}
-      - N8N_HOST2=${N8N_HOST2}
       - NC_HOST=${NC_HOST}
-      - NC_HOST2=${NC_HOST2}
     depends_on:
       - n8n
       - nocodb

@@ -1,8 +1,8 @@
-{$N8N_HOST}, {$N8N_HOST2} {
+{$N8N_HOST} {
 	reverse_proxy n8n:5678
 }
 
-{$NC_HOST}, {$NC_HOST2} {
+{$NC_HOST} {
 	reverse_proxy nocodb:8080
 }
 
