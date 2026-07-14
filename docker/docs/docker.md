@@ -156,6 +156,36 @@ docker system prune -a --volumes
 
 ---
 
+## Restart Policy & Healthcheck Audit (2026-07-14)
+
+Post-mortem follow-up (see `post-mortem/logs.md`) checked whether every
+long-running container recovers on its own after a crash or host restart.
+
+- **Restart policy: already correct, no changes needed.** Every long-running
+  service in `docker-compose.yml` already has `restart: unless-stopped`
+  (postgres, n8n, n8n-runner, nocodb, minio, mongodb, librechat, caddy).
+  `minio-init` is intentionally `restart: 'no'` — it's a one-shot bucket/user
+  provisioning job, not a long-running service.
+- **The real gap was missing healthchecks**, not restart policy: `caddy` and
+  `n8n-runner` had none, so `docker compose ps` couldn't tell you they were
+  unhealthy — only that the process hadn't exited. Both now have a
+  `healthcheck:` block:
+  - `n8n-runner`: `wget` against `http://localhost:5680/healthz`. The
+    launcher bundled in the `n8nio/runners` image always starts its own
+    health server on port 5680 — confirmed by inspecting a running
+    container (`docker exec` + `ss -tlnp`), since the per-runner health
+    server described in the launcher's own docs isn't actually exposed here.
+  - `caddy`: `wget` against `http://127.0.0.1:2019/config/`, Caddy's admin
+    API. `127.0.0.1`, not `localhost` — this image resolves `localhost` to
+    `::1` first and the admin API only binds IPv4, so `wget` would hit
+    nothing and report a false "unhealthy" (same pitfall as librechat's
+    healthcheck).
+
+Don't re-investigate restart policy for this reason again — it's already
+audited and correct.
+
+---
+
 ## Troubleshooting
 
 ### Error 525 (Cloudflare)
