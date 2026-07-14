@@ -18,7 +18,8 @@ Also, monitoring is not a new idea — `.ai/IMPLEMENTATION_PLAN.md` (FAZA 1, ite
 ## Task 1 — Add Uptime Kuma monitoring/alerting
 
 - [x] Add `uptime-kuma` service to `docker/docker-compose.yml` (image `louislam/uptime-kuma:1`), `restart: unless-stopped`, own named volume (`kuma_storage`), resource limits similar to nocodb. Also labeled `autoheal=true` (Task 3).
-- [x] Add healthcheck (`wget -qO- http://localhost:3001`), matching other services' pattern.
+- [x] Add healthcheck, matching other services' pattern.
+  - Verified live: `wget -qO- http://localhost:3001` (the pattern used elsewhere) fails with `wget: not found` — this image has `curl` but no `wget`. Switched to Kuma's own bundled `/app/extra/healthcheck` binary, the same one upstream's own Dockerfile uses for its `HEALTHCHECK`. Confirmed `docker-uptime-kuma-1` reaches `healthy`.
 - [x] Add `STATUS_HOST` env var to `docker/.env.example` (mirrors `N8N_HOST`/`NC_HOST`/`MINIO_HOST`/`LIBRECHAT_HOST`).
 - [x] Add `{$STATUS_HOST} { reverse_proxy uptime-kuma:3001 }` block to `docker/Caddyfile`.
 - [x] Add `STATUS_HOST` to `caddy` service's `environment:` in `docker-compose.yml`/`docker-compose.prod.yml`, and `depends_on: uptime-kuma`.
