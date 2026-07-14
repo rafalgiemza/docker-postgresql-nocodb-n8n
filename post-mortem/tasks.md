@@ -17,14 +17,14 @@ Also, monitoring is not a new idea — `.ai/IMPLEMENTATION_PLAN.md` (FAZA 1, ite
 
 ## Task 1 — Add Uptime Kuma monitoring/alerting
 
-- [ ] Add `uptime-kuma` service to `docker/docker-compose.yml` (image `louislam/uptime-kuma:1`), `restart: unless-stopped`, own named volume (`kuma_storage`), resource limits similar to nocodb.
-- [ ] Add healthcheck (`wget -qO- http://localhost:3001`), matching other services' pattern.
-- [ ] Add `STATUS_HOST` env var to `docker/.env.example` (mirrors `N8N_HOST`/`NC_HOST`/`MINIO_HOST`/`LIBRECHAT_HOST`).
-- [ ] Add `{$STATUS_HOST} { reverse_proxy uptime-kuma:3001 }` block to `docker/Caddyfile`.
-- [ ] Add `STATUS_HOST` to `caddy` service's `environment:` in `docker-compose.yml`, and `depends_on: uptime-kuma`.
-- [ ] Add dev port mapping (`3001:3001`) for `uptime-kuma` in `docker/docker-compose.override.yml`.
+- [x] Add `uptime-kuma` service to `docker/docker-compose.yml` (image `louislam/uptime-kuma:1`), `restart: unless-stopped`, own named volume (`kuma_storage`), resource limits similar to nocodb. Also labeled `autoheal=true` (Task 3).
+- [x] Add healthcheck (`wget -qO- http://localhost:3001`), matching other services' pattern.
+- [x] Add `STATUS_HOST` env var to `docker/.env.example` (mirrors `N8N_HOST`/`NC_HOST`/`MINIO_HOST`/`LIBRECHAT_HOST`).
+- [x] Add `{$STATUS_HOST} { reverse_proxy uptime-kuma:3001 }` block to `docker/Caddyfile`.
+- [x] Add `STATUS_HOST` to `caddy` service's `environment:` in `docker-compose.yml`/`docker-compose.prod.yml`, and `depends_on: uptime-kuma`.
+- [x] Add dev port mapping (`3001:3001`) for `uptime-kuma` in `docker/docker-compose.override.yml`.
 - [ ] Manual step (not code): configure monitors + alert channels (Discord/Telegram webhook) inside the Kuma web UI after first boot — stored in Kuma's own SQLite DB, no new secrets needed in `.env`.
-- [ ] Update `.ai/IMPLEMENTATION_PLAN.md` status table (Uptime Kuma row) from ❌ to ✅ once done.
+- [x] Update `.ai/IMPLEMENTATION_PLAN.md` status table (Uptime Kuma row) from ❌ to ✅.
 
 Files touched: `docker/docker-compose.yml`, `docker/docker-compose.override.yml`, `docker/Caddyfile`, `docker/.env.example`, `.ai/IMPLEMENTATION_PLAN.md`.
 
@@ -45,11 +45,12 @@ Triggered by a live incident on 2026-07-14 evening: n8n silently stopped respond
 
 - [x] Add `autoheal` service (`willfarrell/autoheal:latest`) to `docker/docker-compose.yml` — watches the Docker socket, restarts any container labeled `autoheal=true` once `unhealthy` for `AUTOHEAL_INTERVAL` (10s).
 - [x] Label every service that already has a healthcheck (`postgres`, `n8n`, `n8n-runner`, `nocodb`, `minio`, `mongodb`, `librechat`, `caddy`) with `autoheal=true`.
+- [x] **Found and fixed a real bug while testing this**: n8n's healthcheck hit `/healthz` (liveness-only, never reflects DB state — known n8n issue [n8n-io/n8n#10274](https://github.com/n8n-io/n8n/issues/10274)), confirmed live when `docker ps`/`make ps` showed n8n `healthy` while the UI was actually showing `{"code":503,"message":"Database is not ready!"}`. Switched the healthcheck to `/healthz/readiness`, which actually checks DB connection/migration state — without this fix, neither Docker's health status nor `autoheal` would ever react to this exact failure mode. Also updated `docker/simulate-pg-crash.sh` to poll `/healthz/readiness` instead of `/healthz`.
 - [x] Validated both `docker compose -f docker-compose.yml config` and the `-f docker-compose.prod.yml` overlay parse cleanly.
-- [ ] Deploy (`docker compose up -d` — only recreates the changed services + adds the new `autoheal` container, no full-stack restart needed) and confirm `docker ps` shows `docker-autoheal-1` running.
+- [ ] Deploy (`docker compose up -d` — only recreates the changed services + adds the new `autoheal` container, no full-stack restart needed) and confirm `docker ps` shows `docker-autoheal-1` running and n8n's health status still flips to `healthy` against the new endpoint.
 - [ ] Verify end-to-end: run `docker/simulate-pg-crash.sh` (or manually stop a labeled service responding) and confirm autoheal actually restarts it — check `docker logs docker-autoheal-1` for the restart event.
 
-Files touched: `docker/docker-compose.yml`.
+Files touched: `docker/docker-compose.yml`, `docker/simulate-pg-crash.sh`.
 
 ---
 

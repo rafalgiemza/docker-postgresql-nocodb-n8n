@@ -9,6 +9,7 @@ volumes:
   librechat_logs:
   caddy_data:
   caddy_config:
+  kuma_storage:
 
 networks:
   default: {}
@@ -75,7 +76,11 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- http://localhost:5678/healthz || exit 1']
+      # /healthz is liveness-only and never reflects DB state (n8n-io/n8n#10274
+      # — it returns {"status":"ok"} even while the DB is unreachable and every
+      # real request gets a 503 "Database is not ready!"). /healthz/readiness
+      # is the endpoint that actually checks the DB connection/migration state.
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:5678/healthz/readiness || exit 1']
       interval: 10s
       timeout: 5s
       retries: 10
@@ -261,6 +266,31 @@ services:
           cpus: '0.5'
           memory: 768M
 
+  # Uptime Kuma — monitoring/alerting (post-mortem/tasks.md Task 1, PRD
+  # FAZA 1 item 3). Watches the other services + disk + cert expiry and
+  # alerts (Discord/Telegram/etc.) so an incident like 2026-07-14 is caught
+  # in real time instead of by a user reporting a 503. Monitors and alert
+  # channels are configured by hand in the Kuma web UI after first boot —
+  # they live in Kuma's own SQLite DB (kuma_storage), no new secrets needed
+  # in .env.
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    restart: unless-stopped
+    labels:
+      - autoheal=true
+    volumes:
+      - kuma_storage:/app/data
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:3001 || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
   caddy:
     image: caddy:latest
     restart: unless-stopped
@@ -278,6 +308,7 @@ services:
       - NC_HOST=${NC_HOST}
       - MINIO_HOST=${MINIO_HOST}
       - LIBRECHAT_HOST=${LIBRECHAT_HOST}
+      - STATUS_HOST=${STATUS_HOST}
     networks:
       default:
         aliases:
@@ -291,6 +322,7 @@ services:
       - nocodb
       - minio
       - librechat
+      - uptime-kuma
     healthcheck:
       # Caddy's admin API listens on 127.0.0.1:2019 by default (not disabled
       # in Caddyfile). 127.0.0.1, not localhost: this image resolves

@@ -28,6 +28,7 @@ services:
       - N8N_HOST=${N8N_HOST}
       - NC_HOST=${NC_HOST}
       - LIBRECHAT_HOST=${LIBRECHAT_HOST}
+      - STATUS_HOST=${STATUS_HOST}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -36,3 +37,4 @@ services:
       - n8n
       - nocodb
       - librechat
+      - uptime-kuma

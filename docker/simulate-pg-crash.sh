@@ -8,8 +8,11 @@ source .env
 # corrupted), which triggers the exact same cascade seen in that incident:
 #   server process was terminated by signal ... -> terminating any other
 #   active server processes -> crash recovery -> connections refused ->
-#   n8n /healthz fails -> (once wired) Uptime Kuma alerts / docker healthcheck
-#   flips unhealthy.
+#   n8n /healthz/readiness fails -> (once wired) Uptime Kuma alerts / docker
+#   healthcheck flips unhealthy -> autoheal restarts it.
+# NOTE: uses /healthz/readiness, not /healthz — /healthz is liveness-only and
+# never reflects DB state (n8n-io/n8n#10274), so it stays "ok" even during
+# this exact failure and would make this script useless for testing the fix.
 # Use this to verify monitoring/alerting and healthchecks actually fire,
 # without needing to fake a real disk I/O stall.
 #
@@ -32,8 +35,8 @@ if [ "${1:-}" != "--force" ]; then
   fi
 fi
 
-echo "🩺 Pre-check: n8n /healthz from inside its own container"
-docker exec "$N8N_CONTAINER" wget -qO- http://localhost:5678/healthz || true
+echo "🩺 Pre-check: n8n /healthz/readiness from inside its own container"
+docker exec "$N8N_CONTAINER" wget -qO- http://localhost:5678/healthz/readiness || true
 echo
 
 echo "🧪 Opening a throwaway backend (SELECT pg_sleep(${HOLD_SECONDS})) to crash..."
@@ -58,7 +61,7 @@ docker exec "$PG_CONTAINER" kill -9 "$PID"
 
 START_TS=$(date +%s)
 echo "📡 Monitoring recovery for up to ${MONITOR_TIMEOUT}s (Ctrl+C to stop early)..."
-echo "    timestamp            postgres accepts conns   n8n /healthz"
+echo "    timestamp            postgres accepts conns   n8n /healthz/readiness"
 RECOVERED=""
 while true; do
   NOW=$(date +%s)
@@ -75,7 +78,7 @@ while true; do
     PG_STATUS="DOWN/recovering"
   fi
 
-  if docker exec "$N8N_CONTAINER" wget -qO- http://localhost:5678/healthz >/dev/null 2>&1; then
+  if docker exec "$N8N_CONTAINER" wget -qO- http://localhost:5678/healthz/readiness >/dev/null 2>&1; then
     N8N_STATUS="ok"
   else
     N8N_STATUS="FAIL"

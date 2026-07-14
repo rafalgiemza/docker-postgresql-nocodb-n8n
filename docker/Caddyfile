@@ -14,3 +14,7 @@
 	reverse_proxy librechat:3080
 }
 
+{$STATUS_HOST} {
+	reverse_proxy uptime-kuma:3001
+}
+
