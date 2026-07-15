@@ -905,6 +905,57 @@ FROM appdata.pricing_tiers
 WHERE valid_to IS NULL OR valid_to >= CURRENT_DATE;
 
 -- ============================================================================
+-- 13.5. Notatki do szans sprzedaży: appdata.opportunity_notes + crm.v_opportunity_notes
+--
+-- Poza PRD/IMPLEMENTATION_PLAN.md — decyzja z 2026-07-12: historia notatek po
+-- spotkaniu, powiązana z leadem/opportunity. Wiele wpisów w czasie, nic nie
+-- jest nadpisywane (w przeciwieństwie do opportunities.notes, pojedynczego
+-- pola nadpisywanego przy każdej edycji przez crm.v_pipeline). Tylko SELECT +
+-- INSERT — to log historyczny jak appdata.opportunity_stage_history (bez
+-- UPDATE/DELETE), nie edytowalny rekord.
+-- ============================================================================
+
+CREATE TABLE appdata.opportunity_notes (
+    id              bigserial PRIMARY KEY,
+    opportunity_id  bigint NOT NULL REFERENCES appdata.opportunities (id),
+    author_user_id  bigint REFERENCES appdata.users (id),
+    body            text NOT NULL,
+    created_at      timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_opportunity_notes_opportunity_id
+    ON appdata.opportunity_notes (opportunity_id, created_at);
+
+CREATE VIEW crm.v_opportunity_notes AS
+SELECT
+    n.id            AS note_id,
+    n.opportunity_id,
+    n.author_user_id,
+    u.full_name     AS author_name,
+    n.body,
+    n.created_at
+FROM appdata.opportunity_notes n
+LEFT JOIN appdata.users u ON u.id = n.author_user_id;
+
+CREATE FUNCTION crm.v_opportunity_notes_instead_of_insert()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = appdata, crm, pg_temp
+AS $$
+BEGIN
+    INSERT INTO appdata.opportunity_notes (opportunity_id, author_user_id, body)
+    VALUES (NEW.opportunity_id, NEW.author_user_id, NEW.body)
+    RETURNING id, created_at INTO NEW.note_id, NEW.created_at;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_v_opportunity_notes_instead_of_insert
+    INSTEAD OF INSERT ON crm.v_opportunity_notes
+    FOR EACH ROW EXECUTE FUNCTION crm.v_opportunity_notes_instead_of_insert();
+
+-- ============================================================================
 -- 14. Granty dla nocodb_crm_user (PRD §8.2 — obrona przed schema drift)
 --
 -- NocoDB podpięty do zewnętrznego Postgresa potrafi zmodyfikować schemat przy
@@ -926,15 +977,24 @@ GRANT SELECT, UPDATE                  ON crm.v_tasks              TO nocodb_crm_
 GRANT SELECT                          ON crm.v_testimonials       TO nocodb_crm_user;
 GRANT SELECT                          ON crm.v_pricing            TO nocodb_crm_user;
 GRANT SELECT                          ON crm.v_opportunity_dates  TO nocodb_crm_user;
+GRANT SELECT, INSERT                  ON crm.v_opportunity_notes  TO nocodb_crm_user;
 
 -- ============================================================================
--- 15. Granty dla n8n_crm_user (IMPLEMENTATION_PLAN.md §FAZA 3 — WF-6 okrojone)
+-- 15. Granty dla n8n_crm_user (IMPLEMENTATION_PLAN.md §FAZA 3/5 — WF-1..WF-6)
 --
 -- Osobna rola od nocodb_crm_user, żeby n8n i NocoDB zostały rozróżnialne w
 -- pg_stat_activity/logach i żeby zaostrzanie uprawnień jednego nie dotykało
--- drugiego. Zakres na start: tylko crm.v_offer_builder (to, czego potrzebuje
--- trimmed WF-6 do ustawienia status='ready'). Widoki potrzebne WF-1..5
--- (FAZA 5) dopisywane tutaj w miarę powstawania tych workflowów.
+-- drugiego. WF-6 (okrojone) potrzebuje tylko crm.v_offer_builder.
+--
+-- WF-1..WF-5 (docker/n8n-workflows/wf1..wf5-*.json) piszą prosto do
+-- appdata.* zamiast przez crm.v_* — to n8n jako "system" (PRD: changed_by =
+-- NULL = system/n8n), nie NocoDB, więc nie potrzeba tu warstwy
+-- INSTEAD OF-widoków chroniących przed schema drift (to problem tylko
+-- zewnętrznego "Sync" NocoDB, patrz sekcja 14/PRD §8.2). Zakres per tabela
+-- ograniczony do operacji, których faktycznie używają te workflowy — bez
+-- DELETE nigdzie, bez dostępu do offers/offer_items/pricing_tiers (to broni
+-- crm.v_offer_builder, patrz sekcja 13, i NIE powinno być pisane z n8n
+-- omijając trigger cenowy).
 -- ============================================================================
 
 REVOKE ALL ON SCHEMA appdata FROM n8n_crm_user;
@@ -943,5 +1003,25 @@ REVOKE ALL ON SCHEMA public  FROM n8n_crm_user;
 GRANT USAGE ON SCHEMA crm TO n8n_crm_user;
 
 GRANT SELECT, UPDATE ON crm.v_offer_builder TO n8n_crm_user;
+
+GRANT USAGE ON SCHEMA appdata TO n8n_crm_user;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA appdata TO n8n_crm_user;
+
+GRANT SELECT                ON appdata.users                     TO n8n_crm_user;
+GRANT SELECT, INSERT, UPDATE ON appdata.organizations             TO n8n_crm_user; -- UPDATE(business_context) w WF-4
+GRANT SELECT, INSERT        ON appdata.people                     TO n8n_crm_user;
+GRANT SELECT, INSERT        ON appdata.clients                    TO n8n_crm_user;
+GRANT SELECT, INSERT, UPDATE ON appdata.opportunities             TO n8n_crm_user; -- UPDATE(stage) only, patrz WF-2/3
+GRANT SELECT, INSERT        ON appdata.opportunity_stage_history   TO n8n_crm_user; -- log_opportunity_stage_change() insertuje jako invoker, nie SECURITY DEFINER
+GRANT SELECT, INSERT        ON appdata.discovery_calls             TO n8n_crm_user;
+GRANT SELECT, INSERT        ON appdata.transcripts                 TO n8n_crm_user;
+GRANT SELECT, INSERT, UPDATE ON appdata.extractions                TO n8n_crm_user; -- UPDATE(accepted_by/accepted_at) w WF-4
+GRANT SELECT, INSERT        ON appdata.participants                TO n8n_crm_user;
+GRANT SELECT, INSERT        ON appdata.audits                      TO n8n_crm_user;
+GRANT SELECT                ON appdata.audit_scores                TO n8n_crm_user;
+GRANT SELECT, INSERT        ON appdata.recommendations             TO n8n_crm_user;
+GRANT SELECT, INSERT        ON appdata.recommendation_goals        TO n8n_crm_user;
+GRANT SELECT, INSERT        ON appdata.tasks                       TO n8n_crm_user;
+GRANT SELECT, INSERT, UPDATE ON appdata.job_queue                  TO n8n_crm_user;
 
 COMMIT;

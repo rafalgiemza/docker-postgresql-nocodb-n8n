@@ -17,3 +17,24 @@ services:
   nocodb:
     ports:
       - '8081:8080'
+    environment:
+      # Bypasses Caddy/the public MINIO_HOST — MinIO's port is published
+      # straight to the host below, same trick as N8N_HOST=localhost above.
+      - NC_S3_ENDPOINT=http://localhost:9000
+
+  minio:
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+
+  librechat:
+    ports:
+      - '3080:3080'
+    environment:
+      # Bypasses Caddy/the public LIBRECHAT_HOST, same trick as N8N_HOST=localhost above.
+      - DOMAIN_CLIENT=http://localhost:3080
+      - DOMAIN_SERVER=http://localhost:3080
+
+  uptime-kuma:
+    ports:
+      - '3001:3001'

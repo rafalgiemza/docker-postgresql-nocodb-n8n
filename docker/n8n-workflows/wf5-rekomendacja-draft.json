@@ -1,0 +1,162 @@
+{
+  "id": "d4d8f1b3-6c4d-4eae-be5b-4d5e6f7a8b15",
+  "name": "WF-5 — Audyt → rekomendacja (draft AI)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "audyt-zakonczony",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1a5c8e0-3f1a-4b7a-8b2e-1a2b3c4d5e51",
+      "name": "Webhook: Audyt zakończony",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "wf5-audyt-zakonczony"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  a.id                     AS audit_id,\n  a.opportunity_id,\n  a.observations,\n  a.strengths,\n  a.gaps,\n  o.client_id,\n  c.type                   AS client_type,\n  org.name                 AS organization_name,\n  org.industry,\n  p.job_title,\n  p.first_name,\n  p.last_name,\n  pt.manager_needs,\n  pt.communication_situations,\n  (SELECT payload -> 'hypothesis_recommendation' FROM appdata.extractions ex\n     JOIN appdata.transcripts t ON t.id = ex.transcript_id\n     JOIN appdata.discovery_calls dc ON dc.id = t.discovery_call_id\n     WHERE dc.opportunity_id = a.opportunity_id AND ex.accepted_at IS NOT NULL\n     ORDER BY ex.created_at DESC LIMIT 1)      AS hypothesis_recommendation,\n  (SELECT jsonb_object_agg(s.dimension, s.cefr_level || '.' || (s.cefr_decimal * 10)::int)\n     FROM appdata.audit_scores s WHERE s.audit_id = a.id)   AS cefr_scores\nFROM appdata.audits a\nJOIN appdata.opportunities o        ON o.id = a.opportunity_id\nJOIN appdata.clients c              ON c.id = o.client_id\nLEFT JOIN appdata.organizations org ON org.id = c.organization_id\nLEFT JOIN appdata.people p          ON p.id = c.primary_contact_id\nLEFT JOIN appdata.participants pt   ON pt.id = a.participant_id\nWHERE a.id = $1::bigint;",
+        "options": {
+          "queryReplacement": "={{ [$json.body.audit_id] }}"
+        }
+      },
+      "id": "b2b6d9f1-4a2b-4c8b-9c3f-2b3c4d5e6f52",
+      "name": "Postgres: Pobierz kontekst audytu",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [460, 300],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_W_UI",
+          "name": "appdata (n8n_crm_user)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'anthropic/claude-sonnet-4.5', temperature: 0.3, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: 'Jestes asystentem metodyka CoAction. Na podstawie wynikow audytu jezykowego zwroc WYLACZNIE jeden obiekt JSON (bez markdown) o kluczach: headline (string, krotki naglowek rekomendacji), situation_description (string, 2-4 zdania opisujace obecna sytuacje komunikacyjna uczestnika), rationale (string, uzasadnienie wyboru produktu), goals (tablica 2-4 obiektow z kluczami title, body, stage_label).' }, { role: 'user', content: 'Klient: ' + ($json.client_type || '') + ', organizacja ' + ($json.organization_name || 'brak danych') + ', branza ' + ($json.industry || 'brak danych') + ', stanowisko ' + ($json.job_title || 'brak danych') + '. Wyniki CEFR: ' + JSON.stringify($json.cefr_scores || {}) + '. Obserwacje audytora: ' + ($json.observations || 'brak') + '. Mocne strony: ' + JSON.stringify($json.strengths || []) + '. Luki: ' + JSON.stringify($json.gaps || []) + '. Potrzeby zgloszone przez managera: ' + ($json.manager_needs || 'brak') + '. Sytuacje komunikacyjne: ' + JSON.stringify($json.communication_situations || []) + '. Hipoteza z wczesniejszej ekstrakcji AI: ' + ($json.hypothesis_recommendation || 'brak') + '.' } ] }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "d4d8e1a3-6c4d-4eae-be5b-4d5e6f7a8b53",
+      "name": "HTTP: OpenRouter draft rekomendacji",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_W_UI",
+          "name": "OpenRouter (n8n)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH ai AS (\n  SELECT $2::jsonb AS draft\n), rec AS (\n  INSERT INTO appdata.recommendations (opportunity_id, audit_id, type, headline, situation_description, rationale, priority)\n  VALUES (\n    $1::bigint,\n    $3::bigint,\n    COALESCE($4::appdata.rec_type, 'mixed'),\n    (SELECT draft ->> 'headline' FROM ai),\n    (SELECT draft ->> 'situation_description' FROM ai),\n    (SELECT draft ->> 'rationale' FROM ai),\n    1\n  )\n  RETURNING id\n), goals AS (\n  INSERT INTO appdata.recommendation_goals (recommendation_id, position, title, body, stage_label)\n  SELECT (SELECT id FROM rec), t.ord, t.elem ->> 'title', t.elem ->> 'body', t.elem ->> 'stage_label'\n  FROM jsonb_array_elements(coalesce((SELECT draft -> 'goals' FROM ai), '[]'::jsonb)) WITH ORDINALITY AS t(elem, ord)\n  RETURNING id\n), methodologist AS (\n  SELECT id FROM appdata.users WHERE role = 'methodologist' AND active ORDER BY id LIMIT 1\n), owner AS (\n  SELECT c.owner_user_id FROM appdata.opportunities o JOIN appdata.clients c ON c.id = o.client_id WHERE o.id = $1::bigint\n), task AS (\n  INSERT INTO appdata.tasks (entity_type, entity_id, assignee_user_id, title, stage_ref)\n  VALUES ('opportunity', $1::bigint, COALESCE((SELECT id FROM methodologist), (SELECT owner_user_id FROM owner)), 'Zatwierdź rekomendację — opportunity #' || $1::bigint, 'demo')\n  RETURNING id\n)\nSELECT (SELECT id FROM rec) AS recommendation_id, (SELECT count(*) FROM goals) AS goals_count, (SELECT id FROM task) AS task_id;",
+        "options": {
+          "queryReplacement": "={{ [ $node[\"Postgres: Pobierz kontekst audytu\"].json.opportunity_id, JSON.stringify(JSON.parse($json.choices[0].message.content)), $node[\"Postgres: Pobierz kontekst audytu\"].json.audit_id, $node[\"Postgres: Pobierz kontekst audytu\"].json.hypothesis_recommendation || null ] }}"
+        }
+      },
+      "id": "e5e9f2b4-7d5e-4fbf-cf6c-5e6f7a8b9c54",
+      "name": "Postgres: Zapisz rekomendację i cele",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [900, 200],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_W_UI",
+          "name": "appdata (n8n_crm_user)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH owner AS (\n  SELECT c.owner_user_id FROM appdata.opportunities o JOIN appdata.clients c ON c.id = o.client_id WHERE o.id = $1::bigint\n), task AS (\n  INSERT INTO appdata.tasks (entity_type, entity_id, assignee_user_id, title, stage_ref)\n  VALUES ('audit', $2::bigint, (SELECT owner_user_id FROM owner), 'AI nie zadziałało — napisz ręcznie rekomendację dla opportunity #' || $1::bigint, 'demo')\n  RETURNING id\n)\nSELECT (SELECT id FROM task) AS task_id;",
+        "options": {
+          "queryReplacement": "={{ [ $node[\"Postgres: Pobierz kontekst audytu\"].json.opportunity_id, $node[\"Postgres: Pobierz kontekst audytu\"].json.audit_id ] }}"
+        }
+      },
+      "id": "f6fa03c5-8e6f-4a1a-d07d-6f7a8b9c0d65",
+      "name": "Postgres: Rekomendacja AI failed — task ręczny",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [900, 420],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_W_UI",
+          "name": "appdata (n8n_crm_user)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": true, \"recommendation_id\": $json.recommendation_id, \"goals_count\": $json.goals_count, \"task_id\": $json.task_id } }}",
+        "options": {}
+      },
+      "id": "07051426-9f7a-4b2b-e18e-7a8b9c0d1e76",
+      "name": "Odpowiedz: sukces",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": false, \"task_id\": $json.task_id } }}",
+        "options": { "responseCode": 502 }
+      },
+      "id": "18162537-a08b-4c3c-f29f-8b9c0d1e2f87",
+      "name": "Odpowiedz: błąd",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 420]
+    }
+  ],
+  "connections": {
+    "Webhook: Audyt zakończony": {
+      "main": [[{ "node": "Postgres: Pobierz kontekst audytu", "type": "main", "index": 0 }]]
+    },
+    "Postgres: Pobierz kontekst audytu": {
+      "main": [[{ "node": "HTTP: OpenRouter draft rekomendacji", "type": "main", "index": 0 }]]
+    },
+    "HTTP: OpenRouter draft rekomendacji": {
+      "main": [
+        [{ "node": "Postgres: Zapisz rekomendację i cele", "type": "main", "index": 0 }],
+        [{ "node": "Postgres: Rekomendacja AI failed — task ręczny", "type": "main", "index": 0 }]
+      ]
+    },
+    "Postgres: Zapisz rekomendację i cele": {
+      "main": [[{ "node": "Odpowiedz: sukces", "type": "main", "index": 0 }]]
+    },
+    "Postgres: Rekomendacja AI failed — task ręczny": {
+      "main": [[{ "node": "Odpowiedz: błąd", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

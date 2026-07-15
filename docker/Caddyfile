@@ -6,3 +6,15 @@
 	reverse_proxy nocodb:8080
 }
 
+{$MINIO_HOST} {
+	reverse_proxy minio:9000
+}
+
+{$LIBRECHAT_HOST} {
+	reverse_proxy librechat:3080
+}
+
+{$STATUS_HOST} {
+	reverse_proxy uptime-kuma:3001
+}
+

@@ -2,13 +2,24 @@ volumes:
   db_storage:
   n8n_storage:
   nocodb_storage:
+  minio_storage:
+  mongo_storage:
+  librechat_images:
+  librechat_uploads:
+  librechat_logs:
   caddy_data:
   caddy_config:
+  kuma_storage:
+
+networks:
+  default: {}
 
 services:
   postgres:
     image: postgres:16
     restart: unless-stopped
+    labels:
+      - autoheal=true
     environment:
       - POSTGRES_USER
       - POSTGRES_PASSWORD
@@ -18,6 +29,9 @@ services:
       - NC_DB_USER
       - NC_DB_PASSWORD
       - NC_DB
+      - RAG_DB_USER
+      - RAG_DB_PASSWORD
+      - RAG_DB
       - APPDATA_OWNER_USER
       - APPDATA_OWNER_PASSWORD
       - NOCODB_CRM_USER
@@ -42,6 +56,8 @@ services:
   n8n:
     image: docker.n8n.io/n8nio/n8n:${N8N_VERSION}
     restart: unless-stopped
+    labels:
+      - autoheal=true
     environment:
       - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=postgres
@@ -63,7 +79,11 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- http://localhost:5678/healthz || exit 1']
+      # /healthz is liveness-only and never reflects DB state (n8n-io/n8n#10274
+      # — it returns {"status":"ok"} even while the DB is unreachable and every
+      # real request gets a 503 "Database is not ready!"). /healthz/readiness
+      # is the endpoint that actually checks the DB connection/migration state.
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:5678/healthz/readiness || exit 1']
       interval: 10s
       timeout: 5s
       retries: 10
@@ -76,11 +96,23 @@ services:
   n8n-runner:
     image: n8nio/runners:${N8N_VERSION}
     restart: unless-stopped
+    labels:
+      - autoheal=true
     environment:
       - N8N_RUNNERS_AUTH_TOKEN=${RUNNERS_AUTH_TOKEN}
       - N8N_RUNNERS_TASK_BROKER_URI=http://n8n:5679
     depends_on:
       - n8n
+    healthcheck:
+      # n8nio/runners bundles the task-runner-launcher, which always starts
+      # its own health server on port 5680 (confirmed via `docker exec` +
+      # `ss -tlnp`: it's the only port actually listening in the container —
+      # the per-runner health server described in the launcher's docs is not
+      # exposed here). See n8n-io/task-runner-launcher docs/setup.md.
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:5680/healthz || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
     deploy:
       resources:
         limits:
@@ -90,17 +122,172 @@ services:
   nocodb:
     image: nocodb/nocodb:${NOCODB_VERSION}
     restart: unless-stopped
+    labels:
+      - autoheal=true
     environment:
       - NC_DB=pg://postgres:5432?u=${NC_DB_USER}&p=${NC_DB_PASSWORD}&d=${NC_DB}
       - NC_DISABLE_TELE=true
       - NC_ALLOW_LOCAL_EXTERNAL_DBS=${NC_ALLOW_LOCAL_EXTERNAL_DBS}
+      - NC_S3_BUCKET_NAME=${MINIO_BUCKET_ATTACHMENTS}
+      - NC_S3_REGION=us-east-1
+      - NC_S3_ACCESS_KEY=${NOCODB_MINIO_ACCESS_KEY}
+      - NC_S3_ACCESS_SECRET=${NOCODB_MINIO_SECRET_KEY}
+      - NC_S3_ENDPOINT=${MINIO_ENDPOINT}
+      - NC_S3_FORCE_PATH_STYLE=true
     volumes:
       - nocodb_storage:/usr/app/data
     depends_on:
       postgres:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ['CMD-SHELL', 'wget -qO- http://localhost:8080/ || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  minio:
+    image: quay.io/minio/minio:${MINIO_VERSION}
+    restart: unless-stopped
+    labels:
+      - autoheal=true
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_storage:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # One-shot: creates buckets (PRD §8.5) and a least-privilege NocoDB user, then exits.
+  minio-init:
+    image: quay.io/minio/mc:latest
+    restart: 'no'
+    entrypoint: ['/bin/sh', '/minio-init.sh']
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_BUCKET_ATTACHMENTS=${MINIO_BUCKET_ATTACHMENTS}
+      - MINIO_BUCKET_OFFERS=${MINIO_BUCKET_OFFERS}
+      - MINIO_BUCKET_TEMPLATES=${MINIO_BUCKET_TEMPLATES}
+      - MINIO_BUCKET_RECORDINGS=${MINIO_BUCKET_RECORDINGS}
+      - MINIO_BUCKET_TRANSCRIPTS=${MINIO_BUCKET_TRANSCRIPTS}
+      - MINIO_BUCKET_BACKUPS=${MINIO_BUCKET_BACKUPS}
+      - NOCODB_MINIO_ACCESS_KEY=${NOCODB_MINIO_ACCESS_KEY}
+      - NOCODB_MINIO_SECRET_KEY=${NOCODB_MINIO_SECRET_KEY}
+    volumes:
+      - ./minio-init.sh:/minio-init.sh:ro
+    depends_on:
+      minio:
+        condition: service_healthy
+
+  # LibreChat — team AI chat (PRD §1.1). Own MongoDB, zero coupling to the
+  # CRM Postgres data. Deliberately minimal: no admin-panel/Meilisearch/
+  # RAG API/vectordb from upstream's full compose — none of those are in
+  # scope or budgeted for in the PRD RAM table.
+  #
+  # Ready-to-migrate (PRD §8.7): gated behind the "local-mongo" profile
+  # (toggled by COMPOSE_PROFILES in .env) so that switching MONGO_URI to an
+  # external/managed Mongo is a pure .env change — set COMPOSE_PROFILES= and
+  # MONGO_URI=<external uri>, then `make down && make up`. No compose edits.
+  mongodb:
+    image: mongo:${MONGO_VERSION}
+    restart: unless-stopped
+    labels:
+      - autoheal=true
+    profiles: ['local-mongo']
+    volumes:
+      - mongo_storage:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', 'db.adminCommand("ping")']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  librechat:
+    image: ghcr.io/danny-avila/librechat:${LIBRECHAT_VERSION}
+    restart: unless-stopped
+    labels:
+      - autoheal=true
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3080
+      - MONGO_URI=${MONGO_URI}
+      - DOMAIN_CLIENT=https://${LIBRECHAT_HOST}
+      - DOMAIN_SERVER=https://${LIBRECHAT_HOST}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - CREDS_KEY=${CREDS_KEY}
+      - CREDS_IV=${CREDS_IV}
+      - ALLOW_REGISTRATION=${ALLOW_REGISTRATION}
+      # See docker/.env.example for why this is renamed from OPENROUTER_API_KEY.
+      - OPENROUTER_KEY=${OPENROUTER_API_KEY}
+      - NO_INDEX=true
+    volumes:
+      - ./librechat.yaml:/app/librechat.yaml:ro
+      - librechat_images:/app/client/public/images
+      - librechat_uploads:/app/uploads
+      - librechat_logs:/app/api/logs
+    depends_on:
+      mongodb:
+        condition: service_healthy
+        # Not required: with COMPOSE_PROFILES= (local-mongo disabled) this
+        # service won't exist/start, and librechat must still come up,
+        # connecting to the external MONGO_URI instead.
+        required: false
+    healthcheck:
+      # 127.0.0.1, not localhost: this image only binds 0.0.0.0 (IPv4), and
+      # localhost resolves to ::1 first here, so wget would hit nothing and
+      # report a false "unhealthy".
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3080/ || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 768M
+
+  # Uptime Kuma — monitoring/alerting (post-mortem/tasks.md Task 1, PRD
+  # FAZA 1 item 3). Watches the other services + disk + cert expiry and
+  # alerts (Discord/Telegram/etc.) so an incident like 2026-07-14 is caught
+  # in real time instead of by a user reporting a 503. Monitors and alert
+  # channels are configured by hand in the Kuma web UI after first boot —
+  # they live in Kuma's own SQLite DB (kuma_storage), no new secrets needed
+  # in .env.
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    restart: unless-stopped
+    labels:
+      - autoheal=true
+    volumes:
+      - kuma_storage:/app/data
+    healthcheck:
+      # No wget/busybox in this image (confirmed via `docker exec`). Use
+      # Kuma's own bundled healthcheck binary instead, which is what
+      # upstream's Dockerfile uses for its HEALTHCHECK too.
+      test: ['CMD', '/app/extra/healthcheck']
       interval: 10s
       timeout: 5s
       retries: 10
@@ -113,6 +300,8 @@ services:
   caddy:
     image: caddy:latest
     restart: unless-stopped
+    labels:
+      - autoheal=true
     ports:
       - "80:80"
       - "443:443"
@@ -123,11 +312,53 @@ services:
     environment:
       - N8N_HOST=${N8N_HOST}
       - NC_HOST=${NC_HOST}
+      - MINIO_HOST=${MINIO_HOST}
+      - LIBRECHAT_HOST=${LIBRECHAT_HOST}
+      - STATUS_HOST=${STATUS_HOST}
+    networks:
+      default:
+        aliases:
+          # Lets containers on this network (e.g. nocodb) resolve the same
+          # public S3 hostname used in browser-facing presigned URLs, so one
+          # NC_S3_ENDPOINT works both internally and externally — traffic is
+          # routed through Caddy either way. See docker/README.md.
+          - ${MINIO_HOST}
     depends_on:
       - n8n
       - nocodb
+      - minio
+      - librechat
+      - uptime-kuma
+    healthcheck:
+      # Caddy's admin API listens on 127.0.0.1:2019 by default (not disabled
+      # in Caddyfile). 127.0.0.1, not localhost: this image resolves
+      # localhost to ::1 first and the admin API only binds IPv4, so wget
+      # would hit nothing and report a false "unhealthy" (same pitfall as
+      # librechat's healthcheck below).
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:2019/config/ || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
     deploy:
       resources:
         limits:
           cpus: '0.5'
           memory: 256M
+
+  # Docker's own healthcheck only marks a container `unhealthy` — it never
+  # restarts it. autoheal watches the Docker socket and restarts any
+  # container labeled `autoheal=true` once it's been `unhealthy` for
+  # AUTOHEAL_INTERVAL seconds, closing that gap (post-mortem/tasks.md Task 3).
+  autoheal:
+    image: willfarrell/autoheal:latest
+    restart: unless-stopped
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=autoheal
+      - AUTOHEAL_INTERVAL=10
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 64M

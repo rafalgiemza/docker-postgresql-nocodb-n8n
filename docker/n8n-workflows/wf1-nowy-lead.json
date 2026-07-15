@@ -1,0 +1,63 @@
+{
+  "id": "d4d8f1b3-6c4d-4eae-be5b-4d5e6f7a8b01",
+  "name": "WF-1 — Nowy lead",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nowy-lead",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1a5c8e0-3f1a-4b7a-8b2e-1a2b3c4d5e11",
+      "name": "Webhook: Nowy lead",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "wf1-nowy-lead"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH org AS (\n  INSERT INTO appdata.organizations (name)\n  SELECT $6::text\n  WHERE $6::text IS NOT NULL\n  RETURNING id\n), sales_user AS (\n  SELECT id FROM appdata.users WHERE role = 'sales' AND active ORDER BY id LIMIT 1\n), person AS (\n  INSERT INTO appdata.people (organization_id, first_name, last_name, email, phone)\n  VALUES ((SELECT id FROM org), $1, $2, $3, $4)\n  RETURNING id\n), client AS (\n  INSERT INTO appdata.clients (type, organization_id, primary_contact_id, owner_user_id, source, contact_form, qualification, inbound_at)\n  VALUES ($5::appdata.client_type, (SELECT id FROM org), (SELECT id FROM person), (SELECT id FROM sales_user), $7::appdata.lead_source, $8::appdata.contact_form, 'MQL', now())\n  RETURNING id\n), opp AS (\n  INSERT INTO appdata.opportunities (client_id, stage, label)\n  VALUES ((SELECT id FROM client), 'nowa', $9)\n  RETURNING id\n), task AS (\n  INSERT INTO appdata.tasks (entity_type, entity_id, assignee_user_id, title, stage_ref)\n  VALUES ('opportunity', (SELECT id FROM opp), (SELECT id FROM sales_user), 'Zweryfikuj leada #' || (SELECT id FROM client), 'nowa')\n  RETURNING id\n)\nSELECT\n  (SELECT id FROM client) AS client_id,\n  (SELECT id FROM opp)    AS opportunity_id,\n  (SELECT id FROM task)   AS task_id;",
+        "options": {
+          "queryReplacement": "={{ [$json.body.first_name, $json.body.last_name, $json.body.email, $json.body.phone || null, $json.body.client_type, $json.body.organization_name || null, $json.body.source || null, $json.body.contact_form || null, $json.body.label || null] }}"
+        }
+      },
+      "id": "b2b6d9f1-4a2b-4c8b-9c3f-2b3c4d5e6f12",
+      "name": "Postgres: Utwórz leada",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [460, 300],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_W_UI",
+          "name": "appdata (n8n_crm_user)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": true, \"client_id\": $json.client_id, \"opportunity_id\": $json.opportunity_id, \"task_id\": $json.task_id } }}",
+        "options": {}
+      },
+      "id": "c3c7e0a2-5b3c-4d9c-ad4a-3c4d5e6f7a13",
+      "name": "Odpowiedz",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "Webhook: Nowy lead": {
+      "main": [[{ "node": "Postgres: Utwórz leada", "type": "main", "index": 0 }]]
+    },
+    "Postgres: Utwórz leada": {
+      "main": [[{ "node": "Odpowiedz", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

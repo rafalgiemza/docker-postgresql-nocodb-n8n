@@ -1,0 +1,162 @@
+{
+  "id": "d4d8f1b3-6c4d-4eae-be5b-4d5e6f7a8b03",
+  "name": "WF-3 — Transkrypcja → ekstrakcja AI",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "analizuj-transkrypcje",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1a5c8e0-3f1a-4b7a-8b2e-1a2b3c4d5e31",
+      "name": "Webhook: Analizuj transkrypcję",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "wf3-analizuj-transkrypcje"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH tr AS (\n  INSERT INTO appdata.transcripts (discovery_call_id, source, language, curated_text)\n  VALUES ($1::bigint, 'manual_paste', $2::text[], $3)\n  RETURNING id, curated_text\n), ctx AS (\n  SELECT dc.opportunity_id, o.client_id, c.type AS client_type, org.name AS organization_name,\n         org.industry, p.job_title\n  FROM appdata.discovery_calls dc\n  JOIN appdata.opportunities o ON o.id = dc.opportunity_id\n  JOIN appdata.clients c ON c.id = o.client_id\n  LEFT JOIN appdata.organizations org ON org.id = c.organization_id\n  LEFT JOIN appdata.people p ON p.id = c.primary_contact_id\n  WHERE dc.id = $1::bigint\n), job AS (\n  INSERT INTO appdata.job_queue (kind, priority, payload, status)\n  VALUES ('ai_extract', 3, jsonb_build_object('transcript_id', (SELECT id FROM tr)), 'running')\n  RETURNING id\n)\nSELECT\n  (SELECT id FROM tr)                  AS transcript_id,\n  (SELECT curated_text FROM tr)        AS curated_text,\n  (SELECT id FROM job)                 AS job_id,\n  (SELECT opportunity_id FROM ctx)     AS opportunity_id,\n  (SELECT client_id FROM ctx)          AS client_id,\n  (SELECT client_type FROM ctx)        AS client_type,\n  (SELECT organization_name FROM ctx)  AS organization_name,\n  (SELECT industry FROM ctx)           AS industry,\n  (SELECT job_title FROM ctx)          AS job_title;",
+        "options": {
+          "queryReplacement": "={{ [$json.body.discovery_call_id, $json.body.language || ['pl'], $json.body.curated_text] }}"
+        }
+      },
+      "id": "b2b6d9f1-4a2b-4c8b-9c3f-2b3c4d5e6f32",
+      "name": "Postgres: Zapisz transkrypt i kolejkę",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [460, 300],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_W_UI",
+          "name": "appdata (n8n_crm_user)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'anthropic/claude-sonnet-4.5', temperature: 0.2, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: 'Jestes asystentem metodyka CoAction. Na podstawie transkrypcji rozmowy discovery zwroc WYLACZNIE jeden obiekt JSON (bez markdown, bez komentarzy) o kluczach: client_goals (string[]), challenges (string[]), communication_situations (string[]), business_context (obiekt z industry, role, international_scope), participant_type (string), hypothesis_recommendation (jedno z: business_english, english_for_it, english_plus_skills, skills_only, mixed), missing_data (string[]), confidence (liczba 0-1).' }, { role: 'user', content: 'Kontekst: klient ' + ($json.client_type || '') + ', branza ' + ($json.industry || 'brak danych') + ', stanowisko ' + ($json.job_title || 'brak danych') + ', organizacja ' + ($json.organization_name || 'brak danych') + '. Transkrypcja rozmowy: ' + $json.curated_text }] }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "d4d8e1a3-6c4d-4eae-be5b-4d5e6f7a8b33",
+      "name": "HTTP: OpenRouter ekstrakcja",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_W_UI",
+          "name": "OpenRouter (n8n)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH ext AS (\n  INSERT INTO appdata.extractions (transcript_id, model, prompt_version, payload)\n  VALUES ($1::bigint, $2, 'v1', $3::jsonb)\n  RETURNING id\n), job AS (\n  UPDATE appdata.job_queue SET status = 'done' WHERE id = $4::bigint RETURNING id\n), methodologist AS (\n  SELECT id FROM appdata.users WHERE role = 'methodologist' AND active ORDER BY id LIMIT 1\n), owner AS (\n  SELECT owner_user_id FROM appdata.clients WHERE id = $5::bigint\n), task AS (\n  INSERT INTO appdata.tasks (entity_type, entity_id, assignee_user_id, title, stage_ref)\n  VALUES ('transcript', $1::bigint, COALESCE((SELECT id FROM methodologist), (SELECT owner_user_id FROM owner)), 'Zatwierdź analizę AI — opportunity #' || $6::bigint, 'badanie_potrzeb')\n  RETURNING id\n)\nSELECT (SELECT id FROM ext) AS extraction_id, (SELECT id FROM task) AS task_id;",
+        "options": {
+          "queryReplacement": "={{ [ $node[\"Postgres: Zapisz transkrypt i kolejk\\u0119\"].json.transcript_id, $json.model, JSON.stringify(JSON.parse($json.choices[0].message.content)), $node[\"Postgres: Zapisz transkrypt i kolejk\\u0119\"].json.job_id, $node[\"Postgres: Zapisz transkrypt i kolejk\\u0119\"].json.client_id, $node[\"Postgres: Zapisz transkrypt i kolejk\\u0119\"].json.opportunity_id ] }}"
+        }
+      },
+      "id": "e5e9f2b4-7d5e-4fbf-cf6c-5e6f7a8b9c44",
+      "name": "Postgres: Zapisz ekstrakcję i task",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [900, 200],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_W_UI",
+          "name": "appdata (n8n_crm_user)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH job AS (\n  UPDATE appdata.job_queue\n  SET status = 'failed', last_error = $2, attempts = attempts + 1\n  WHERE id = $1::bigint\n  RETURNING id\n), owner AS (\n  SELECT owner_user_id FROM appdata.clients WHERE id = $4::bigint\n), task AS (\n  INSERT INTO appdata.tasks (entity_type, entity_id, assignee_user_id, title, stage_ref)\n  VALUES ('transcript', $5::bigint, (SELECT owner_user_id FROM owner), 'AI nie zadziałało — uzupełnij ręcznie analizę dla opportunity #' || $3::bigint, 'badanie_potrzeb')\n  RETURNING id\n)\nSELECT (SELECT id FROM job) AS job_id, (SELECT id FROM task) AS task_id;",
+        "options": {
+          "queryReplacement": "={{ [ $node[\"Postgres: Zapisz transkrypt i kolejk\\u0119\"].json.job_id, ($json.error && $json.error.message) || $json.message || 'HTTP request failed after retries', $node[\"Postgres: Zapisz transkrypt i kolejk\\u0119\"].json.opportunity_id, $node[\"Postgres: Zapisz transkrypt i kolejk\\u0119\"].json.client_id, $node[\"Postgres: Zapisz transkrypt i kolejk\\u0119\"].json.transcript_id ] }}"
+        }
+      },
+      "id": "f6fa03c5-8e6f-4a1a-d07d-6f7a8b9c0d55",
+      "name": "Postgres: Job failed — task ręczny",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [900, 420],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_W_UI",
+          "name": "appdata (n8n_crm_user)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": true, \"extraction_id\": $json.extraction_id, \"task_id\": $json.task_id } }}",
+        "options": {}
+      },
+      "id": "07051426-9f7a-4b2b-e18e-7a8b9c0d1e66",
+      "name": "Odpowiedz: sukces",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": false, \"job_id\": $json.job_id, \"task_id\": $json.task_id } }}",
+        "options": { "responseCode": 502 }
+      },
+      "id": "18162537-a08b-4c3c-f29f-8b9c0d1e2f77",
+      "name": "Odpowiedz: błąd",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1120, 420]
+    }
+  ],
+  "connections": {
+    "Webhook: Analizuj transkrypcję": {
+      "main": [[{ "node": "Postgres: Zapisz transkrypt i kolejkę", "type": "main", "index": 0 }]]
+    },
+    "Postgres: Zapisz transkrypt i kolejkę": {
+      "main": [[{ "node": "HTTP: OpenRouter ekstrakcja", "type": "main", "index": 0 }]]
+    },
+    "HTTP: OpenRouter ekstrakcja": {
+      "main": [
+        [{ "node": "Postgres: Zapisz ekstrakcję i task", "type": "main", "index": 0 }],
+        [{ "node": "Postgres: Job failed — task ręczny", "type": "main", "index": 0 }]
+      ]
+    },
+    "Postgres: Zapisz ekstrakcję i task": {
+      "main": [[{ "node": "Odpowiedz: sukces", "type": "main", "index": 0 }]]
+    },
+    "Postgres: Job failed — task ręczny": {
+      "main": [[{ "node": "Odpowiedz: błąd", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}
