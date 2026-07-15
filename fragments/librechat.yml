@@ -1,0 +1,53 @@
+services:
+  librechat:
+    image: ghcr.io/danny-avila/librechat:${LIBRECHAT_VERSION}
+    restart: unless-stopped
+    labels:
+      - autoheal=true
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3080
+      - MONGO_URI=${MONGO_URI}
+      # Full scheme+host, not just LIBRECHAT_HOST (used for Caddy routing) —
+      # this differs between dev (http://localhost:3080, bypasses Caddy) and
+      # prod (https://${LIBRECHAT_HOST}), and LibreChat uses it for
+      # cookie-domain/CORS, so it must match whatever URL the browser
+      # actually loads. See .env.example.
+      - DOMAIN_CLIENT=${LIBRECHAT_URL}
+      - DOMAIN_SERVER=${LIBRECHAT_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - CREDS_KEY=${CREDS_KEY}
+      - CREDS_IV=${CREDS_IV}
+      - ALLOW_REGISTRATION=${ALLOW_REGISTRATION}
+      # See .env.example for why this is renamed from OPENROUTER_API_KEY.
+      - OPENROUTER_KEY=${OPENROUTER_API_KEY}
+      - NO_INDEX=true
+    ports:
+      # Loopback-only (see fragments/postgres.yml).
+      - "127.0.0.1:3080:3080"
+    volumes:
+      - ../librechat.yaml:/app/librechat.yaml:ro
+      - librechat_images:/app/client/public/images
+      - librechat_uploads:/app/uploads
+      - librechat_logs:/app/api/logs
+    depends_on:
+      mongodb:
+        condition: service_healthy
+        # Not required: with COMPOSE_PROFILES= (local-mongo disabled) this
+        # service won't exist/start, and librechat must still come up,
+        # connecting to the external MONGO_URI instead.
+        required: false
+    healthcheck:
+      # 127.0.0.1, not localhost: this image only binds 0.0.0.0 (IPv4), and
+      # localhost resolves to ::1 first here, so wget would hit nothing and
+      # report a false "unhealthy".
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3080/ || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 768M

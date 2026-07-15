@@ -1,0 +1,18 @@
+# Docker's own healthcheck only marks a container `unhealthy` — it never
+# restarts it. autoheal watches the Docker socket and restarts any
+# container labeled `autoheal=true` once it's been `unhealthy` for
+# AUTOHEAL_INTERVAL seconds, closing that gap (post-mortem/tasks.md Task 3).
+services:
+  autoheal:
+    image: willfarrell/autoheal:latest
+    restart: unless-stopped
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=autoheal
+      - AUTOHEAL_INTERVAL=10
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 64M

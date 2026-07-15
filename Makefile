@@ -1,60 +1,73 @@
 include .env
 export
 
-DC_CMD = docker compose -f docker-compose.yml -f docker-compose.prod.yml
-TS := $(shell date +%F_%H%M%S)
+.DEFAULT_GOAL := help
+
+DC_CMD = docker compose -f docker-compose.yml
 
 LATEST_TS := $(shell ls -1t ./backups/appdata_*.sql 2>/dev/null | head -n 1 | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}')
 RESTORE_TS ?= $(LATEST_TS)
 
-.PHONY: up down ps logs migrate seed seed-demo backup wire-apps add-rag-db
+.PHONY: help init-env config up down restart pull ps logs migrate seed seed-demo backup backup-prune restore wire-apps add-rag-db
 
-up:
+help: ## Show this help
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
+
+init-env: ## Create .env from .env.example with randomly generated secrets
+	./scripts/generate-env.sh
+
+config: ## Validate the merged compose config (fragments/*.yml via include:)
+	$(DC_CMD) config --quiet
+
+up: ## Start the full stack in the background
 	$(DC_CMD) up -d
 
-down:
+down: ## Stop and remove the stack (named volumes are preserved)
 	$(DC_CMD) down
 
-ps:
+restart: ## Restart all containers
+	$(DC_CMD) restart
+
+pull: ## Pull the latest images for all services
+	$(DC_CMD) pull
+
+ps: ## Show container status
 	$(DC_CMD) ps
 
-logs:
+logs: ## Tail logs for all services (Ctrl+C to stop)
 	$(DC_CMD) logs -f
 
-migrate:
-	./app_migrate.sh
+migrate: ## Apply schema.sql to appdata (see app_migrate.sh)
+	./scripts/app_migrate.sh
 
-seed:
-	./app_seed.sh
+seed: ## Load reference data (pricing tiers, testimonials, users)
+	./scripts/app_seed.sh
 
-seed-demo:
-	./app_seed_demo.sh
+seed-demo: ## Load one demo offer end-to-end (re-runnable)
+	./scripts/app_seed_demo.sh
 
 # Podłącza NocoDB (source appdata/crm + widoki) i n8n (credential appdata) —
 # wymaga NC_API_TOKEN/N8N_API_KEY w .env (Krok 0 ręcznego bootstrapu, patrz
 # docs/init-nocodb.md). Uruchom po `make migrate && make seed`.
-wire-apps:
-	./crm-wire-init.sh
+wire-apps: ## Wire NocoDB/n8n to appdata/crm after a hard-reset
+	./scripts/crm-wire-init.sh
 
 # Jednorazowe dodanie bazy RAG na już działającym Postgresie — init-data.sh
-# (docker/init-data.sh) odpala się tylko przy świeżym, pustym wolumenie, więc
-# na istniejącej instancji (np. VPS) trzeba to donieść ręcznie. Wymaga
+# odpala się tylko przy świeżym, pustym wolumenie, więc na istniejącej
+# instancji (np. VPS) trzeba to donieść ręcznie. Wymaga
 # RAG_DB_USER/RAG_DB_PASSWORD/RAG_DB w .env. Idempotentne — bezpieczne do
 # odpalenia ponownie, jeśli user/baza już istnieją.
-add-rag-db:
+add-rag-db: ## One-time: add the RAG database to an already-running Postgres
 	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "CREATE USER $(RAG_DB_USER) WITH PASSWORD '$(RAG_DB_PASSWORD)';" || true
 	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "CREATE DATABASE $(RAG_DB) OWNER $(RAG_DB_USER);" || true
 
-backup:
-	@mkdir -p ./backups
-	docker exec docker-postgres-1 pg_dumpall -U postgres --roles-only > ./backups/roles_$(TS).sql
-	docker exec docker-postgres-1 pg_dump -U postgres -d $(POSTGRES_DB) > ./backups/n8n_$(TS).sql
-	docker exec docker-postgres-1 pg_dump -U postgres -d $(NC_DB) > ./backups/nocodb_meta_$(TS).sql
-	docker exec docker-postgres-1 pg_dump -U postgres -d $(APP_DB) > ./backups/appdata_$(TS).sql
-	docker run --rm -v docker_nocodb_storage:/data:ro -v $(CURDIR)/backups:/backup alpine tar -czf /backup/nocodb_attachments_$(TS).tar.gz -C /data .
-	docker exec docker-mongodb-1 mongodump --archive --db=LibreChat --quiet > ./backups/mongo_$(TS).archive
+backup: ## Dump all DBs + NocoDB attachments to ./backups and push offsite via restic
+	./backup/backup.sh
 
-restore:
+backup-prune: ## Run backup + prune old restic snapshots (same as the daily cron job)
+	./backup/backup.sh --prune
+
+restore: ## Restore from the latest (or RESTORE_TS=<ts>) local dump in ./backups
 	@if [ -z "$(RESTORE_TS)" ]; then \
 		echo "❌ Błąd: Nie znaleziono żadnych plików backupu w folderze ./backups!"; \
 		exit 1; \

@@ -1,0 +1,31 @@
+# Uptime Kuma — monitoring/alerting (post-mortem/tasks.md Task 1, PRD
+# FAZA 1 item 3). Watches the other services + disk + cert expiry and
+# alerts (Discord/Telegram/etc.) so an incident like 2026-07-14 is caught
+# in real time instead of by a user reporting a 503. Monitors and alert
+# channels are configured by hand in the Kuma web UI after first boot —
+# they live in Kuma's own SQLite DB (kuma_storage), no new secrets needed
+# in .env.
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    restart: unless-stopped
+    labels:
+      - autoheal=true
+    ports:
+      # Loopback-only (see fragments/postgres.yml).
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - kuma_storage:/app/data
+    healthcheck:
+      # No wget/busybox in this image (confirmed via `docker exec`). Use
+      # Kuma's own bundled healthcheck binary instead, which is what
+      # upstream's Dockerfile uses for its HEALTHCHECK too.
+      test: ['CMD', '/app/extra/healthcheck']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G

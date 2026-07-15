@@ -1,0 +1,26 @@
+services:
+  n8n-runner:
+    image: n8nio/runners:${N8N_VERSION}
+    restart: unless-stopped
+    labels:
+      - autoheal=true
+    environment:
+      - N8N_RUNNERS_AUTH_TOKEN=${RUNNERS_AUTH_TOKEN}
+      - N8N_RUNNERS_TASK_BROKER_URI=http://n8n:5679
+    depends_on:
+      - n8n
+    healthcheck:
+      # n8nio/runners bundles the task-runner-launcher, which always starts
+      # its own health server on port 5680 (confirmed via `docker exec` +
+      # `ss -tlnp`: it's the only port actually listening in the container —
+      # the per-runner health server described in the launcher's docs is not
+      # exposed here). See n8n-io/task-runner-launcher docs/setup.md.
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:5680/healthz || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M

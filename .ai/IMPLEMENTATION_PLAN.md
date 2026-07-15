@@ -1,8 +1,7 @@
 # Plan wdrożenia — stan obecny → MVP (CoAction CRM)
 
 Bazowane na `.ai/PRD.md` (architektura docelowa) i `.ai/backups.md` (poprawki do modelu baz/backupów).
-**Środowisko jest nowe** — nie migrujemy starego schematu z `old-sql/`. Piszemy schemat od zera wg PRD §2.
-Stare pliki `old-sql/schema.sql`, `old-sql/schema1_big.sql`, `old-sql/seed.sql` traktujemy jako **wyłącznie referencję** (są to wcześniejsze, uproszczone szkice tego samego pomysłu) — nie jako punkt startowy migracji.
+**Środowisko jest nowe** — nie migrowaliśmy starego schematu z `old-sql/` (usunięte z repo po napisaniu `schema.sql` od zera, patrz §7 punkt 5 — historia dostępna w git log). Schemat napisany od zera wg PRD §2.
 
 > **Korekta zakresu MVP:** renderer PPTX/PDF (`crm-api`, FAZA 0 z PRD) jest **wyłączony z MVP** i przesunięty na później (patrz §6). MVP kończy się na w pełni wycenionej, gotowej ofercie **jako dane w NocoDB** (status `ready`, cena przeliczona triggerem, dobrane testimoniale/cele) — bez generowania pliku. To zmienia scenariusz demo w §4.
 
@@ -12,20 +11,20 @@ Stare pliki `old-sql/schema.sql`, `old-sql/schema1_big.sql`, `old-sql/seed.sql` 
 
 | Element | Stan | Plik |
 |---|---|---|
-| VPS hardening (ufw, fail2ban, ssh key-only, unattended-upgrades) | ✅ gotowe | `docker/cloud-init.yaml` |
-| Docker Compose: postgres, n8n (+runner), nocodb, caddy | ✅ działa | `docker/docker-compose.yml` |
-| Rozdział dev/prod (`override.yml` / `prod.yml`) | ✅ gotowe | `docker/docker-compose.*.yml` |
-| 3 osobne bazy w jednym Postgresie: `n8n`, `nocodb`, `appdata` | ✅ **już zgodne z `.ai/backups.md`** | `docker/init-data.sh`, `docker/.env.example` |
-| Caddy + TLS dla n8n i nocodb | ✅ gotowe | `docker/Caddyfile` |
-| Backup | ✅ gotowe (lokalnie) — dumpuje `n8n`/`nocodb`/`appdata` + role (`--roles-only`) + tar attachmentów NocoDB; offsite transfer robiony ręcznie, cron do dodania później | `docker/Makefile` |
-| NocoDB dostęp do danych biznesowych | ✅ gotowe — role rozdzielone (`appdata_owner` / `nocodb_crm_user`), `GRANT ALL PRIVILEGES` usunięty, granty na `crm.*` wgrane | `docker/init-data.sh`, `docker/.env.example`, `docker/schema.sql` §14 |
-| Schemat danych CRM | ✅ gotowe — pełny model wg PRD §2 (rdzeń, audyt, oferty + trigger cenowy, widoki `crm.v_*`, granty) | `docker/schema.sql`, `docker/seed.sql` |
-| LibreChat + MongoDB (czat AI dla zespołu) | ✅ gotowe — minimalna instalacja (bez admin-panelu/Meilisearch/RAG API/pgvector z upstream), zero integracji z CRM, wystawione przez Caddy | `docker/docker-compose.yml`, `docker/librechat.yaml`, `docker/.env.example` |
+| VPS hardening (ufw, fail2ban, ssh key-only, unattended-upgrades) | ✅ gotowe | `cloud-init.yaml` |
+| Docker Compose: postgres, n8n (+runner), nocodb, caddy | ✅ działa | `docker-compose.yml` |
+| Rozdział dev/prod | ✅ gotowe — jeden `docker-compose.yml` dla obu (bez override/prod overlay), różnice tylko przez `.env` (hosty/protokół/`LIBRECHAT_URL`); porty dev (postgres/n8n/nocodb/minio/librechat/kuma) zawsze bindowane na `127.0.0.1`, nigdy na sieć | `docker-compose.yml`, `fragments/*.yml`, `.env.example` |
+| 3 osobne bazy w jednym Postgresie: `n8n`, `nocodb`, `appdata` | ✅ **już zgodne z `.ai/backups.md`** | `scripts/init-data.sh`, `.env.example` |
+| Caddy + TLS dla n8n i nocodb | ✅ gotowe | `Caddyfile` |
+| Backup | ✅ gotowe — dumpuje `n8n`/`nocodb`/`appdata` + role (`--roles-only`) + tar attachmentów NocoDB + Mongo do `./backups/`, offsite przez `restic`+`rclone` (dedup, incremental, retencja `--keep-last/--keep-daily/--keep-weekly`); cron na VPS do dodania (patrz setup notes w skrypcie) | `backup/backup.sh`, `backup/mikrus-backup.env.example`, `Makefile` |
+| NocoDB dostęp do danych biznesowych | ✅ gotowe — role rozdzielone (`appdata_owner` / `nocodb_crm_user`), `GRANT ALL PRIVILEGES` usunięty, granty na `crm.*` wgrane | `scripts/init-data.sh`, `.env.example`, `schema.sql` §14 |
+| Schemat danych CRM | ✅ gotowe — pełny model wg PRD §2 (rdzeń, audyt, oferty + trigger cenowy, widoki `crm.v_*`, granty) | `schema.sql`, `seed.sql` |
+| LibreChat + MongoDB (czat AI dla zespołu) | ✅ gotowe — minimalna instalacja (bez admin-panelu/Meilisearch/RAG API/pgvector z upstream), zero integracji z CRM, wystawione przez Caddy | `docker-compose.yml`, `librechat.yaml`, `.env.example` |
 | Segmentacja sieci Docker (`edge`/`internal`/`data`) | ❌ brak — jedna płaska sieć | — |
 | PgBouncer | ❌ brak | — |
-| MinIO | ✅ gotowe — serwis + `minio-init` (one-shot: buckety `offers`/`templates` (versioning ON), `recordings`/`transcripts`/`backups`, lifecycle 90/30 dni, user `nocodb` scoped tylko do `attachments`), NocoDB podłączony przez `NC_S3_*`, `s3.` domena w Caddy (network alias, żeby jeden `NC_S3_ENDPOINT` działał i z kontenera, i z przeglądarki) | `docker/docker-compose.yml`, `docker/minio-init.sh`, `docker/Caddyfile`, `docker/.env.example` |
+| MinIO | ✅ gotowe — serwis + `minio-init` (one-shot: buckety `offers`/`templates` (versioning ON), `recordings`/`transcripts`/`backups`, lifecycle 90/30 dni, user `nocodb` scoped tylko do `attachments`), NocoDB podłączony przez `NC_S3_*`, `s3.` domena w Caddy (network alias, żeby jeden `NC_S3_ENDPOINT` działał i z kontenera, i z przeglądarki) | `docker-compose.yml`, `scripts/minio-init.sh`, `Caddyfile`, `.env.example` |
 | **crm-api (renderer PPTX/PDF)** | ❌ nie zaczęte — **poza zakresem MVP, patrz §6** | — |
-| Uptime Kuma | ✅ gotowe — monitoring/alerting po incydencie 2026-07-14 (post-mortem/tasks.md Task 1), wystawiony przez Caddy na `STATUS_HOST`, monitory/kanały alertów do skonfigurowania ręcznie w UI po pierwszym uruchomieniu | `docker/docker-compose.yml`, `docker/docker-compose.override.yml`, `docker/Caddyfile`, `docker/.env.example` |
+| Uptime Kuma | ✅ gotowe — monitoring/alerting po incydencie 2026-07-14 (post-mortem/tasks.md Task 1), wystawiony przez Caddy na `STATUS_HOST`, monitory/kanały alertów do skonfigurowania ręcznie w UI po pierwszym uruchomieniu | `docker-compose.yml`, `fragments/uptime-kuma.yml`, `Caddyfile`, `.env.example` |
 | Job queue / triggery cenowe / historia etapów | ❌ brak | — |
 
 **Wniosek:** infrastruktura bazowa (VPS + n8n + NocoDB + Postgres + Caddy) jest na dobrym poziomie i już realizuje zalecenia z `backups.md`. Naprawa dostępu NocoDB (§2.2) i schemat bazy (§3) są gotowe. Priorytetem MVP jest teraz pipeline n8n/NocoDB (FAZA 3, §4) kończący się na **gotowej, wycenionej ofercie w danych** — bez renderowania pliku.
@@ -46,7 +45,7 @@ Zostajemy przy **3 fizycznych bazach** w jednym klastrze Postgresa (już tak jes
 Powód (z `backups.md`): widoki nie mogą odpytywać danych z innej *fizycznej* bazy — muszą żyć w tej samej bazie co tabele źródłowe, stąd podział na schematy, nie na bazy.
 
 ### 2.2 Naprawa dostępu NocoDB → appdata ✅ zrobione
-Zrobione — `appdata_owner` (właściciel, migracje/seed) i `nocodb_crm_user` (rola NocoDB, tylko `crm.*`) rozdzielone w `docker/init-data.sh` + `docker/.env.example`, grant na `crm.*` wgrany w `docker/schema.sql` §14. Analogiczna rola `n8n_crm_user` (scoped na `crm.v_offer_builder`) dodana w `docker/schema.sql` §15 pod FAZĘ 3.
+Zrobione — `appdata_owner` (właściciel, migracje/seed) i `nocodb_crm_user` (rola NocoDB, tylko `crm.*`) rozdzielone w `scripts/init-data.sh` + `.env.example`, grant na `crm.*` wgrany w `schema.sql` §14. Analogiczna rola `n8n_crm_user` (scoped na `crm.v_offer_builder`) dodana w `schema.sql` §15 pod FAZĘ 3.
 
 Docelowy kształt (zrealizowany):
 ```sql
@@ -61,10 +60,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA crm TO nocodb_crm_u
 REVOKE ALL ON SCHEMA appdata FROM nocodb_crm_user;
 REVOKE CREATE ON SCHEMA public FROM nocodb_crm_user;  -- krytyczne, patrz PRD §8.2
 ```
-Zmiana w `docker/.env.example` + `docker/init-data.sh`: dodać `APPDATA_OWNER_*` i `NOCODB_CRM_USER_*`, usunąć `GRANT ALL PRIVILEGES` dla NocoDB.
+Zmiana w `.env.example` + `scripts/init-data.sh`: dodać `APPDATA_OWNER_*` i `NOCODB_CRM_USER_*`, usunąć `GRANT ALL PRIVILEGES` dla NocoDB.
 
 ### 2.3 Sieci Docker
-Dodać segmentację z PRD §1.2 do `docker/docker-compose.yml`:
+Dodać segmentację z PRD §1.2 do `docker-compose.yml`:
 
 | Sieć | Serwisy |
 |---|---|
@@ -78,15 +77,15 @@ Dodać segmentację z PRD §1.2 do `docker/docker-compose.yml`:
 Wdrażamy zgodnie z PRD §8.1, ale **n8n i NocoDB łączą się bezpośrednio do Postgresa** (port 5432), a **przez PgBouncer idzie tylko `crm-api`** — omija to problem prepared statements w trybie `transaction` bez konieczności podnoszenia `max_prepared_statements`.
 
 ### 2.5 LibreChat / MongoDB ✅ zrobione
-Dodane wcześniej niż pierwotnie zakładano (klient/Rafał zdecydowali się nie czekać na Fazę 5). Zgodnie z PRD ("osobny byt, zero integracji z CRM w MVP"): własna MongoDB (`docker/docker-compose.yml`), jeden custom endpoint (OpenRouter, reużywa `OPENROUTER_API_KEY`) w `docker/librechat.yaml`, wystawione przez Caddy pod `LIBRECHAT_HOST` — patrz `docker/README.md` sekcja „LibreChat". Celowo bez admin-panelu/Meilisearch/RAG API/pgvector z domyślnego compose upstream — poza budżetem RAM i zakresem PRD. Sieci Dockera nadal płaskie (patrz §2.3 — segmentacja to osobny, jeszcze nie zrobiony punkt), więc `mongo`/`edge` z diagramu PRD §1.2 nie są jeszcze wydzielone.
+Dodane wcześniej niż pierwotnie zakładano (klient/Rafał zdecydowali się nie czekać na Fazę 5). Zgodnie z PRD ("osobny byt, zero integracji z CRM w MVP"): własna MongoDB (`docker-compose.yml`), jeden custom endpoint (OpenRouter, reużywa `OPENROUTER_API_KEY`) w `librechat.yaml`, wystawione przez Caddy pod `LIBRECHAT_HOST` — patrz `README.md` sekcja „LibreChat". Celowo bez admin-panelu/Meilisearch/RAG API/pgvector z domyślnego compose upstream — poza budżetem RAM i zakresem PRD. Sieci Dockera nadal płaskie (patrz §2.3 — segmentacja to osobny, jeszcze nie zrobiony punkt), więc `mongo`/`edge` z diagramu PRD §1.2 nie są jeszcze wydzielone.
 
-**Ready-to-migrate (PRD §8.7) ✅:** `MONGO_URI` czytany z `.env`, lokalny kontener `mongodb` pod profilem `local-mongo` (`COMPOSE_PROFILES`). Dokupienie zewnętrznego Mongo = zmiana `MONGO_URI`+`COMPOSE_PROFILES` w `.env` i `make down && make up`, zero edycji compose — patrz `docker/README.md`.
+**Ready-to-migrate (PRD §8.7) ✅:** `MONGO_URI` czytany z `.env`, lokalny kontener `mongodb` pod profilem `local-mongo` (`COMPOSE_PROFILES`). Dokupienie zewnętrznego Mongo = zmiana `MONGO_URI`+`COMPOSE_PROFILES` w `.env` i `make down && make up`, zero edycji compose — patrz `README.md`.
 
 ---
 
 ## 3. Schemat bazy danych — pisany od zera ✅ zrobione
 
-`docker/schema.sql` (930 linii) i `docker/seed.sql` napisane wg PRD §2 od zera i wgrywane przez `docker/app_migrate.sh`. Zawiera wszystkie sekcje z porządku deklaracji niżej, docelowe widoki `crm.v_*` (§2.7) oraz granty dla `nocodb_crm_user` i `n8n_crm_user`. Reszta tego paragrafu to spec, wg którego plik został napisany — zostawiona jako odniesienie.
+`schema.sql` (930 linii) i `seed.sql` napisane wg PRD §2 od zera i wgrywane przez `scripts/app_migrate.sh`. Zawiera wszystkie sekcje z porządku deklaracji niżej, docelowe widoki `crm.v_*` (§2.7) oraz granty dla `nocodb_crm_user` i `n8n_crm_user`. Reszta tego paragrafu to spec, wg którego plik został napisany — zostawiona jako odniesienie.
 
 **Decyzja (faza testowa, greenfield):** *nie* wdrażamy jeszcze wersjonowanych migracji (dbmate) — ani test, ani prod jeszcze nie istnieją, więc nie ma nic do zachowania między wdrożeniami. Jeden płaski, w pełni re-runnable `schema.sql` (zaczynający się od `DROP SCHEMA IF EXISTS appdata/crm CASCADE`) jest szybszy do iterowania w tej fazie i unika narzutu obsługi migracji, których jeszcze nikt nie musi cofać na żywych danych. Wprowadzenie dbmate wraca jako ostatni krok w FAZIE 6, gdy powstanie pierwsze środowisko z danymi do zachowania (patrz §4, FAZA 6, punkt 6).
 
@@ -108,24 +107,24 @@ Dane referencyjne do zasiania (`0011_seed_...`): cennik ze slajdu 8 (PRD §2.5),
 
 ### FAZA 1 — Domknięcie infrastruktury (rozszerzenie tego, co już jest)
 1. Sieci `edge`/`internal`/`data` w `docker-compose.yml`
-2. ✅ MinIO + buckety (`offers` versioning ON, `templates` versioning ON, `recordings` lifecycle 90 dni, `transcripts`, `backups` lifecycle 30 dni) — potrzebne już teraz na nagrania/transkrypty i na załączniki/awatary NocoDB, nawet bez renderera. `NC_S3_*` w `nocodb` wskazuje na `MINIO_ENDPOINT` (`https://${MINIO_HOST}`) — ten sam URL musi działać z wewnątrz Dockera (backend NocoDB) i z przeglądarki (presigned download), bo NocoDB zawsze zwraca bezpośrednie, podpisane linki do S3, nie proxuje pobierania przez siebie. Rozwiązane network aliasem na `caddy` (patrz `docker-compose.yml`) zamiast dwóch osobnych endpointów. W dev (`docker-compose.override.yml`) omija się to przez publikację portu 9000 i `NC_S3_ENDPOINT=http://localhost:9000`.
+2. ✅ MinIO + buckety (`offers` versioning ON, `templates` versioning ON, `recordings` lifecycle 90 dni, `transcripts`, `backups` lifecycle 30 dni) — potrzebne już teraz na nagrania/transkrypty i na załączniki/awatary NocoDB, nawet bez renderera. `NC_S3_*` w `nocodb` wskazuje na `MINIO_ENDPOINT` (`https://${MINIO_HOST}`) — ten sam URL musi działać z wewnątrz Dockera (backend NocoDB) i z przeglądarki (presigned download), bo NocoDB zawsze zwraca bezpośrednie, podpisane linki do S3, nie proxuje pobierania przez siebie. Rozwiązane network aliasem na `caddy` (patrz `fragments/caddy.yml`) zamiast dwóch osobnych endpointów. W dev omija się to przez `MINIO_ENDPOINT=http://localhost:9000` w `.env` (MinIO zawsze dostępny na `127.0.0.1:9000`, patrz `fragments/minio.yml`).
 3. ✅ Uptime Kuma (monitoring wszystkiego + dysk + cert expiry) — serwis + healthcheck + wystawienie przez Caddy gotowe; monitory/dysk/cert expiry i kanały alertów do skonfigurowania ręcznie w UI (post-mortem/tasks.md Task 1)
 4. ✅ Naprawa uprawnień NocoDB (§2.2 wyżej) — zrobione
 5. Domena `back-office.coaction.pl` w Caddy (decyzja z PRD §11 — już zaakceptowana przez klienta) — mechanizm gotowy i przetestowany na UAT (`back-office.giemza.dev`), samo `coaction.pl` czeka na DNS od klienta, patrz FAZA 7
 6. PgBouncer — **odłożony razem z crm-api** (§6); jego jedyny konsument w PRD to `crm-api`, więc bez sensu wdrażać wcześniej
 
 ### FAZA 2 — Baza danych ✅ zrobione
-1. ✅ `schema.sql` z §3 wyżej (w Git, wgrywany przez `docker/app_migrate.sh`)
-2. ✅ Seed: `pricing_tiers`, `testimonials`, `users` (dane placeholder, `docker/seed.sql` — realne dane wchodzą w Fazie 6)
+1. ✅ `schema.sql` z §3 wyżej (w Git, wgrywany przez `scripts/app_migrate.sh`)
+2. ✅ Seed: `pricing_tiers`, `testimonials`, `users` (dane placeholder, `seed.sql` — realne dane wchodzą w Fazie 6)
 3. ✅ Widoki `crm.v_*` + `INSTEAD OF` triggery gdzie trzeba
 4. ✅ Grant `nocodb_crm_user` tylko na `crm.*`, `REVOKE CREATE ON SCHEMA appdata/public`
 5. ✅ Trigger cenowy i trigger historii etapów działają niezależnie od renderera — to one dają efekt „cena przelicza się na żywo" w demo
 
 ### FAZA 3 — n8n + NocoDB (offer builder, bez generowania pliku) 🟡 w trakcie
-Pełny runbook: `docker/README.md` §„FAZA 3 — Offer Builder (n8n + NocoDB)".
-0. ✅ Fixture danych demo (`docker/seed_demo.sql` + `make seed-demo`) — jedna kompletna oferta (client→opportunity→audit→recommendation→offer, 2 pozycje) do otwarcia w `crm.v_offer_builder`, który wspiera tylko SELECT/UPDATE, nie INSERT. Re-runnable.
+Pełny runbook: `README.md` §„FAZA 3 — Offer Builder (n8n + NocoDB)".
+0. ✅ Fixture danych demo (`seed_demo.sql` + `make seed-demo`) — jedna kompletna oferta (client→opportunity→audit→recommendation→offer, 2 pozycje) do otwarcia w `crm.v_offer_builder`, który wspiera tylko SELECT/UPDATE, nie INSERT. Re-runnable.
 1. 🟡 n8n: credential Postgres do `n8n_crm_user` — udokumentowany (host/user/hasło z `.env`), ale **jeszcze nie utworzony w n8n UI** (krok ręczny, poza zasięgiem automatyzacji). Git sync workflowów: potwierdzone z użytkownikiem, że n8n tu jest Community Edition (bez natywnego Source Control) — wersjonowanie robimy ręcznym `n8n export:workflow --all`, udokumentowane w runbooku. Anthropic/NocoDB API credentiale — nadal do zrobienia (FAZA 5 dla Anthropic; NocoDB API tylko jeśli wrócimy do PATCH statusu generowania, poza zakresem MVP).
-2. ✅ WF-6 okrojone (`docker/n8n-workflows/wf6-zatwierdz-oferte.json`): Webhook → `UPDATE crm.v_offer_builder SET status='ready' WHERE offer_id=$1` → Respond. Zweryfikowany przez `n8n import:workflow` na lokalnym n8n (2.27.5) — importuje się czysto, żadnych ostrzeżeń o wersjach node'ów. Pozostaje: podpięcie prawdziwego credentiala i aktywacja w UI (placeholder `REPLACE_W_UI` w pliku celowo — sekrety nie idą do Gita).
+2. ✅ WF-6 okrojone (`n8n-workflows/wf6-zatwierdz-oferte.json`): Webhook → `UPDATE crm.v_offer_builder SET status='ready' WHERE offer_id=$1` → Respond. Zweryfikowany przez `n8n import:workflow` na lokalnym n8n (2.27.5) — importuje się czysto, żadnych ostrzeżeń o wersjach node'ów. Pozostaje: podpięcie prawdziwego credentiala i aktywacja w UI (placeholder `REPLACE_W_UI` w pliku celowo — sekrety nie idą do Gita).
 3. 🟡 NocoDB: widok „Offer Builder" — mapowanie pól na PRD §5 (okrojone, bez `Szablon`/`Status generowania`/`⬇ PPTX`/`⬇ PDF`) udokumentowane w runbooku; budowa samego widoku w NocoDB UI jeszcze nie zrobiona.
 4. ✅ Test pętli `60h → 45h` zweryfikowany na poziomie SQL: `UPDATE crm.v_offer_builder SET item1_hours=45, item1_pricing_tier_id=(...)` → `total_price_pln` 20400.00 → 16500.00 PLN natychmiast (trigger PG, bez udziału n8n). Pozostaje powtórzyć klikając w NocoDB UI po zbudowaniu widoku (pkt 3).
 
@@ -136,15 +135,15 @@ Przemek otwiera rekord, zmienia `60h → 45h`, widzi przeliczoną cenę, zmienia
 WF-1…WF-5, WF-7 (bez inspekcji szablonu — nieaktualne bez renderera), WF-8, Cal.com webhook, AI-ekstrakcja (Anthropic), migracja danych z Excela (1600 rekordów, skrypt jednorazowy, patrz §3).
 
 ### FAZA 6 — Backup, hardening, przekazanie
-1. ✅ **`docker/Makefile` `backup`** rozszerzony — dumpuje role (`--roles-only`), `n8n`, `nocodb`, `appdata` oraz tar attachmentów NocoDB, wszystko pod wspólnym `$(TS)`. (Format plain SQL, nie `-Fc`, na razie wystarczający.)
-2. Offsite: transfer robiony ręcznie przez klienta/Rafała; cron do dodania później. Docelowo MinIO `mc mirror` → Backblaze B2 / Hetzner Storage Box (PRD §11, do potwierdzenia z klientem)
+1. ✅ **`backup/backup.sh`** (wywoływany przez `make backup`) — dumpuje role (`--roles-only`), `n8n`, `nocodb`, `appdata` oraz tar attachmentów NocoDB i mongodump LibreChat, wszystko pod wspólnym `$TS` do `./backups/`. (Format plain SQL, nie `-Fc`, na razie wystarczający.)
+2. ✅ Offsite: `restic` (dedup, incremental, retencja `--keep-last/--keep-daily/--keep-weekly`) + `rclone` (R2/B2) — patrz setup notes w `backup/backup.sh` i `backup/mikrus-backup.env.example`. Pozostaje do zrobienia na VPS: `rclone config`, `restic init`, i dodanie cron entries z tych setup notes (`make backup` co 30 min, `make backup-prune` raz dziennie).
 3. Zabezpieczyć `N8N_ENCRYPTION_KEY` w password managerze klienta — bez niego dump `n8n` DB jest bezużyteczny
 4. **Restore drill na czystym VPS — obowiązkowy przed oddaniem** (dumpy + role + `.env` + MinIO)
 5. Runbook (restart, restore, dodanie pola) + szkolenie klienta
-6. **Wprowadzenie wersjonowanych migracji (dbmate)** — przejście z płaskiego `docker/schema.sql` na `docker/migrations/*.sql` w dbmate, dopiero gdy powstanie pierwsze środowisko z danymi do zachowania między wdrożeniami (dziś: faza testowa, greenfield, nic do ochrony). Ostatni krok całego wdrożenia — po tym punkcie schemat przestaje być "jednym plikiem wgrywanym hurtem" i staje się właściwie wersjonowany, z historią `schema_migrations` i bezpiecznymi rollbackami.
+6. **Wprowadzenie wersjonowanych migracji (dbmate)** — przejście z płaskiego `schema.sql` na `migrations/*.sql` w dbmate, dopiero gdy powstanie pierwsze środowisko z danymi do zachowania między wdrożeniami (dziś: faza testowa, greenfield, nic do ochrony). Ostatni krok całego wdrożenia — po tym punkcie schemat przestaje być "jednym plikiem wgrywanym hurtem" i staje się właściwie wersjonowany, z historią `schema_migrations` i bezpiecznymi rollbackami.
 
 ### FAZA 7 — Prod: wystawienie n8n/NocoDB pod domenami klienta 🟡 UAT zrobione, prod czeka na klienta
-1. ✅ Model sieciowy: VPS (Mikrus) ma własny dedykowany adres IPv6 (`2a01:4f9:3a:3f89::268`), Cloudflare AAAA (proxied, ☁️) kieruje na niego bezpośrednio — Caddy sam robi automatic HTTPS (Let's Encrypt) na 80/443, routing po Host header, zgodnie z tym, co już jest w `docker/Caddyfile`/`docker-compose.prod.yml`. `ufw` ma otwarte 80/443 na IPv4 i IPv6.
+1. ✅ Model sieciowy: VPS (Mikrus) ma własny dedykowany adres IPv6 (`2a01:4f9:3a:3f89::268`), Cloudflare AAAA (proxied, ☁️) kieruje na niego bezpośrednio — Caddy sam robi automatic HTTPS (Let's Encrypt) na 80/443, routing po Host header, zgodnie z tym, co już jest w `Caddyfile`/`fragments/caddy.yml`. `ufw` ma otwarte 80/443 na IPv4 i IPv6.
 2. ❌ Odrzucone: mikr.us `domena` (współdzielony port na edge'u mikr.us) — przetestowane i wycofane, bo `domena` proxuje na warstwie HTTP (nie robi SNI/TCP passthrough), co łamie automatic HTTPS Caddy'ego (błędy 521, pętle przekierowań). Nie używać do tego serwisu.
 3. ✅ UAT zrobiony na domenie Rafała: `n8n.giemza.dev` + `back-office.giemza.dev`, certy Let's Encrypt (prod CA, nie staging) wydane poprawnie, oba serwisy działają end-to-end przez Cloudflare.
 4. 🟡 Prod (`coaction.pl`) — czeka na akceptację klienta. Po akceptacji: klient dodaje analogiczne rekordy AAAA (`n8n.coaction.pl`, `back-office.coaction.pl` → ten sam adres IPv6 VPS-a), Rafał podmienia `N8N_HOST`/`NC_HOST`/`WEBHOOK_URL` w `.env` z `giemza.dev` na `coaction.pl` i robi `make down && make up`. Zero zmian w kodzie poza `.env`.
@@ -174,11 +173,11 @@ Przesunięte z pierwotnej FAZY 0/3. Kiedy przyjdzie kolej (po demo, gdy klient p
 
 Z PRD §11, wciąż aktualne:
 1. Czy Przemek akceptuje brak ręcznej edycji PPTX (docelowo, gdy renderer wróci w zakres)?
-2. Kto dostaje taski — częściowo potwierdzone (rozmowa z klientem 2026-07-12, patrz `docker/seed.sql`): Przemek (sales), Dorota (auditor, B2B), Ola/Aleksandra (auditor, B2C) zasiane jako `appdata.users`. Wciąż otwarte: role Kasi (Growth Manager) i Pauliny (opiekunka finansowa) — nie zamodelowane w `appdata.users.role` CHECK (brak `finance`/`marketing`).
+2. Kto dostaje taski — częściowo potwierdzone (rozmowa z klientem 2026-07-12, patrz `seed.sql`): Przemek (sales), Dorota (auditor, B2B), Ola/Aleksandra (auditor, B2C) zasiane jako `appdata.users`. Wciąż otwarte: role Kasi (Growth Manager) i Pauliny (opiekunka finansowa) — nie zamodelowane w `appdata.users.role` CHECK (brak `finance`/`marketing`).
 3. Offsite backup — Backblaze B2 czy Hetzner Storage Box?
 4. Dostawca ASR — Deepgram / AssemblyAI / OpenAI Whisper API?
 
 Nowe, z przeglądu repo i korekty zakresu:
-5. Czy `old-sql/*.sql` można usunąć z repo po napisaniu nowego schematu, czy zostawić jako archiwum referencyjne?
+5. ✅ `old-sql/*.sql` usunięte z repo (refaktor struktury, patrz TEMPLATE/coaction/.ai/about.md) — historia dostępna w git log, nie jako pliki w drzewie.
 6. dbmate czy inne narzędzie migracji — akceptacja wyboru? (odłożone do FAZY 6, nieblokujące dla MVP — patrz §3 i §4)
 7. **Jak MVP „zamyka" ofertę bez pliku** — status `ready` w NocoDB wystarczy jako koniec MVP, czy potrzebny jest jakiś ręczny eksport/kopiowanie danych do istniejącego szablonu jako tymczasowy obejście do czasu renderera?

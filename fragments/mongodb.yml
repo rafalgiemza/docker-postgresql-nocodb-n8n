@@ -1,0 +1,28 @@
+# LibreChat — team AI chat (PRD §1.1). Own MongoDB, zero coupling to the
+# CRM Postgres data. Deliberately minimal: no admin-panel/Meilisearch/
+# RAG API/vectordb from upstream's full compose — none of those are in
+# scope or budgeted for in the PRD RAM table.
+#
+# Ready-to-migrate (PRD §8.7): gated behind the "local-mongo" profile
+# (toggled by COMPOSE_PROFILES in .env) so that switching MONGO_URI to an
+# external/managed Mongo is a pure .env change — set COMPOSE_PROFILES= and
+# MONGO_URI=<external uri>, then `make down && make up`. No compose edits.
+services:
+  mongodb:
+    image: mongo:${MONGO_VERSION}
+    restart: unless-stopped
+    labels:
+      - autoheal=true
+    profiles: ['local-mongo']
+    volumes:
+      - mongo_storage:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', 'db.adminCommand("ping")']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M

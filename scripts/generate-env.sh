@@ -2,13 +2,14 @@
 
 # Generate .env from .env.example, replacing placeholder values
 # (anything starting with "change") with random 32-byte hex secrets.
-# Usage: ./generate-env.sh
+# Usage: ./scripts/generate-env.sh (from the repo root)
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_EXAMPLE="$SCRIPT_DIR/.env.example"
-ENV_FILE="$SCRIPT_DIR/.env"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+ENV_EXAMPLE="$REPO_ROOT/.env.example"
+ENV_FILE="$REPO_ROOT/.env"
 
 if [[ ! -f "$ENV_EXAMPLE" ]]; then
     echo "Error: .env.example not found: $ENV_EXAMPLE" >&2
