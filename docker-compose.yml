@@ -31,6 +31,7 @@ include:
   - fragments/mongodb.yml
   - fragments/librechat.yml
   - fragments/uptime-kuma.yml
+  - fragments/beszel.yml
   - fragments/caddy.yml
   - fragments/autoheal.yml
 
@@ -46,6 +47,7 @@ volumes:
   caddy_data:
   caddy_config:
   kuma_storage:
+  beszel_data:
 
 networks:
   default: {}

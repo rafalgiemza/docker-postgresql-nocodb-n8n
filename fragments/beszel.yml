@@ -1,0 +1,73 @@
+# Beszel — lightweight resource monitoring (CPU/RAM/disk/network history +
+# per-container Docker stats), complementing Uptime Kuma: Kuma answers "is
+# the service responding", Beszel answers "is a container approaching its
+# `deploy.resources.limits` memory cap" — the kind of slow creep that ends in
+# an OOM-kill/restart loop rather than a clean outage Kuma would catch.
+#
+# Hub + agent both live in this compose project (single VPS, PRD scope), so
+# the agent's SSH server (port 45876) only needs to be reachable on the
+# internal Compose network via the `beszel-agent` service name — no
+# network_mode: host, no published port (confirmed via local `docker run`:
+# the agent reads host-wide CPU/mem/disk from /proc regardless of network
+# mode; host networking only matters for measuring the *host's* NIC
+# throughput specifically, which isn't needed here).
+#
+# One-time manual bootstrap after first `make up` (same pattern as
+# NC_API_TOKEN/N8N_API_KEY in .env.example): open https://${BESZEL_HOST},
+# create the admin account, then Add System → copy the generated public key
+# into BESZEL_AGENT_KEY in .env, `make up` again to restart the agent with
+# it, then finish adding the system with Host=beszel-agent, Port=45876.
+services:
+  beszel:
+    image: henrygd/beszel:latest
+    restart: unless-stopped
+    labels:
+      - autoheal=true
+    environment:
+      - APP_URL=https://${BESZEL_HOST}
+    ports:
+      # Loopback-only (see fragments/postgres.yml).
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - beszel_data:/beszel_data
+    healthcheck:
+      # Confirmed via local `docker run` + `docker exec`: the image ships no
+      # wget/curl, but the `beszel` binary itself has a `health` subcommand
+      # (same pattern as uptime-kuma's bundled healthcheck binary below).
+      test: ['CMD', '/beszel', 'health', '--url', 'http://127.0.0.1:8090']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  beszel-agent:
+    image: henrygd/beszel-agent:latest
+    restart: unless-stopped
+    labels:
+      - autoheal=true
+    environment:
+      # Hub's public key, pasted in after first login — see bootstrap note
+      # above. The agent refuses to start with a placeholder/invalid key
+      # (confirmed: exits immediately with "failed to parse key"), so it
+      # will sit crash-looping (harmlessly) until this is filled in.
+      - KEY=${BESZEL_AGENT_KEY}
+    volumes:
+      # Read-only: agent only needs to read container stats, never control
+      # them (unlike autoheal, which restarts containers and needs read-write).
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      # Confirmed via local `docker exec`: the `agent` binary has its own
+      # `health` subcommand, exits 0 once the SSH server is up.
+      test: ['CMD', '/agent', 'health']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M

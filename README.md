@@ -16,6 +16,7 @@ hostowany na Mikrus 4.1. Pełny kontekst decyzji, architektury i ryzyk:
 | MongoDB | baza dla LibreChat (profil `local-mongo`, patrz [`docs/librechat.md`](docs/librechat.md)) | wewnętrzny |
 | LibreChat | wewnętrzny chat/asystent zespołowy (OpenRouter) | publiczny — `${LIBRECHAT_HOST}` |
 | Uptime Kuma | monitoring/alerting wszystkich usług + dysk + cert expiry | publiczny — `${STATUS_HOST}` |
+| Beszel (+ beszel-agent) | monitoring zużycia zasobów: CPU/RAM/dysk/sieć + statystyki per-kontener | publiczny — `${BESZEL_HOST}` |
 | autoheal | restartuje kontenery, które utknęły w stanie `unhealthy` | wewnętrzny |
 | Caddy | reverse proxy + automatyczny TLS (Let's Encrypt) | publikuje porty 80/443 |
 
@@ -38,7 +39,7 @@ Jeden `docker-compose.yml` dla dev i prod — bez plików override/overlay.
 Różnice środowiskowe (hosty, protokół, cookie-domain LibreChat) idą wyłącznie
 przez `.env` (patrz komentarze przy `N8N_HOST`/`MINIO_ENDPOINT`/`LIBRECHAT_URL`
 w [`.env.example`](.env.example)). Postgres/n8n/NocoDB/MinIO/LibreChat/Uptime
-Kuma są zawsze dostępne na `127.0.0.1:<port>` (dev: bezpośrednio z Maca; prod:
+Kuma/Beszel są zawsze dostępne na `127.0.0.1:<port>` (dev: bezpośrednio z Maca; prod:
 tylko przez SSH tunel/exec na VPS-ie, nigdy z sieci) — publiczny ruch zawsze
 idzie przez Caddy na 80/443. Pozostałe komendy: `make help`.
 

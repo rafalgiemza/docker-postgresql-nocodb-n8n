@@ -18,3 +18,7 @@
 	reverse_proxy uptime-kuma:3001
 }
 
+{$BESZEL_HOST} {
+	reverse_proxy beszel:8090
+}
+
