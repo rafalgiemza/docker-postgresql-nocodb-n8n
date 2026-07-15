@@ -1,0 +1,53 @@
+# =============================================================================
+# coaction — internal tooling stack (PostgreSQL, n8n, NocoDB, MinIO, MongoDB,
+# LibreChat, Uptime Kuma, Caddy). Each service lives in its own file under
+# fragments/ — this file only wires them together (include:) plus the shared
+# network and named volumes. See README.md for the service table and
+# .ai/PRD.md / .ai/IMPLEMENTATION_PLAN.md for the full architectural context.
+#
+# ONE file for both dev and prod — no override.yml/prod.yml overlays. Every
+# dev-vs-prod difference (hostnames, protocol, LibreChat's cookie domain) is
+# driven purely by `.env` values (see .env.example); the only structural
+# constant across both is that debug ports (postgres/n8n/nocodb/minio/
+# librechat/uptime-kuma) are bound to 127.0.0.1 — reachable on your Mac in
+# dev, and on the VPS only via SSH/exec in prod, never from the network.
+# Caddy alone publishes on all interfaces (80/443), same in both.
+#
+# `name:` is pinned explicitly so the Compose project name (and therefore
+# container/volume names like docker-postgres-1 / docker_nocodb_storage,
+# referenced throughout Makefile/docs) stays stable regardless of what this
+# checkout's parent directory is called.
+# =============================================================================
+
+name: docker
+
+include:
+  - fragments/postgres.yml
+  - fragments/n8n.yml
+  - fragments/n8n-runner.yml
+  - fragments/nocodb.yml
+  - fragments/minio.yml
+  - fragments/minio-init.yml
+  - fragments/mongodb.yml
+  - fragments/librechat.yml
+  - fragments/uptime-kuma.yml
+  - fragments/beszel.yml
+  - fragments/caddy.yml
+  - fragments/autoheal.yml
+
+volumes:
+  db_storage:
+  n8n_storage:
+  nocodb_storage:
+  minio_storage:
+  mongo_storage:
+  librechat_images:
+  librechat_uploads:
+  librechat_logs:
+  caddy_data:
+  caddy_config:
+  kuma_storage:
+  beszel_data:
+
+networks:
+  default: {}

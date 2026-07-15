@@ -1,0 +1,50 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    labels:
+      - autoheal=true
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - N8N_HOST=${N8N_HOST}
+      - NC_HOST=${NC_HOST}
+      - MINIO_HOST=${MINIO_HOST}
+      - LIBRECHAT_HOST=${LIBRECHAT_HOST}
+      - STATUS_HOST=${STATUS_HOST}
+      - BESZEL_HOST=${BESZEL_HOST}
+    networks:
+      default:
+        aliases:
+          # Lets containers on this network (e.g. nocodb) resolve the same
+          # public S3 hostname used in browser-facing presigned URLs, so one
+          # NC_S3_ENDPOINT works both internally and externally — traffic is
+          # routed through Caddy either way. See README.md.
+          - ${MINIO_HOST}
+    depends_on:
+      - n8n
+      - nocodb
+      - minio
+      - librechat
+      - uptime-kuma
+      - beszel
+    healthcheck:
+      # Caddy's admin API listens on 127.0.0.1:2019 by default (not disabled
+      # in Caddyfile). 127.0.0.1, not localhost: this image resolves
+      # localhost to ::1 first and the admin API only binds IPv4, so wget
+      # would hit nothing and report a false "unhealthy" (same pitfall as
+      # librechat's healthcheck below).
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:2019/config/ || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M

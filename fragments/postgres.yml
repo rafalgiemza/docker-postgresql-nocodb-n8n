@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    labels:
+      - autoheal=true
+    environment:
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+      - POSTGRES_NON_ROOT_USER
+      - POSTGRES_NON_ROOT_PASSWORD
+      - NC_DB_USER
+      - NC_DB_PASSWORD
+      - NC_DB
+      - RAG_DB_USER
+      - RAG_DB_PASSWORD
+      - RAG_DB
+      - APPDATA_OWNER_USER
+      - APPDATA_OWNER_PASSWORD
+      - NOCODB_CRM_USER
+      - NOCODB_CRM_PASSWORD
+      - N8N_CRM_USER
+      - N8N_CRM_PASSWORD
+      - APP_DB
+    ports:
+      # Loopback-only: reachable from this host (dev: your Mac: psql on
+      # localhost; prod: only via SSH tunnel/exec on the VPS), never from the
+      # network — same file works unchanged in both places.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db_storage:/var/lib/postgresql/data
+      - ../scripts/init-data.sh:/docker-entrypoint-initdb.d/init-data.sh
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h localhost -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M

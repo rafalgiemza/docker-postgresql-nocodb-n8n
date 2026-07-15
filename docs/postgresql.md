@@ -99,7 +99,7 @@ CREATE DATABASE appdata OWNER appdata_owner;
 
 Plik `schema.sql` zawiera definicje tabel, indeksów, triggerów i komentarzy dla bazy aplikacyjnej.
 
-### Opcja A: Przez strumień wejściowy (Zalecane — uruchom z katalogu `docker/` na hoście)
+### Opcja A: Przez strumień wejściowy (Zalecane — uruchom z katalogu repo na hoście)
 Najwygodniejszy sposób, który przesyła plik bezpośrednio z Twojego systemu do kontenera:
 ```bash
 docker exec -i docker-postgres-1 psql -U appdata_owner -d appdata < schema.sql
@@ -120,7 +120,7 @@ Plik `seed.sql` zawiera przykładowe scenariusze i dane testowe (użytkownicy, k
 
 Ponieważ plik `seed.sql` nie jest domyślnie montowany wewnątrz kontenera, najprostszym i najszybszym sposobem jest przesłanie go za pomocą strumienia wejściowego.
 
-### Uruchom z katalogu `docker/` na hoście:
+### Uruchom z katalogu repo na hoście:
 ```bash
 docker exec -i docker-postgres-1 psql -U appdata_owner -d appdata < seed.sql
 ```
@@ -181,14 +181,14 @@ docker compose up -d n8n nocodb
 
 ## 8. Automatyczna migracja / Wgrywanie schematu za pomocą `migrate.sh`
 
-Do katalogu `docker/` został dodany skrypt `migrate.sh`, który w pełni automatyzuje proces wgrywania schematu bazy danych z pliku `schema.sql`.
+Do katalogu repo został dodany skrypt `migrate.sh`, który w pełni automatyzuje proces wgrywania schematu bazy danych z pliku `schema.sql`.
 
 Skrypt jest idealny do użycia zarówno lokalnie, jak i na serwerze VPS, ponieważ:
 - **Automatycznie wczytuje zmienne** z lokalnego pliku `.env` (odczytuje nazwę bazy `APP_DB` oraz właściciela `APPDATA_OWNER_USER`).
 - **Dynamicznie wyszukuje kontener** bazy danych na podstawie etykiet Docker Compose (dzięki czemu działa poprawnie niezależnie od nazwy katalogu/projektu na VPS).
 - **Zabezpiecza proces** poprzez flagę `ON_ERROR_STOP=1`, natychmiast przerywając działanie przy napotkaniu błędu w pliku SQL.
 
-### Uruchomienie skryptu (z katalogu `docker/`):
+### Uruchomienie skryptu (z katalogu repo):
 ```bash
 ./migrate.sh
 ```
@@ -204,7 +204,7 @@ Skrypt:
 - **Automatycznie wykrywa właściwy kontener** bazy danych na serwerze lokalnym oraz VPS.
 - **Wgrywa dane testowe** w bezpieczny sposób ze wstrzymaniem działania przy błędzie (`ON_ERROR_STOP=1`).
 
-### Uruchomienie skryptu (z katalogu `docker/`):
+### Uruchomienie skryptu (z katalogu repo):
 ```bash
 ./seed.sh
 ```
@@ -213,7 +213,7 @@ Skrypt:
 
 ## Pro Tip: Szybki reset bazy danych do stanu początkowego (Schema + Seed)
 
-Jeśli chcesz całkowicie wyczyścić bazę `appdata` i postawić ją na nowo ze świeżym schematem oraz danymi seed, wykonaj następującą sekwencję komend w katalogu `docker/`:
+Jeśli chcesz całkowicie wyczyścić bazę `appdata` i postawić ją na nowo ze świeżym schematem oraz danymi seed, wykonaj następującą sekwencję komend w katalogu repo:
 
 ```bash
 # 1. Zatrzymaj serwisy korzystające z bazy

@@ -1,0 +1,44 @@
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:${N8N_VERSION}
+    restart: unless-stopped
+    labels:
+      - autoheal=true
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB}
+      - DB_POSTGRESDB_USER=${POSTGRES_NON_ROOT_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_NON_ROOT_PASSWORD}
+      - N8N_RUNNERS_MODE=external
+      - N8N_RUNNERS_AUTH_TOKEN=${RUNNERS_AUTH_TOKEN}
+      - N8N_RUNNERS_BROKER_LISTEN_ADDRESS=0.0.0.0
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_HOST=${N8N_HOST}
+      - N8N_PROTOCOL=${N8N_PROTOCOL}
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - N8N_DIAGNOSTICS_ENABLED=false
+    ports:
+      # Loopback-only (see fragments/postgres.yml) — dev hits this directly;
+      # prod traffic goes through Caddy on 80/443 instead.
+      - "127.0.0.1:5678:5678"
+    volumes:
+      - n8n_storage:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # /healthz is liveness-only and never reflects DB state (n8n-io/n8n#10274
+      # — it returns {"status":"ok"} even while the DB is unreachable and every
+      # real request gets a 503 "Database is not ready!"). /healthz/readiness
+      # is the endpoint that actually checks the DB connection/migration state.
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:5678/healthz/readiness || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G

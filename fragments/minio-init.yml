@@ -1,0 +1,22 @@
+# One-shot: creates buckets (PRD §8.5) and a least-privilege NocoDB user, then exits.
+services:
+  minio-init:
+    image: quay.io/minio/mc:latest
+    restart: 'no'
+    entrypoint: ['/bin/sh', '/minio-init.sh']
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_BUCKET_ATTACHMENTS=${MINIO_BUCKET_ATTACHMENTS}
+      - MINIO_BUCKET_OFFERS=${MINIO_BUCKET_OFFERS}
+      - MINIO_BUCKET_TEMPLATES=${MINIO_BUCKET_TEMPLATES}
+      - MINIO_BUCKET_RECORDINGS=${MINIO_BUCKET_RECORDINGS}
+      - MINIO_BUCKET_TRANSCRIPTS=${MINIO_BUCKET_TRANSCRIPTS}
+      - MINIO_BUCKET_BACKUPS=${MINIO_BUCKET_BACKUPS}
+      - NOCODB_MINIO_ACCESS_KEY=${NOCODB_MINIO_ACCESS_KEY}
+      - NOCODB_MINIO_SECRET_KEY=${NOCODB_MINIO_SECRET_KEY}
+    volumes:
+      - ../scripts/minio-init.sh:/minio-init.sh:ro
+    depends_on:
+      minio:
+        condition: service_healthy

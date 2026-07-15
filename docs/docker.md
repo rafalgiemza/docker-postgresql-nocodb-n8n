@@ -4,26 +4,26 @@
 
 ### 1. START — Uruchom wszystkie serwisy
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+docker compose up -d
 ```
 Uruchamia n8n, NocoDB, PostgreSQL, Caddy w tle.
 
 ### 2. STOP — Zatrzymaj wszystkie serwisy
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml down
+docker compose down
 ```
 Zatrzymuje i usuwa kontenery (nie usuwa volumes/danych).
 
 ### 3. STATUS — Sprawdź czy kontenery żyją
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+docker compose ps
 ```
 Pokazuje status każdego kontenera (Up, Down, Restarting).
 
 ### 4. LOGI — Śledź logi w time
 ```bash
 # Wszystkie serwisy
-docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f
+docker compose logs -f
 
 # Konkretny serwis (np. nocodb)
 docker logs -f docker-nocodb-1
@@ -42,7 +42,7 @@ docker restart docker-nocodb-1
 docker restart docker-nocodb-1 docker-caddy-1
 
 # Wszystkie
-docker compose -f docker-compose.yml -f docker-compose.prod.yml restart
+docker compose restart
 ```
 
 ---
@@ -55,13 +55,13 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml restart
 docker stop docker-caddy-1
 
 # Opcja 2: docker compose stop
-docker compose -f docker-compose.yml -f docker-compose.prod.yml stop caddy
+docker compose stop caddy
 ```
 Kontener zostaje (można go wznowić), inne serwisy działają.
 
 ### Zatrzymaj i usuń WSZYSTKIE kontenery
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml down
+docker compose down
 ```
 ⚠️ Usuwa kontenery, ale **nie usuwa** volumes (dane są bezpieczne).
 
@@ -145,7 +145,7 @@ docker system prune -a --volumes
    ```bash
    docker compose up -d  # dev
    # lub
-   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d  # prod
+   docker compose up -d  # prod
    ```
 
 3. **Czekaj na inicjalizację bazy** (~2-3 minuty)
@@ -191,9 +191,9 @@ audited and correct.
 ### Error 525 (Cloudflare)
 ```bash
 # Usuń stare certyfikaty i wymuś regenerację
-docker compose -f docker-compose.yml -f docker-compose.prod.yml down caddy
+docker compose down caddy
 rm -rf caddy_data caddy_config
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d caddy
+docker compose up -d caddy
 ```
 
 ### Kontener restartuje się
@@ -205,5 +205,5 @@ docker logs <container_name> | tail -50
 ```bash
 # Usuń volume i zrestartuj
 docker volume rm docker_db_storage
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d postgres
+docker compose up -d postgres
 ```

@@ -2,7 +2,7 @@
 set -e
 source .env
 
-# Łączy NocoDB i n8n z appdata/crm po hard-resecie (docker/docs/hard-reset.md).
+# Łączy NocoDB i n8n z appdata/crm po hard-resecie (docs/hard-reset.md).
 # Uruchamiane na żądanie: `make wire-apps`, PO `make migrate && make seed`.
 #
 # Wymaga ręcznego Kroku 0 (patrz docs/init-nocodb.md) już wykonanego:
@@ -15,7 +15,7 @@ source .env
 # ryzyko zablokowania się z własnego środowiska — patrz plan).
 #
 # Idempotentny: bezpieczny do wielokrotnego uruchamiania (GET, dopasuj po
-# nazwie, pomiń jeśli istnieje — wzorem docker/minio-init.sh).
+# nazwie, pomiń jeśli istnieje — wzorem minio-init.sh).
 #
 # UWAGA: dokładny kształt endpointów NocoDB v2 meta API poniżej (ścieżki,
 # pola payloadu dla source/grid/kanban/calendar/filter) jest zrekonstruowany
@@ -214,7 +214,7 @@ echo "✅ Credential '${N8N_CRED_NAME}' utworzony."
 
 echo ""
 echo "✅ Gotowe. Pamiętaj, że poza zakresem tego skryptu (nadal ręczne):"
-echo "   - import workflowów z docker/n8n-workflows/*.json (Workflows → Import from File)"
+echo "   - import workflowów z n8n-workflows/*.json (Workflows → Import from File)"
 echo "   - podpięcie credentiala '${N8N_CRED_NAME}' pod node'y w zaimportowanych workflowach"
 echo "   - aktywacja workflowów"
 echo "   - przypisanie ról NocoDB (Creator/Editor/Viewer) realnym osobom w UI"

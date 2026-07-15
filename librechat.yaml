@@ -1,8 +1,13 @@
 # Minimal LibreChat config — one custom endpoint (OpenRouter), reusing the
-# OPENROUTER_API_KEY already used by n8n. See docker/.env.example for the
-# OPENROUTER_KEY rebind gotcha and docker/README.md for the full explanation.
+# OPENROUTER_API_KEY already used by n8n. See .env.example for the
+# OPENROUTER_KEY rebind gotcha and docs/librechat.md for the full explanation.
 version: 1.3.13
 cache: true
+registration:
+  # ALLOW_REGISTRATION stays true (see .env.example); this restricts signups
+  # to the coaction.pl domain instead of opening registration to anyone.
+  allowedDomains:
+    - 'coaction.pl'
 endpoints:
   custom:
     - name: 'OpenRouter'
