@@ -29,6 +29,9 @@ services:
       - NC_DB_USER
       - NC_DB_PASSWORD
       - NC_DB
+      - RAG_DB_USER
+      - RAG_DB_PASSWORD
+      - RAG_DB
       - APPDATA_OWNER_USER
       - APPDATA_OWNER_PASSWORD
       - NOCODB_CRM_USER

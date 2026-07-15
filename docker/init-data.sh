@@ -21,6 +21,15 @@ else
 	echo "SETUP INFO: No Environment variables given for the NocoDB user!"
 fi
 
+if [ -n "${RAG_DB_USER:-}" ] && [ -n "${RAG_DB_PASSWORD:-}" ] && [ -n "${RAG_DB:-}" ]; then
+	psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+		CREATE USER ${RAG_DB_USER} WITH PASSWORD '${RAG_DB_PASSWORD}';
+		CREATE DATABASE ${RAG_DB} OWNER ${RAG_DB_USER};
+	EOSQL
+else
+	echo "SETUP INFO: No Environment variables given for the RAG DB user!"
+fi
+
 if [ -n "${APPDATA_OWNER_USER:-}" ] && [ -n "${APPDATA_OWNER_PASSWORD:-}" ] && [ -n "${APP_DB:-}" ]; then
 	psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
 		CREATE USER ${APPDATA_OWNER_USER} WITH PASSWORD '${APPDATA_OWNER_PASSWORD}';

@@ -7,7 +7,7 @@ TS := $(shell date +%F_%H%M%S)
 LATEST_TS := $(shell ls -1t ./backups/appdata_*.sql 2>/dev/null | head -n 1 | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}')
 RESTORE_TS ?= $(LATEST_TS)
 
-.PHONY: up down ps logs migrate seed seed-demo backup wire-apps
+.PHONY: up down ps logs migrate seed seed-demo backup wire-apps add-rag-db
 
 up:
 	$(DC_CMD) up -d
@@ -35,6 +35,15 @@ seed-demo:
 # docs/init-nocodb.md). Uruchom po `make migrate && make seed`.
 wire-apps:
 	./crm-wire-init.sh
+
+# Jednorazowe dodanie bazy RAG na już działającym Postgresie — init-data.sh
+# (docker/init-data.sh) odpala się tylko przy świeżym, pustym wolumenie, więc
+# na istniejącej instancji (np. VPS) trzeba to donieść ręcznie. Wymaga
+# RAG_DB_USER/RAG_DB_PASSWORD/RAG_DB w .env. Idempotentne — bezpieczne do
+# odpalenia ponownie, jeśli user/baza już istnieją.
+add-rag-db:
+	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "CREATE USER $(RAG_DB_USER) WITH PASSWORD '$(RAG_DB_PASSWORD)';" || true
+	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "CREATE DATABASE $(RAG_DB) OWNER $(RAG_DB_USER);" || true
 
 backup:
 	@mkdir -p ./backups
