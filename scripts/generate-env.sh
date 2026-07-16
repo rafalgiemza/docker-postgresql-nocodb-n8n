@@ -35,3 +35,13 @@ done < "$ENV_EXAMPLE"
 
 echo "✅ Generated $ENV_FILE ($COUNT secret(s) randomized)"
 echo "⚠️  Never commit .env to git — review non-secret values (hosts, versions) before deploying."
+
+PLACEHOLDERS="$(grep -E '^[A-Z0-9_]+=.*PLACEHOLDER' "$ENV_FILE" | cut -d= -f1 || true)"
+if [[ -n "$PLACEHOLDERS" ]]; then
+    echo
+    echo "⚠️  These values still need to be filled in manually (not random secrets —"
+    echo "    external API keys/tokens or a fixed-length IV) or the app will run with"
+    echo "    the literal placeholder string as its \"secret\":"
+    echo "$PLACEHOLDERS" | sed 's/^/    - /'
+    echo "    Run ./scripts/fill-env-secrets.sh to fill them in interactively."
+fi
