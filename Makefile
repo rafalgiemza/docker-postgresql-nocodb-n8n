@@ -8,7 +8,7 @@ DC_CMD = docker compose -f docker-compose.yml
 LATEST_TS := $(shell ls -1t ./backups/appdata_*.sql 2>/dev/null | head -n 1 | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}')
 RESTORE_TS ?= $(LATEST_TS)
 
-.PHONY: help init init-env config up down restart pull ps logs migrate seed seed-demo backup backup-prune restore wire-apps add-rag-db
+.PHONY: help init init-env config up down restart pull ps versions logs migrate seed seed-demo backup backup-prune restore wire-apps add-rag-db
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -36,6 +36,9 @@ pull: ## Pull the latest images for all services
 
 ps: ## Show container status
 	$(DC_CMD) ps
+
+versions: ## Print actual running versions of all services (not just .env tags)
+	./scripts/versions.sh
 
 logs: ## Tail logs for all services (Ctrl+C to stop)
 	$(DC_CMD) logs -f
