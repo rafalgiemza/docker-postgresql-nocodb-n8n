@@ -31,6 +31,7 @@ apt-get update -qq
 apt-get upgrade -y -qq
 apt-get install -y -qq \
     git \
+    make \
     curl \
     wget \
     ca-certificates \
