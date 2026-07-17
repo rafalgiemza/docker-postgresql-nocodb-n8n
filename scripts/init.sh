@@ -2,9 +2,10 @@
 
 # First-time environment setup for a fresh server: generates .env with
 # random secrets, prompts for the two values you must supply yourself up
-# front (OpenRouter key, deployment domain), and reports which remaining
-# placeholders need a manual step later because they depend on the stack
-# already running (Beszel agent token, NocoDB/n8n API tokens).
+# front (OpenRouter key, deployment domain), lists the DNS A records to add
+# for the resulting *_HOST values, and reports which remaining placeholders
+# need a manual step later because they depend on the stack already running
+# (Beszel agent token, NocoDB/n8n API tokens).
 #
 # Refuses to run if ./backups already has dump files — that means this is
 # a restore target (use 'make restore'), not a fresh server.
@@ -47,10 +48,20 @@ if [[ -n "$DOMAIN" ]]; then
 fi
 
 echo
+echo "==> Rekordy DNS do dodania"
+SERVER_IP="$(curl -fsSL --max-time 3 https://api.ipify.org || curl -fsSL --max-time 3 https://ifconfig.me || true)"
+SERVER_IP="${SERVER_IP:-<adres IP serwera>}"
+echo "Dodaj w panelu domeny rekordy A wskazujące na $SERVER_IP:"
+grep -E '^[A-Z0-9_]+_HOST=' "$ENV_FILE" | while IFS='=' read -r name host; do
+    printf "  %-24s A    %s\n" "$host" "$SERVER_IP"
+done
+echo "Bez tego Caddy nie wystawi certyfikatów Let's Encrypt przy 'make up'."
+
+echo
 echo "Gotowe. Te placeholdery zostają do ręcznego wypełnienia — wymagają, żeby"
 echo "stack już działał, więc nie da się ich wygenerować teraz:"
 echo "  - BESZEL_AGENT_KEY — wklej po pierwszym zalogowaniu do Beszel hub (Add System)"
 echo "  - NC_API_TOKEN, N8N_API_KEY — patrz docs/init-nocodb.md, potem 'make wire-apps'"
 echo "Uruchom ./scripts/fill-env-secrets.sh, żeby wypełnić je interaktywnie, gdy będą gotowe."
 echo
-echo "Następny krok: make up"
+echo "Następny krok: ustaw powyższe DNS, poczekaj na propagację, potem 'make up'"
