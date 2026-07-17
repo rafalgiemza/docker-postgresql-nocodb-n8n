@@ -40,10 +40,11 @@ else
 fi
 
 # Restricted role NocoDB connects with as an external Base. It only gets CONNECT here —
-# NOT "GRANT ALL PRIVILEGES", unlike the old single-user setup. USAGE/SELECT/INSERT/UPDATE/DELETE
-# on schema `crm` (and REVOKE on schema `appdata`) are granted by schema.sql section 14
-# once that schema exists, since it can't be created here
-# (init-data.sh runs once, before any migration, on a fresh Postgres volume).
+# NOT "GRANT ALL PRIVILEGES", unlike the old single-user setup. NocoDB is the tool used
+# to design the `crm` schema itself (Creator/Editor separation is enforced by NocoDB's
+# own collaborator roles, not by Postgres grants) — so this role gets CREATE+USAGE on
+# `crm` directly here, and a default search_path so NocoDB's unqualified
+# `CREATE TABLE "x" (...)` lands in `crm`, not `public`.
 if [ -n "${NOCODB_CRM_USER:-}" ] && [ -n "${NOCODB_CRM_PASSWORD:-}" ] && [ -n "${APP_DB:-}" ]; then
 	psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
 		CREATE USER ${NOCODB_CRM_USER} WITH PASSWORD '${NOCODB_CRM_PASSWORD}';
@@ -51,6 +52,9 @@ if [ -n "${NOCODB_CRM_USER:-}" ] && [ -n "${NOCODB_CRM_PASSWORD:-}" ] && [ -n "$
 	EOSQL
 	psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$APP_DB" <<-EOSQL
 		REVOKE CREATE ON SCHEMA public FROM ${NOCODB_CRM_USER};
+		CREATE SCHEMA IF NOT EXISTS crm AUTHORIZATION ${POSTGRES_USER};
+		GRANT CREATE, USAGE ON SCHEMA crm TO ${NOCODB_CRM_USER};
+		ALTER ROLE ${NOCODB_CRM_USER} IN DATABASE ${APP_DB} SET search_path TO crm;
 	EOSQL
 else
 	echo "SETUP INFO: No Environment variables given for the NocoDB CRM user!"

@@ -17,8 +17,8 @@ Bazowane na `.ai/PRD.md` (architektura docelowa) i `.ai/backups.md` (poprawki do
 | 3 osobne bazy w jednym Postgresie: `n8n`, `nocodb`, `appdata` | ✅ **już zgodne z `.ai/backups.md`** | `scripts/init-data.sh`, `.env.example` |
 | Caddy + TLS dla n8n i nocodb | ✅ gotowe | `Caddyfile` |
 | Backup | ✅ gotowe — dumpuje `n8n`/`nocodb`/`appdata` + role (`--roles-only`) + tar attachmentów NocoDB + Mongo do `./backups/`, offsite przez `restic`+`rclone` (dedup, incremental, retencja `--keep-last/--keep-daily/--keep-weekly`); cron na VPS do dodania (patrz setup notes w skrypcie) | `backup/backup.sh`, `backup/mikrus-backup.env.example`, `Makefile` |
-| NocoDB dostęp do danych biznesowych | ✅ gotowe — role rozdzielone (`appdata_owner` / `nocodb_crm_user`), `GRANT ALL PRIVILEGES` usunięty, granty na `crm.*` wgrane | `scripts/init-data.sh`, `.env.example`, `schema.sql` §14 |
-| Schemat danych CRM | ✅ gotowe — pełny model wg PRD §2 (rdzeń, audyt, oferty + trigger cenowy, widoki `crm.v_*`, granty) | `schema.sql`, `seed.sql` |
+| NocoDB dostęp do danych biznesowych | ✅ gotowe — role rozdzielone (`appdata_owner` / `nocodb_crm_user`), `GRANT ALL PRIVILEGES` usunięty; `nocodb_crm_user` ma teraz `CREATE`+`USAGE` na `crm` (nie tylko DML) i domyślny `search_path=crm`, bo NocoDB samo tworzy tabele (patrz §2.2 poniżej) | `scripts/init-data.sh` |
+| Schemat danych CRM | ❌ **nie istnieje** — `schema.sql`/`seed.sql`/`seed_demo.sql` (1027/66/150 linii, pełny model wg PRD §2) zgubione w commicie `6cdd64b big refactor` (2026-07-15): inne pliki z `docker/` zostały przeniesione do roota z zachowaniem historii, te trzy po prostu usunięte bez przeniesienia — wygląda na przeoczenie, nie decyzję. Potwierdzone 2026-07-16 na żywym VPS: baza `appdata` miała tylko schemat `public`, `crm` nie istniał wcale. Świadomie **nie odtwarzamy** starego pliku (decyzja 2026-07-16) — patrz §3, nowe podejście |
 | LibreChat + MongoDB (czat AI dla zespołu) | ✅ gotowe — minimalna instalacja (bez admin-panelu/Meilisearch/RAG API/pgvector z upstream), zero integracji z CRM, wystawione przez Caddy | `docker-compose.yml`, `librechat.yaml`, `.env.example` |
 | Segmentacja sieci Docker (`edge`/`internal`/`data`) | ❌ brak — jedna płaska sieć | — |
 | PgBouncer | ❌ brak | — |
@@ -27,7 +27,7 @@ Bazowane na `.ai/PRD.md` (architektura docelowa) i `.ai/backups.md` (poprawki do
 | Uptime Kuma | ✅ gotowe — monitoring/alerting po incydencie 2026-07-14 (post-mortem/tasks.md Task 1), wystawiony przez Caddy na `STATUS_HOST`, monitory/kanały alertów do skonfigurowania ręcznie w UI po pierwszym uruchomieniu | `docker-compose.yml`, `fragments/uptime-kuma.yml`, `Caddyfile`, `.env.example` |
 | Job queue / triggery cenowe / historia etapów | ❌ brak | — |
 
-**Wniosek:** infrastruktura bazowa (VPS + n8n + NocoDB + Postgres + Caddy) jest na dobrym poziomie i już realizuje zalecenia z `backups.md`. Naprawa dostępu NocoDB (§2.2) i schemat bazy (§3) są gotowe. Priorytetem MVP jest teraz pipeline n8n/NocoDB (FAZA 3, §4) kończący się na **gotowej, wycenionej ofercie w danych** — bez renderowania pliku.
+**Wniosek:** infrastruktura bazowa (VPS + n8n + NocoDB + Postgres + Caddy) jest na dobrym poziomie i już realizuje zalecenia z `backups.md`. Naprawa dostępu NocoDB (§2.2) jest gotowa, ale schemat bazy (§3) trzeba zbudować od zera w NocoDB — `schema.sql` zgubiony w refaktorze 2026-07-15, świadomie nieodtwarzany. Priorytetem jest teraz odbudowa tabel CRM w NocoDB, dopiero potem pipeline n8n/NocoDB (FAZA 3, §4) kończący się na **gotowej, wycenionej ofercie w danych** — bez renderowania pliku.
 
 ---
 
@@ -44,23 +44,24 @@ Zostajemy przy **3 fizycznych bazach** w jednym klastrze Postgresa (już tak jes
 
 Powód (z `backups.md`): widoki nie mogą odpytywać danych z innej *fizycznej* bazy — muszą żyć w tej samej bazie co tabele źródłowe, stąd podział na schematy, nie na bazy.
 
-### 2.2 Naprawa dostępu NocoDB → appdata ✅ zrobione
-Zrobione — `appdata_owner` (właściciel, migracje/seed) i `nocodb_crm_user` (rola NocoDB, tylko `crm.*`) rozdzielone w `scripts/init-data.sh` + `.env.example`, grant na `crm.*` wgrany w `schema.sql` §14. Analogiczna rola `n8n_crm_user` (scoped na `crm.v_offer_builder`) dodana w `schema.sql` §15 pod FAZĘ 3.
+### 2.2 Naprawa dostępu NocoDB → appdata ✅ zrobione (zaktualizowane 2026-07-16)
+`appdata_owner` (właściciel, migracje/seed — dziś bez realnego użytku, bo nie ma czego migrować, patrz §3) i `nocodb_crm_user` (rola NocoDB) rozdzielone w `scripts/init-data.sh` + `.env.example`.
 
-Docelowy kształt (zrealizowany):
+**Zmiana architektury (2026-07-16):** ponieważ `schema.sql` nie istnieje (§3) i tabele CRM powstają teraz przez klikanie w NocoDB (Creator UI na schemacie `crm`), `nocodb_crm_user` musi mieć `CREATE` — nie tylko DML jak pierwotnie zakładano. Rozdział "kto może zmieniać schemat" pilnuje **rola NocoDB** (Creator vs Editor przy zapraszaniu współpracowników do Base'a), nie grant w Postgresie. `n8n_crm_user` zostaje bez `CREATE` (n8n nigdy nie projektuje schematu) — ale też nie ma dziś żadnych widoków do odpytania (`crm.v_offer_builder` nie istnieje, patrz §3), więc FAZA 3 punkty zależne od tego widoku wymagają ponownej weryfikacji.
+
+Aktualny kształt (`scripts/init-data.sh`, zrealizowany):
 ```sql
--- właściciel danych (migracje, seed) — NIE używany przez NocoDB
+-- właściciel danych appdata — dziś bez realnego zastosowania (nie ma migracji do uruchamiania)
 CREATE ROLE appdata_owner WITH LOGIN PASSWORD '...';
 
--- rola, którą łączy się NocoDB jako external Base
+-- rola, którą łączy się NocoDB jako external Base — TERAZ z CREATE, bo NocoDB projektuje schemat
 CREATE ROLE nocodb_crm_user WITH LOGIN PASSWORD '...';
 GRANT CONNECT ON DATABASE appdata TO nocodb_crm_user;
-GRANT USAGE ON SCHEMA crm TO nocodb_crm_user;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA crm TO nocodb_crm_user;
-REVOKE ALL ON SCHEMA appdata FROM nocodb_crm_user;
-REVOKE CREATE ON SCHEMA public FROM nocodb_crm_user;  -- krytyczne, patrz PRD §8.2
+REVOKE CREATE ON SCHEMA public FROM nocodb_crm_user;  -- krytyczne, patrz PRD §8.2 — public nadal zablokowany
+CREATE SCHEMA IF NOT EXISTS crm AUTHORIZATION postgres;
+GRANT CREATE, USAGE ON SCHEMA crm TO nocodb_crm_user;
+ALTER ROLE nocodb_crm_user IN DATABASE appdata SET search_path TO crm;  -- inaczej CREATE TABLE bez prefiksu leci na public i wywala 42501
 ```
-Zmiana w `.env.example` + `scripts/init-data.sh`: dodać `APPDATA_OWNER_*` i `NOCODB_CRM_USER_*`, usunąć `GRANT ALL PRIVILEGES` dla NocoDB.
 
 ### 2.3 Sieci Docker
 Dodać segmentację z PRD §1.2 do `docker-compose.yml`:
@@ -83,23 +84,17 @@ Dodane wcześniej niż pierwotnie zakładano (klient/Rafał zdecydowali się nie
 
 ---
 
-## 3. Schemat bazy danych — pisany od zera ✅ zrobione
+## 3. Schemat bazy danych — ❌ porzucony jako plik SQL, tabele powstają w NocoDB (zmiana 2026-07-16)
 
-`schema.sql` (930 linii) i `seed.sql` napisane wg PRD §2 od zera i wgrywane przez `scripts/app_migrate.sh`. Zawiera wszystkie sekcje z porządku deklaracji niżej, docelowe widoki `crm.v_*` (§2.7) oraz granty dla `nocodb_crm_user` i `n8n_crm_user`. Reszta tego paragrafu to spec, wg którego plik został napisany — zostawiona jako odniesienie.
+**Historia:** `schema.sql` (1027 linii), `seed.sql` (66) i `seed_demo.sql` (150) zostały napisane wg PRD §2 i wgrywane przez `scripts/app_migrate.sh` — ale zniknęły z repo w commicie `6cdd64b big refactor` (2026-07-15), najprawdopodobniej przez przeoczenie przy przenoszeniu `docker/*` do roota (inne pliki tego samego refaktoru mają zachowaną historię jako rename, te trzy są czystym usunięciem). Potwierdzone empirycznie 2026-07-16: na żywym VPS baza `appdata` miała tylko schemat `public`, `crm` nie istniał — więc utrata jest realna, nie tylko w plikach repo.
 
-**Decyzja (faza testowa, greenfield):** *nie* wdrażamy jeszcze wersjonowanych migracji (dbmate) — ani test, ani prod jeszcze nie istnieją, więc nie ma nic do zachowania między wdrożeniami. Jeden płaski, w pełni re-runnable `schema.sql` (zaczynający się od `DROP SCHEMA IF EXISTS appdata/crm CASCADE`) jest szybszy do iterowania w tej fazie i unika narzutu obsługi migracji, których jeszcze nikt nie musi cofać na żywych danych. Wprowadzenie dbmate wraca jako ostatni krok w FAZIE 6, gdy powstanie pierwsze środowisko z danymi do zachowania (patrz §4, FAZA 6, punkt 6).
+**Decyzja (2026-07-16): świadomie NIE odtwarzamy tego pliku z historii gita.** Zamiast tego: tabele w schemacie `crm` powstają bezpośrednio przez UI NocoDB (Creator rola projektuje strukturę, Editor rola tylko edytuje dane — patrz §2.2). Powód: NocoDB i tak miało być jedynym miejscem pracy z danymi na co dzień, więc odtwarzanie 1027-linijkowego pliku SQL tylko po to, żeby potem tabele tworzyć raz i nie ruszać, nie dawało zwrotu — iteracja przez UI jest szybsza na tym etapie (greenfield, faza testowa, zgodnie z filozofią "nie ma nic do zachowania" poniżej).
 
-Sekcje pliku `schema.sql`, w kolejności deklaracji (tabele w porządku topologicznym względem FK, bez potrzeby migracji między-plikowych): schematy+rozszerzenia → enumy → trigger helper `set_updated_at()` → rdzeń (`users`→`organizations`→`people`→`clients`) → `files` → `pricing_tiers`+`offer_templates` → `opportunities`+historia etapów → `discovery_calls` → audyt (`participants`→`audits`→`audit_scores`→`recommendations`→`recommendation_goals`) → `transcripts`+`extractions` → `offers`+`offer_items` (+ trigger cenowy) → `testimonials`+`offer_snapshots` → `tasks`+`job_queue` → widoki `crm.*` (7 z PRD §2.7 + `v_opportunity_dates` + `v_opportunity_notes`, ta ostatnia z tabelą `opportunity_notes`) → granty dla `nocodb_crm_user`.
-
-Kluczowe elementy nie do pominięcia (z PRD, ryzykowne miejsca):
-- `search_tsv` z `to_tsvector('simple', ...)` — **nie `'polish'`**, transkrypty są dwujęzyczne
-- trigger cenowy `BEFORE/AFTER` na `offer_items` → przelicza `offers.total_hours`/`total_price_pln`; **cena nigdy nie przychodzi z NocoDB/n8n**
-- trigger `AFTER UPDATE OF stage ON opportunities` → zapis do `opportunity_stage_history`
-- `job_queue` z `FOR UPDATE SKIP LOCKED` zamiast Redis/Celery
-
-Dane referencyjne do zasiania (`0011_seed_...`): cennik ze slajdu 8 (PRD §2.5), katalog testimoniali (slajdy 12–24), lista userów (Przemek, Ola/Dorota jako auditorzy).
-
-> Migracja **danych biznesowych** z Excela (1600 rekordów, PRD §3) to osobny, jednorazowy skrypt Python (`openpyxl`+`psycopg`) uruchamiany **po** wdrożeniu schematu na docelowym środowisku — to nie jest migracja schematu, tylko import danych, i zostaje w planie jako Faza 6.
+**Co to oznacza w praktyce:**
+- Brak wersjonowania struktury tabel w gicie — jedynym śladem "jak wygląda schemat" jest stan żywej bazy + `pg_dump` w backupach (patrz `backup/backup.sh`, już to łapie poprawnie).
+- Rzeczy, których NocoDB nie wyklika — trigger cenowy (`offer_items` → przelicza `offers.total_hours`/`total_price_pln`, **cena nigdy nie przychodzi z NocoDB/n8n**), trigger historii etapów, widoki `crm.v_*` dla n8n (np. `v_offer_builder`) — nadal wymagają ręcznego SQL, ale **małego, dopisywanego SQL gdy faktycznie potrzebny**, nie jednego dużego pliku z góry. Trzymać go w repo (np. `crm-views-and-triggers.sql`) w miarę powstawania.
+- **FAZA 3 poniżej zakłada, że `crm.v_offer_builder` i dane z `seed_demo.sql` już istnieją — to nieaktualne, wymaga ponownej weryfikacji/odbudowy skoro cały `crm` startuje teraz od zera.**
+- Import danych z Excela (1600 rekordów, PRD §3, Faza 6) — nadal aktualny jako osobny skrypt Python, ale dopiero gdy docelowe tabele powstaną w NocoDB.
 
 ---
 
@@ -113,20 +108,20 @@ Dane referencyjne do zasiania (`0011_seed_...`): cennik ze slajdu 8 (PRD §2.5),
 5. Domena `back-office.coaction.pl` w Caddy (decyzja z PRD §11 — już zaakceptowana przez klienta) — mechanizm gotowy i przetestowany na UAT (`back-office.giemza.dev`), samo `coaction.pl` czeka na DNS od klienta, patrz FAZA 7
 6. PgBouncer — **odłożony razem z crm-api** (§6); jego jedyny konsument w PRD to `crm-api`, więc bez sensu wdrażać wcześniej
 
-### FAZA 2 — Baza danych ✅ zrobione
-1. ✅ `schema.sql` z §3 wyżej (w Git, wgrywany przez `scripts/app_migrate.sh`)
-2. ✅ Seed: `pricing_tiers`, `testimonials`, `users` (dane placeholder, `seed.sql` — realne dane wchodzą w Fazie 6)
-3. ✅ Widoki `crm.v_*` + `INSTEAD OF` triggery gdzie trzeba
-4. ✅ Grant `nocodb_crm_user` tylko na `crm.*`, `REVOKE CREATE ON SCHEMA appdata/public`
-5. ✅ Trigger cenowy i trigger historii etapów działają niezależnie od renderera — to one dają efekt „cena przelicza się na żywo" w demo
+### FAZA 2 — Baza danych ❌ do zrobienia od zera (schema.sql zgubiony, patrz §3)
+1. ❌ Tabele CRM — budowane teraz przez NocoDB Creator UI na schemacie `crm` (nie ma już `schema.sql`/`app_migrate.sh` jako ścieżki wdrożenia)
+2. ❌ Seed: `pricing_tiers`, `testimonials`, `users` — `seed.sql`/`seed_demo.sql` zgubione razem ze schematem, dane trzeba wprowadzić ręcznie w NocoDB (albo małym, nowym skryptem, gdy tabele już istnieją)
+3. ❌ Widoki `crm.v_*` (w tym `v_offer_builder` potrzebny w FAZIE 3) — nie istnieją, do odtworzenia jako osobny, mały SQL dopiero gdy tabele bazowe będą gotowe w NocoDB
+4. ✅ Grant `nocodb_crm_user` — zaktualizowany 2026-07-16: `CREATE`+`USAGE` na `crm` (nie tylko DML), `REVOKE CREATE ON SCHEMA public` — patrz §2.2
+5. ❌ Trigger cenowy i trigger historii etapów — nie istnieją, do napisania jako SQL gdy tabele `offers`/`offer_items`/`opportunities` powstaną w NocoDB
 
-### FAZA 3 — n8n + NocoDB (offer builder, bez generowania pliku) 🟡 w trakcie
-Pełny runbook: `README.md` §„FAZA 3 — Offer Builder (n8n + NocoDB)".
-0. ✅ Fixture danych demo (`seed_demo.sql` + `make seed-demo`) — jedna kompletna oferta (client→opportunity→audit→recommendation→offer, 2 pozycje) do otwarcia w `crm.v_offer_builder`, który wspiera tylko SELECT/UPDATE, nie INSERT. Re-runnable.
+### FAZA 3 — n8n + NocoDB (offer builder, bez generowania pliku) 🟡 w trakcie — ⚠️ punkty 0/2/4 do re-weryfikacji, patrz §3
+Pełny runbook: `README.md` §„FAZA 3 — Offer Builder (n8n + NocoDB)". **Uwaga (2026-07-16):** poniższe ✅ zakładają, że `crm.v_offer_builder` i dane z `seed_demo.sql` istnieją — od czasu utraty `schema.sql` (§3) to nieprawda na żywym VPS (potwierdzone: `appdata` miał tylko `public`). Status trzeba sprawdzić ponownie i odtworzyć po zbudowaniu tabel w NocoDB.
+0. ⚠️ (było ✅) Fixture danych demo (`seed_demo.sql` + `make seed-demo`) — jedna kompletna oferta (client→opportunity→audit→recommendation→offer, 2 pozycje) do otwarcia w `crm.v_offer_builder`. Plik zgubiony razem ze schematem — do odtworzenia po zbudowaniu tabel bazowych w NocoDB.
 1. 🟡 n8n: credential Postgres do `n8n_crm_user` — udokumentowany (host/user/hasło z `.env`), ale **jeszcze nie utworzony w n8n UI** (krok ręczny, poza zasięgiem automatyzacji). Git sync workflowów: potwierdzone z użytkownikiem, że n8n tu jest Community Edition (bez natywnego Source Control) — wersjonowanie robimy ręcznym `n8n export:workflow --all`, udokumentowane w runbooku. Anthropic/NocoDB API credentiale — nadal do zrobienia (FAZA 5 dla Anthropic; NocoDB API tylko jeśli wrócimy do PATCH statusu generowania, poza zakresem MVP).
-2. ✅ WF-6 okrojone (`n8n-workflows/wf6-zatwierdz-oferte.json`): Webhook → `UPDATE crm.v_offer_builder SET status='ready' WHERE offer_id=$1` → Respond. Zweryfikowany przez `n8n import:workflow` na lokalnym n8n (2.27.5) — importuje się czysto, żadnych ostrzeżeń o wersjach node'ów. Pozostaje: podpięcie prawdziwego credentiala i aktywacja w UI (placeholder `REPLACE_W_UI` w pliku celowo — sekrety nie idą do Gita).
-3. 🟡 NocoDB: widok „Offer Builder" — mapowanie pól na PRD §5 (okrojone, bez `Szablon`/`Status generowania`/`⬇ PPTX`/`⬇ PDF`) udokumentowane w runbooku; budowa samego widoku w NocoDB UI jeszcze nie zrobiona.
-4. ✅ Test pętli `60h → 45h` zweryfikowany na poziomie SQL: `UPDATE crm.v_offer_builder SET item1_hours=45, item1_pricing_tier_id=(...)` → `total_price_pln` 20400.00 → 16500.00 PLN natychmiast (trigger PG, bez udziału n8n). Pozostaje powtórzyć klikając w NocoDB UI po zbudowaniu widoku (pkt 3).
+2. ⚠️ (było ✅) WF-6 okrojone (`n8n-workflows/wf6-zatwierdz-oferte.json`): Webhook → `UPDATE crm.v_offer_builder SET status='ready' WHERE offer_id=$1` → Respond. Workflow JSON sam w sobie jest OK (zweryfikowany przez `n8n import:workflow`), ale odwołuje się do widoku `crm.v_offer_builder`, który dziś nie istnieje — nie zadziała, dopóki widok nie zostanie odtworzony.
+3. 🟡 NocoDB: widok „Offer Builder" — mapowanie pól na PRD §5 (okrojone, bez `Szablon`/`Status generowania`/`⬇ PPTX`/`⬇ PDF`) udokumentowane w runbooku; budowa samego widoku w NocoDB UI jeszcze nie zrobiona. Teraz zależy też od tego, czy tabele bazowe (`opportunities`, `offers`, `offer_items`...) w ogóle istnieją w `crm` — dziś nie istnieją.
+4. ⚠️ (było ✅) Test pętli `60h → 45h` — zależał od triggera cenowego ze zgubionego `schema.sql`; do odtworzenia (trigger + tabele) i przetestowania od nowa po zbudowaniu struktury w NocoDB.
 
 ### FAZA 4 — DEMO 🎯 (bez pliku wyjściowego)
 Przemek otwiera rekord, zmienia `60h → 45h`, widzi przeliczoną cenę, zmienia testimoniale, klika „Zatwierdź ofertę" → status `ready`. Payoff demo to **żywa wycena i dobór treści**, nie plik PPTX.

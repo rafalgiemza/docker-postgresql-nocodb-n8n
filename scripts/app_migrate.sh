@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
-source .env
+# .env vars come from the Makefile (`include .env` + `export`), not a bash
+# `source` here — bash's own parser chokes on unquoted values containing
+# spaces (e.g. BESZEL_AGENT_KEY's ssh-ed25519 value), unlike Make's.
 
 # init-data.sh (który normalnie tworzy te role) uruchamia się tylko raz, przy
 # pierwszej inicjalizacji wolumenu Postgresa. Na środowiskach z już istniejącym
@@ -39,6 +41,6 @@ echo "🚀 Run migrations for db ${APP_DB}..."
 # Możesz użyć dedykowanego narzędzia (np. Atlas, Prisma, Liquibase) lub czystego psql:
 docker exec -i docker-postgres-1 psql -v ON_ERROR_STOP=1 \
   --username "${APPDATA_OWNER_USER}" \
-  --dbname "${APP_DB}" < ./schema.sql
+  --dbname "${APP_DB}" < ./appdata/appdata_schema.sql
 
 echo "✅ Success."

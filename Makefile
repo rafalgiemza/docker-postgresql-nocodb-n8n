@@ -37,7 +37,7 @@ ps: ## Show container status
 logs: ## Tail logs for all services (Ctrl+C to stop)
 	$(DC_CMD) logs -f
 
-migrate: ## Apply schema.sql to appdata (see app_migrate.sh)
+migrate: ## Apply appdata/appdata_schema.sql to appdata (see app_migrate.sh)
 	./scripts/app_migrate.sh
 
 seed: ## Load reference data (pricing tiers, testimonials, users)
