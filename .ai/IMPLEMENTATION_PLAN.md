@@ -32,7 +32,6 @@ dla kontekstu, dlaczego ten plan wygląda inaczej niż wcześniej.
 | Beszel | ✅ monitoring zasobów per-kontener | `fragments/beszel.yml` |
 | Budibase | ✅ dodany 2026-07-18, własny CouchDB+Redis, reużywa wspólne MinIO | `fragments/budibase.yml` |
 | Sieci Docker segmentowane (`edge`/`internal`/`data`) | ❌ brak — jedna płaska sieć (nieblokujące: bez `crm-api` nie ma dziś serwisu wymagającego izolacji `internal`) | — |
-| PgBouncer | ❌ brak — jedyny planowany konsument (`crm-api`) jest dziś otwartym pytaniem, więc to nieblokujące | — |
 
 ## 2. Model danych CRM (NocoDB-native, `.ai/PRD.md` §5)
 
@@ -55,7 +54,7 @@ migracji/powtórzenia.
 1. ✅ 2× VPS PRO wykupione, stack wdrożony na obu (patrz §1)
 2. ❌ Backup offsite: cron na serwerach + wybór dostawcy (Backblaze B2 / Hetzner Storage Box) — `.ai/PRD.md` §14 pkt 2
 3. Domena `coaction.pl` w Caddy — mechanizm gotowy i przetestowany na UAT (`*.giemza.dev`), samo DNS czeka na klienta
-4. Sieci Docker (`edge`/`internal`/`data`) i PgBouncer — odłożone, bez aktualnego konsumenta (patrz §1)
+4. Sieci Docker (`edge`/`internal`/`data`) — odłożone, bez aktualnego konsumenta (patrz §1)
 
 ### FAZA 2 — Model danych CRM (NocoDB-native)
 1. ✅ Schemat 9 tabel zaprojektowany i wdrożony ("CoAction TEST Base")
