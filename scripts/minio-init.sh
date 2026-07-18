@@ -49,4 +49,50 @@ mc admin policy create local nocodb-attachments /tmp/nocodb-attachments-policy.j
 mc admin user add local "${NOCODB_MINIO_ACCESS_KEY}" "${NOCODB_MINIO_SECRET_KEY}"
 mc admin policy attach local nocodb-attachments --user "${NOCODB_MINIO_ACCESS_KEY}" 2>/dev/null || true
 
-echo "MinIO buckets + nocodb user ready."
+# Budibase's 6 fixed bucket names (see fragments/budibase.yml) — pre-created
+# here so Budibase's own createBucketIfNotExists() finds them via headBucket
+# and never needs s3:CreateBucket rights on the shared MinIO instance.
+mc mb --ignore-existing "local/${MINIO_BUCKET_BUDIBASE_APPS}"
+mc mb --ignore-existing "local/${MINIO_BUCKET_BUDIBASE_GLOBAL}"
+mc mb --ignore-existing "local/${MINIO_BUCKET_BUDIBASE_TEMPLATES}"
+mc mb --ignore-existing "local/${MINIO_BUCKET_BUDIBASE_BACKUPS}"
+mc mb --ignore-existing "local/${MINIO_BUCKET_BUDIBASE_PLUGINS}"
+mc mb --ignore-existing "local/${MINIO_BUCKET_BUDIBASE_TEMP}"
+
+cat > /tmp/budibase-policy.json <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+      "Resource": [
+        "arn:aws:s3:::${MINIO_BUCKET_BUDIBASE_APPS}/*",
+        "arn:aws:s3:::${MINIO_BUCKET_BUDIBASE_GLOBAL}/*",
+        "arn:aws:s3:::${MINIO_BUCKET_BUDIBASE_TEMPLATES}/*",
+        "arn:aws:s3:::${MINIO_BUCKET_BUDIBASE_BACKUPS}/*",
+        "arn:aws:s3:::${MINIO_BUCKET_BUDIBASE_PLUGINS}/*",
+        "arn:aws:s3:::${MINIO_BUCKET_BUDIBASE_TEMP}/*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket"],
+      "Resource": [
+        "arn:aws:s3:::${MINIO_BUCKET_BUDIBASE_APPS}",
+        "arn:aws:s3:::${MINIO_BUCKET_BUDIBASE_GLOBAL}",
+        "arn:aws:s3:::${MINIO_BUCKET_BUDIBASE_TEMPLATES}",
+        "arn:aws:s3:::${MINIO_BUCKET_BUDIBASE_BACKUPS}",
+        "arn:aws:s3:::${MINIO_BUCKET_BUDIBASE_PLUGINS}",
+        "arn:aws:s3:::${MINIO_BUCKET_BUDIBASE_TEMP}"
+      ]
+    }
+  ]
+}
+EOF
+
+mc admin policy create local budibase-buckets /tmp/budibase-policy.json
+mc admin user add local "${BUDIBASE_MINIO_ACCESS_KEY}" "${BUDIBASE_MINIO_SECRET_KEY}"
+mc admin policy attach local budibase-buckets --user "${BUDIBASE_MINIO_ACCESS_KEY}" 2>/dev/null || true
+
+echo "MinIO buckets + nocodb/budibase users ready."

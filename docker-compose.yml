@@ -32,6 +32,7 @@ include:
   - fragments/librechat.yml
   - fragments/uptime-kuma.yml
   - fragments/beszel.yml
+  - fragments/budibase.yml
   - fragments/caddy.yml
   - fragments/autoheal.yml
 
@@ -48,6 +49,8 @@ volumes:
   caddy_config:
   kuma_storage:
   beszel_data:
+  budibase_couchdb_storage:
+  budibase_redis_storage:
 
 networks:
   default: {}

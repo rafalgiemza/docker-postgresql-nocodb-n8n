@@ -1,0 +1,190 @@
+# Budibase — low-code internal-tools/app builder. Unlike NocoDB/n8n above,
+# Budibase can't share the existing Postgres instance for its own state: it
+# only supports CouchDB internally (hard requirement, no swappable backend),
+# so this fragment adds a dedicated couchdb + redis pair just for Budibase.
+#
+# File/asset storage DOES reuse the shared MinIO instance (fragments/minio.yml)
+# instead of Budibase's own bundled minio-service, via 6 pre-created buckets +
+# a scoped user — see scripts/minio-init.sh. MINIO_URL is set to the same
+# public ${MINIO_ENDPOINT} NocoDB already uses (not the internal http://minio:9000),
+# with MINIO_ENABLED=false: Budibase hardcodes presigned-URL signing to a
+# literal "minio-service" host when MINIO_ENABLED is truthy (its own proxy's
+# nginx rewrites that virtual host to its bundled minio-service), which our
+# shared MinIO isn't named. Disabling it makes Budibase sign presigned URLs
+# against MINIO_URL directly — the same public-hostname-via-Caddy-alias trick
+# already proven working for NocoDB's presigned attachment links.
+#
+# Budibase's optional LiteLLM AI-proxy sub-stack (its own embedded Postgres,
+# used only for in-app AI features) is deliberately left out — not needed for
+# core app-builder functionality, and this repo already has OPENROUTER_API_KEY
+# for AI elsewhere.
+#
+# 4 backing services (couchdb/redis/app/worker) are internal-only, no
+# published ports — same pattern as fragments/mongodb.yml. budibase-proxy is
+# the single entrypoint Caddy talks to (same pattern as n8n/nocodb/librechat).
+services:
+  budibase-couchdb:
+    image: budibase/database:2.1.0
+    restart: unless-stopped
+    labels:
+      - autoheal=true
+    environment:
+      - COUCHDB_USER=${BUDIBASE_COUCHDB_USER}
+      - COUCHDB_PASSWORD=${BUDIBASE_COUCHDB_PASSWORD}
+      - TARGETBUILD=docker-compose
+    volumes:
+      - budibase_couchdb_storage:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:5984/_up || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  budibase-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    labels:
+      - autoheal=true
+    command: redis-server --requirepass "${BUDIBASE_REDIS_PASSWORD}"
+    environment:
+      - REDIS_PASSWORD=${BUDIBASE_REDIS_PASSWORD}
+    volumes:
+      - budibase_redis_storage:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+
+  budibase-app:
+    image: budibase/apps:${BUDIBASE_VERSION}
+    restart: unless-stopped
+    labels:
+      - autoheal=true
+    environment:
+      - SELF_HOSTED=1
+      - PORT=4002
+      - PLATFORM_URL=https://${BUDIBASE_HOST}
+      - COUCH_DB_URL=http://${BUDIBASE_COUCHDB_USER}:${BUDIBASE_COUCHDB_PASSWORD}@budibase-couchdb:5984
+      - WORKER_URL=http://budibase-worker:4003
+      - REDIS_URL=budibase-redis:6379
+      - REDIS_PASSWORD=${BUDIBASE_REDIS_PASSWORD}
+      - MINIO_ENABLED=false
+      - MINIO_URL=${MINIO_ENDPOINT}
+      - MINIO_ACCESS_KEY=${BUDIBASE_MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${BUDIBASE_MINIO_SECRET_KEY}
+      - APPS_BUCKET_NAME=${MINIO_BUCKET_BUDIBASE_APPS}
+      - GLOBAL_BUCKET_NAME=${MINIO_BUCKET_BUDIBASE_GLOBAL}
+      - TEMPLATES_BUCKET_NAME=${MINIO_BUCKET_BUDIBASE_TEMPLATES}
+      - BACKUPS_BUCKET_NAME=${MINIO_BUCKET_BUDIBASE_BACKUPS}
+      - PLUGIN_BUCKET_NAME=${MINIO_BUCKET_BUDIBASE_PLUGINS}
+      - TEMP_BUCKET_NAME=${MINIO_BUCKET_BUDIBASE_TEMP}
+      - API_ENCRYPTION_KEY=${BUDIBASE_API_ENCRYPTION_KEY}
+      - JWT_SECRET=${BUDIBASE_JWT_SECRET}
+      - INTERNAL_API_KEY=${BUDIBASE_INTERNAL_API_KEY}
+      - BB_ADMIN_USER_EMAIL=${BUDIBASE_ADMIN_EMAIL}
+      - BB_ADMIN_USER_PASSWORD=${BUDIBASE_ADMIN_PASSWORD}
+    depends_on:
+      budibase-couchdb:
+        condition: service_healthy
+      budibase-redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:4002/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  budibase-worker:
+    image: budibase/worker:${BUDIBASE_VERSION}
+    restart: unless-stopped
+    labels:
+      - autoheal=true
+    environment:
+      - SELF_HOSTED=1
+      - PORT=4003
+      - PLATFORM_URL=https://${BUDIBASE_HOST}
+      - COUCH_DB_URL=http://${BUDIBASE_COUCHDB_USER}:${BUDIBASE_COUCHDB_PASSWORD}@budibase-couchdb:5984
+      - COUCH_DB_USERNAME=${BUDIBASE_COUCHDB_USER}
+      - COUCH_DB_PASSWORD=${BUDIBASE_COUCHDB_PASSWORD}
+      - APPS_URL=http://budibase-app:4002
+      - REDIS_URL=budibase-redis:6379
+      - REDIS_PASSWORD=${BUDIBASE_REDIS_PASSWORD}
+      - MINIO_ENABLED=false
+      - MINIO_URL=${MINIO_ENDPOINT}
+      - MINIO_ACCESS_KEY=${BUDIBASE_MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${BUDIBASE_MINIO_SECRET_KEY}
+      - APPS_BUCKET_NAME=${MINIO_BUCKET_BUDIBASE_APPS}
+      - GLOBAL_BUCKET_NAME=${MINIO_BUCKET_BUDIBASE_GLOBAL}
+      - TEMPLATES_BUCKET_NAME=${MINIO_BUCKET_BUDIBASE_TEMPLATES}
+      - BACKUPS_BUCKET_NAME=${MINIO_BUCKET_BUDIBASE_BACKUPS}
+      - PLUGIN_BUCKET_NAME=${MINIO_BUCKET_BUDIBASE_PLUGINS}
+      - TEMP_BUCKET_NAME=${MINIO_BUCKET_BUDIBASE_TEMP}
+      - API_ENCRYPTION_KEY=${BUDIBASE_API_ENCRYPTION_KEY}
+      - JWT_SECRET=${BUDIBASE_JWT_SECRET}
+      - INTERNAL_API_KEY=${BUDIBASE_INTERNAL_API_KEY}
+    depends_on:
+      budibase-couchdb:
+        condition: service_healthy
+      budibase-redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:4003/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  budibase-proxy:
+    image: budibase/proxy:${BUDIBASE_VERSION}
+    restart: unless-stopped
+    labels:
+      - autoheal=true
+    environment:
+      - APPS_UPSTREAM_URL=http://budibase-app:4002
+      - WORKER_UPSTREAM_URL=http://budibase-worker:4003
+      - MINIO_UPSTREAM_URL=http://minio:9000
+      - COUCHDB_UPSTREAM_URL=http://budibase-couchdb:5984
+      - RESOLVER=127.0.0.11
+    ports:
+      # Loopback-only (see fragments/postgres.yml) — dev hits this directly;
+      # prod traffic goes through Caddy instead (fragments/caddy.yml).
+      - "127.0.0.1:10000:10000"
+    depends_on:
+      budibase-app:
+        condition: service_healthy
+      budibase-worker:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://localhost:10000/ || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
