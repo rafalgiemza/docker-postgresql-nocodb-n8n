@@ -1,0 +1,221 @@
+{
+  "name": "W1 - Recurring tasks from templates",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * *"
+            }
+          ]
+        }
+      },
+      "id": "node-001",
+      "name": "Every day 06:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mxpjf61n00yokq8/records?where=(active,eq,true)&limit=200",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "node-002",
+      "name": "Get templates",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        200,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records?where=(created_by_flow,eq,W1)~and(due_date,ge,{{ $now.toFormat('yyyy-MM-dd') }})&limit=1000",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "node-003",
+      "name": "Get existing tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Decide which recurring task templates are due today (simple RRULE subset).\nconst templates = $('Get templates').first().json.list || [];\nconst existing = ($input.first().json.list || [])\n  .map(r => (r.title || '') + '|' + (r.due_date || ''));\nconst now = new Date();\nconst dow = ['SU','MO','TU','WE','TH','FR','SA'][now.getDay()];\nconst dom = now.getDate();\nconst month = now.toISOString().slice(0, 7);\nconst iso = d => d.toISOString().slice(0, 10);\n\nfunction dueToday(rrule) {\n  if (!rrule) return false;\n  const p = Object.fromEntries(rrule.split(';').map(s => s.split('=')));\n  const freq = (p.FREQ || '').toUpperCase();\n  if (freq === 'DAILY') return true;\n  if (freq === 'WEEKLY') return (p.BYDAY || '').split(',').includes(dow);\n  if (freq === 'MONTHLY') return parseInt(p.BYMONTHDAY || '1', 10) === dom;\n  return false; // YEARLY etc. not supported yet - extend when needed\n}\n\nconst out = [];\nfor (const t of templates) {\n  if (!dueToday(t.rrule)) continue;\n  const due = new Date(now.getTime() + (t.due_offset_days || 0) * 86400000);\n  const title = (t.title || 'Task').replaceAll('{{month}}', month);\n  const key = title + '|' + iso(due);\n  if (existing.includes(key)) continue; // idempotency guard\n  const assignee = t.assignee\n    ? (Array.isArray(t.assignee) ? t.assignee[0].email : (t.assignee.email || t.assignee))\n    : undefined;\n  out.push({ json: { template_id: t.Id, task: {\n    title, status: 'todo', priority: 'normal',\n    description: t.description || '', due_date: iso(due),\n    created_by_flow: 'W1', assignee } } });\n}\nreturn out;"
+      },
+      "id": "node-004",
+      "name": "Parse & dedupe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.task) }}"
+      },
+      "id": "node-005",
+      "name": "Create task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build one activity row per created task.\nconst created = $input.all();\nconst src = $('Parse & dedupe').all();\nconst rows = created.map((cr, i) => ({\n  summary: `Recurring task created: ${src[i].json.task.title}`,\n  type: 'task_created', flow: 'W1', triggered_by: 'system',\n  payload: JSON.stringify({ task_id: cr.json.Id, template_id: src[i].json.template_id })\n}));\nreturn [{ json: { rows } }];"
+      },
+      "id": "node-006",
+      "name": "Build activity rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.rows) }}"
+      },
+      "id": "node-007",
+      "name": "Log activities",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every day 06:00": {
+      "main": [
+        [
+          {
+            "node": "Get templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get templates": {
+      "main": [
+        [
+          {
+            "node": "Get existing tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get existing tasks": {
+      "main": [
+        [
+          {
+            "node": "Parse & dedupe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & dedupe": {
+      "main": [
+        [
+          {
+            "node": "Create task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create task": {
+      "main": [
+        [
+          {
+            "node": "Build activity rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build activity rows": {
+      "main": [
+        [
+          {
+            "node": "Log activities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

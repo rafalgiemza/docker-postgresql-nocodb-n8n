@@ -1,7 +1,9 @@
 # coaction — wewnętrzny stack narzędziowy
 
 Docker Compose stack z narzędziami wewnętrznymi (CRM/leady, automatyzacje, chat)
-hostowany na Mikrus 4.1. Pełny kontekst decyzji, architektury i ryzyk:
+hostowany na 2× Sfera Host VPS PRO (VPS-A produkcja, VPS-B staging; migracja
+z Mikrus 4.1 zakończona 2026-07-17, patrz `post-mortem/vps-migration-decision.md`).
+Pełny kontekst decyzji, architektury i ryzyk:
 [`.ai/PRD.md`](.ai/PRD.md); stan wdrożenia i kolejne kroki:
 [`.ai/IMPLEMENTATION_PLAN.md`](.ai/IMPLEMENTATION_PLAN.md).
 

@@ -1,0 +1,783 @@
+{
+  "name": "W6a - Meeting AI pipeline (transcript -> analysis -> accept)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "w6a-meeting-ai",
+        "options": {}
+      },
+      "id": "node-037",
+      "name": "NocoDB: meetings updated",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "wh-w6a-meeting-ai"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Meeting AI pipeline guard: act only on real processing_status transitions.\nconst b = $input.first().json.body || $input.first().json;\nconst row  = (b.data && b.data.rows && b.data.rows[0]) || {};\nconst prev = (b.data && b.data.previous_rows && b.data.previous_rows[0]) || {};\nconst s = row.processing_status, p = prev.processing_status;\nif (!s || s === p) return [];\nlet branch = null;\nif (s === 'analysis_pending')\n  branch = (row.transcript && String(row.transcript).trim().length > 50)\n    ? 'analysis_pending' : 'missing_transcript';\nif (s === 'ai_accepted') branch = 'ai_accepted';\nif (s === 'ai_rejected') branch = 'ai_rejected';\nif (!branch) return [];\nconst ownerRaw = row.owner;\nconst owner = (Array.isArray(ownerRaw) ? ownerRaw[0] && ownerRaw[0].email\n              : ownerRaw && ownerRaw.email) || 'przemek.fidzina@coaction-test.pl';\nreturn [{ json: { branch, meeting_id: row.Id,\n  meeting_title: row.title || ('meeting #' + row.Id),\n  owner_email: owner, transcript: row.transcript || '' } }];"
+      },
+      "id": "node-038",
+      "name": "Guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/marzjzld5cynlfw/links/coydw2dymwf0tkf/records/{{ $json.meeting_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "node-039",
+      "name": "Get linked lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Resolve the linked lead id via the Links API (webhook rows carry only link counts).\nconst src = $('Guard').item.json;\nconst list = $input.first().json.list || [];\nconst lead_id = list[0] && (list[0].Id || list[0].id);\nreturn [{ json: { ...src, lead_id: lead_id || null } }];"
+      },
+      "id": "node-040",
+      "name": "Resolve lead",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 4,
+        "output": "={{ ['analysis_pending','ai_accepted','ai_rejected','missing_transcript'].indexOf($json.branch) }}"
+      },
+      "id": "node-041",
+      "name": "Route by status",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'anthropic/claude-sonnet-4.5', messages: [{ role: 'system', content: 'You are an assistant of an English training company (CoAction). Analyse the discovery call transcript. Extract: client goals, challenges, participant types, business context, key communication situations, and a suggested training direction (Business English / English for IT / English + Business Skills). Answer in Polish with clear headings.' },{ role: 'user', content: $('Resolve lead').item.json.transcript }] }) }}"
+      },
+      "id": "node-042",
+      "name": "Call OpenRouter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        -300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "OpenRouter"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse OpenRouter response, prepare meeting patch, verify-task and activity.\nconst src = $('Resolve lead').item.json;\nconst res = $input.first().json;\nconst content = res.choices && res.choices[0] && res.choices[0].message\n  && res.choices[0].message.content || '';\nif (!content) throw new Error('Empty LLM response: ' + JSON.stringify(res).slice(0, 400));\nreturn [{ json: { ...src,\n  patch: { Id: src.meeting_id, ai_analysis: content, processing_status: 'ai_draft_ready' },\n  task: { title: `Verify AI analysis: ${src.meeting_title}`, status: 'todo',\n          priority: 'high', assignee: src.owner_email, created_by_flow: 'W6a',\n          description: `meeting:${src.meeting_id}` },\n  activity: { summary: `AI analysis ready for meeting: ${src.meeting_title}`,\n              type: 'ai_analysis_done', flow: 'W6a', triggered_by: 'system',\n              payload: JSON.stringify({ meeting_id: src.meeting_id,\n                model: 'anthropic/claude-sonnet-4.5', usage: res.usage || null }) }\n} }];"
+      },
+      "id": "node-043",
+      "name": "Parse LLM response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/marzjzld5cynlfw/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Parse LLM response').item.json.patch) }}"
+      },
+      "id": "node-044",
+      "name": "Patch meeting (draft ready)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        -300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Parse LLM response').item.json.task) }}"
+      },
+      "id": "node-045",
+      "name": "Create verify task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1600,
+        -300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Parse LLM response').item.json.activity) }}"
+      },
+      "id": "node-046",
+      "name": "Log activity (AI done)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1800,
+        -300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/links/ca2g6r4nc84ru61/records/{{ $json.Id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Resolve lead').item.json.lead_id }]) }}"
+      },
+      "id": "node-047",
+      "name": "Link activity -> lead (AI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        -300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/mx00y54712018vc/records/{{ $json.lead_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "node-048",
+      "name": "Get lead record",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ai_accepted: route the goals task by lead type and prepare all payloads.\nconst src = $('Resolve lead').item.json;\nconst lead = $input.first().json;\nconst methodologist = lead.type === 'B2B' ? 'dorota@coaction.pl' : 'aleksandra@coaction.pl';\nconst name = lead.contact_name || ('lead #' + lead.Id);\nreturn [{ json: { ...src,\n  patch_lead: { Id: lead.Id, offer_prep_status: 'waiting_goals' },\n  task: { title: `Define training goals: ${name}`, status: 'todo', priority: 'normal',\n          assignee: methodologist, created_by_flow: 'W6a',\n          description: `lead:${lead.Id}\\nBased on accepted AI analysis of: ${src.meeting_title}` },\n  activity: { summary: `AI draft accepted, goals requested (${name})`,\n              type: 'ai_accepted', flow: 'W6a', triggered_by: 'user',\n              payload: JSON.stringify({ meeting_id: src.meeting_id, lead_id: lead.Id,\n                assigned_to: methodologist }) }\n} }];"
+      },
+      "id": "node-049",
+      "name": "Prepare accepted payloads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records?where=(description,like,%meeting:{{ $('Resolve lead').item.json.meeting_id }}%)~and(status,neq,done)&limit=20",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "node-050",
+      "name": "Find open verify tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mark all open verify-tasks of this meeting as done (bulk PATCH payload).\nconst tasks = $input.first().json.list || [];\nconst patches = tasks.map(t => ({ Id: t.Id, status: 'done' }));\nreturn [{ json: { patches, has_any: patches.length > 0 } }];"
+      },
+      "id": "node-051",
+      "name": "Build close patches",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.patches) }}"
+      },
+      "id": "node-052",
+      "name": "Close verify tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1800,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mx00y54712018vc/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Prepare accepted payloads').item.json.patch_lead) }}"
+      },
+      "id": "node-053",
+      "name": "Patch lead (waiting_goals)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Prepare accepted payloads').item.json.task) }}"
+      },
+      "id": "node-054",
+      "name": "Create goals task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Prepare accepted payloads').item.json.activity) }}"
+      },
+      "id": "node-055",
+      "name": "Log activity (accepted)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2400,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/links/ca2g6r4nc84ru61/records/{{ $json.Id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Resolve lead').item.json.lead_id }]) }}"
+      },
+      "id": "node-056",
+      "name": "Link activity -> lead (acc)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2600,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ai_rejected / missing_transcript: create a fix-it task + activity.\nconst src = $('Resolve lead').item.json;\nconst missing = src.branch === 'missing_transcript';\nreturn [{ json: { ...src,\n  task: { title: (missing ? 'Paste transcript: ' : 'Fix notes & rerun AI analysis: ')\n                 + src.meeting_title,\n          status: 'todo', priority: 'high', assignee: src.owner_email,\n          created_by_flow: 'W6a', description: `meeting:${src.meeting_id}` },\n  activity: { summary: (missing ? 'AI analysis skipped - transcript missing: '\n                                 : 'AI draft rejected: ') + src.meeting_title,\n              type: missing ? 'automation_error' : 'ai_analysis_done',\n              flow: 'W6a', triggered_by: missing ? 'system' : 'user',\n              payload: JSON.stringify({ meeting_id: src.meeting_id, branch: src.branch }) }\n} }];"
+      },
+      "id": "node-057",
+      "name": "Prepare fix-it payloads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Prepare fix-it payloads').item.json.task) }}"
+      },
+      "id": "node-058",
+      "name": "Create fix-it task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Prepare fix-it payloads').item.json.activity) }}"
+      },
+      "id": "node-059",
+      "name": "Log activity (fix-it)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/links/ca2g6r4nc84ru61/records/{{ $json.Id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Resolve lead').item.json.lead_id }]) }}"
+      },
+      "id": "node-060",
+      "name": "Link activity -> lead (fix)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1600,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "NocoDB: meetings updated": {
+      "main": [
+        [
+          {
+            "node": "Guard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guard": {
+      "main": [
+        [
+          {
+            "node": "Get linked lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get linked lead": {
+      "main": [
+        [
+          {
+            "node": "Resolve lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve lead": {
+      "main": [
+        [
+          {
+            "node": "Route by status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by status": {
+      "main": [
+        [
+          {
+            "node": "Call OpenRouter",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get lead record",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare fix-it payloads",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare fix-it payloads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call OpenRouter": {
+      "main": [
+        [
+          {
+            "node": "Parse LLM response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse LLM response": {
+      "main": [
+        [
+          {
+            "node": "Patch meeting (draft ready)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Patch meeting (draft ready)": {
+      "main": [
+        [
+          {
+            "node": "Create verify task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create verify task": {
+      "main": [
+        [
+          {
+            "node": "Log activity (AI done)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log activity (AI done)": {
+      "main": [
+        [
+          {
+            "node": "Link activity -> lead (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get lead record": {
+      "main": [
+        [
+          {
+            "node": "Prepare accepted payloads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare accepted payloads": {
+      "main": [
+        [
+          {
+            "node": "Find open verify tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find open verify tasks": {
+      "main": [
+        [
+          {
+            "node": "Build close patches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build close patches": {
+      "main": [
+        [
+          {
+            "node": "Close verify tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Close verify tasks": {
+      "main": [
+        [
+          {
+            "node": "Patch lead (waiting_goals)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Patch lead (waiting_goals)": {
+      "main": [
+        [
+          {
+            "node": "Create goals task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create goals task": {
+      "main": [
+        [
+          {
+            "node": "Log activity (accepted)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log activity (accepted)": {
+      "main": [
+        [
+          {
+            "node": "Link activity -> lead (acc)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare fix-it payloads": {
+      "main": [
+        [
+          {
+            "node": "Create fix-it task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create fix-it task": {
+      "main": [
+        [
+          {
+            "node": "Log activity (fix-it)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log activity (fix-it)": {
+      "main": [
+        [
+          {
+            "node": "Link activity -> lead (fix)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

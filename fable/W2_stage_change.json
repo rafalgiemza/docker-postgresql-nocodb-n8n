@@ -1,0 +1,285 @@
+{
+  "name": "W2 - Lead stage change (milestones + notify)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "w2-stage-change",
+        "options": {}
+      },
+      "id": "node-008",
+      "name": "NocoDB: leads updated",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "wh-w2-stage-change"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Guard: NocoDB fires on EVERY update - act only on a real stage change.\n// Requires \"send me previous record\" enabled on the NocoDB webhook.\nconst b = $input.first().json.body || $input.first().json;\nconst row  = (b.data && b.data.rows && b.data.rows[0]) || {};\nconst prev = (b.data && b.data.previous_rows && b.data.previous_rows[0]) || {};\nconst s = row.stage, p = prev.stage;\nif (!s || s === p) return [];\n\nconst today = new Date().toISOString().slice(0, 10);\nconst patch = { Id: row.Id };\nif (s === 'offer_sent')      patch.offer_sent_at = today;\nif (s === 'contract_sent')   patch.contract_sent_at = today;\nif (s === 'contract_signed') { patch.state = 'won';      patch.closed_at = today; }\nif (s === 'lost')            { patch.state = 'lost';     patch.closed_at = today; }\nif (s === 'archived')        { patch.state = 'archived'; patch.closed_at = today; }\n\nconst ownerRaw = row.owner;\nconst owner = (Array.isArray(ownerRaw) ? ownerRaw[0] && ownerRaw[0].email\n              : ownerRaw && ownerRaw.email) || 'przemek.fidzina@coaction-test.pl';\nconst name = row.contact_name || ('lead #' + row.Id);\nconst need_task = s === 'lost' && !row.loss_reason;\n\nreturn [{ json: {\n  patch, need_task, lead_id: row.Id, lead_name: name,\n  old_stage: p || '(none)', new_stage: s, owner_email: owner,\n  task: { title: `Fill in loss reason: ${name}`, status: 'todo', priority: 'high',\n          created_by_flow: 'W2', assignee: owner, description: `lead:${row.Id}` },\n  activity: { summary: `Stage changed: ${p || '(none)'} -> ${s} (${name})`,\n              type: 'stage_changed', flow: 'W2', triggered_by: 'user',\n              payload: JSON.stringify({ lead_id: row.Id, from: p, to: s }) }\n} }];"
+      },
+      "id": "node-009",
+      "name": "Guard & prepare",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mx00y54712018vc/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.patch) }}"
+      },
+      "id": "node-010",
+      "name": "Patch lead milestones",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Guard & prepare').item.json.need_task }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-011",
+      "name": "Lost without reason?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Guard & prepare').item.json.task) }}"
+      },
+      "id": "node-012",
+      "name": "Create 'fill reason' task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        -100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Guard & prepare').item.json.activity) }}"
+      },
+      "id": "node-013",
+      "name": "Log activity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/links/ca2g6r4nc84ru61/records/{{ $json.Id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Guard & prepare').item.json.lead_id }]) }}"
+      },
+      "id": "node-014",
+      "name": "Link activity -> lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "fromEmail": "info@coaction-test.pl",
+        "toEmail": "={{ $('Guard & prepare').item.json.owner_email }}",
+        "subject": "={{ 'CRM: ' + $('Guard & prepare').item.json.lead_name + ' -> ' + $('Guard & prepare').item.json.new_stage }}",
+        "text": "={{ 'Lead ' + $('Guard & prepare').item.json.lead_name + ' moved from ' + $('Guard & prepare').item.json.old_stage + ' to ' + $('Guard & prepare').item.json.new_stage + '.' }}",
+        "options": {}
+      },
+      "id": "node-015",
+      "name": "Notify owner",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1400,
+        0
+      ],
+      "credentials": {
+        "smtp": {
+          "id": null,
+          "name": "SMTP"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "NocoDB: leads updated": {
+      "main": [
+        [
+          {
+            "node": "Guard & prepare",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guard & prepare": {
+      "main": [
+        [
+          {
+            "node": "Patch lead milestones",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Patch lead milestones": {
+      "main": [
+        [
+          {
+            "node": "Lost without reason?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lost without reason?": {
+      "main": [
+        [
+          {
+            "node": "Create 'fill reason' task",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create 'fill reason' task": {
+      "main": [
+        [
+          {
+            "node": "Log activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log activity": {
+      "main": [
+        [
+          {
+            "node": "Link activity -> lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link activity -> lead": {
+      "main": [
+        [
+          {
+            "node": "Notify owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

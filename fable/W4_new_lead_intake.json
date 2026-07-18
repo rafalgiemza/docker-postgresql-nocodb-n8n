@@ -1,0 +1,224 @@
+{
+  "name": "W4 - New lead intake (Tally)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "w4-tally-intake",
+        "options": {}
+      },
+      "id": "node-020",
+      "name": "Tally form",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "wh-w4-tally-intake"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Map Tally webhook payload -> lead. EDIT LABELS to match your Tally form fields.\nconst LABELS = { name: 'Imię i nazwisko', email: 'E-mail', phone: 'Telefon', notes: 'Wiadomość' };\nconst PUBLIC = /@(gmail|googlemail|wp|o2|onet|op|interia|icloud|me|outlook|hotmail|live|proton|protonmail|yahoo|gazeta)\\./i;\nconst b = $input.first().json.body || $input.first().json;\nconst fields = (b.data && b.data.fields) || [];\nconst get = label => {\n  const f = fields.find(f => (f.label || '').trim().toLowerCase() === label.toLowerCase());\n  if (!f) return undefined;\n  return (f.value && f.value.text) || f.value;\n};\nconst emailAddr = String(get(LABELS.email) || '');\nreturn [{ json: { lead: {\n  contact_name: get(LABELS.name) || 'Unknown',\n  contact_email: emailAddr,\n  contact_phone: String(get(LABELS.phone) || ''),\n  notes: String(get(LABELS.notes) || ''),\n  source: 'formularz', contact_channel: 'formularz',\n  stage: 'new', state: 'open', qualification: 'unqualified',\n  offer_prep_status: 'none', company_match_status: 'none',\n  owner: 'przemek.fidzina@coaction-test.pl',\n  type: PUBLIC.test(emailAddr) ? 'B2C' : 'B2B'\n} } }];"
+      },
+      "id": "node-021",
+      "name": "Map Tally fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mx00y54712018vc/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.lead) }}"
+      },
+      "id": "node-022",
+      "name": "Create lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Lead created - prepare first-contact task and the activity entry.\nconst leadId = $input.first().json.Id;\nconst lead = $('Map Tally fields').item.json.lead;\nreturn [{ json: {\n  lead_id: leadId,\n  task: { title: `Schedule discovery call: ${lead.contact_name}`, status: 'todo',\n          priority: 'high', assignee: 'przemek.fidzina@coaction-test.pl', created_by_flow: 'W4',\n          description: `lead:${leadId}\\nPhone: ${lead.contact_phone}\\nEmail: ${lead.contact_email}` },\n  activity: { summary: `Lead created from Tally form: ${lead.contact_name}`,\n              type: 'lead_created', flow: 'W4', triggered_by: 'system',\n              payload: JSON.stringify({ lead_id: leadId, email: lead.contact_email }) }\n} }];"
+      },
+      "id": "node-023",
+      "name": "Prepare task & activity",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Prepare task & activity').item.json.task) }}"
+      },
+      "id": "node-024",
+      "name": "Create first-contact task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Prepare task & activity').item.json.activity) }}"
+      },
+      "id": "node-025",
+      "name": "Log activity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/links/ca2g6r4nc84ru61/records/{{ $json.Id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Prepare task & activity').item.json.lead_id }]) }}"
+      },
+      "id": "node-026",
+      "name": "Link activity -> lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Tally form": {
+      "main": [
+        [
+          {
+            "node": "Map Tally fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map Tally fields": {
+      "main": [
+        [
+          {
+            "node": "Create lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create lead": {
+      "main": [
+        [
+          {
+            "node": "Prepare task & activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare task & activity": {
+      "main": [
+        [
+          {
+            "node": "Create first-contact task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create first-contact task": {
+      "main": [
+        [
+          {
+            "node": "Log activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log activity": {
+      "main": [
+        [
+          {
+            "node": "Link activity -> lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

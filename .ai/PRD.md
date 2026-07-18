@@ -1,951 +1,313 @@
-# Plan wdrożenia — CRM CoAction (MVP: lead → offer)
+# PRD — CoAction CRM (NocoDB + n8n + PostgreSQL)
 
-**Target:** Mikrus 4.1 Pro — 2 vCPU, 8 GB RAM, 80 GB NVMe, Finlandia, Debian/Ubuntu
-**Zakres MVP:** pipeline od leada do wygenerowanej oferty (PPTX + PDF)
-**Data:** lipiec 2026
+Wersja: 2.0 · Data: 2026-07-18 · Status: faza 1 w trakcie wdrożenia
 
----
+> **Historia wersji:** Wersja 1.x tego dokumentu (do 12.07) opisywała inną architekturę —
+> znormalizowany schemat Postgresa (`organizations/people/clients/opportunities/offers/
+> offer_items` + trigger cenowy) z NocoDB ograniczonym do widoków `crm.v_*` i osobnym
+> serwisem `crm-api` generującym oferty jako PPTX/PDF. Ten kierunek został **porzucony
+> 2026-07-17/18** na rzecz prostszego modelu, w którym NocoDB samo zarządza tabelami
+> (przez Creator UI, bezpośrednio na Postgresie) — patrz §5 i §11. Stary schemat
+> (`appdata/appdata_schema.sql`) i stare workflowy (`n8n-workflows/wf1-wf6*.json`)
+> zostają w repo jako materiał historyczny, ale są nieużywane i nie opisują dzisiejszego
+> stanu. Kontrakt `crm-api`/renderer PPTX z tamtej wersji jest zachowany jako gotowy
+> projekt w backlogu (§12), na wypadek gdyby generowanie plików wróciło do zakresu —
+> patrz otwarte pytanie w §14.
 
-## 1. Architektura — decyzje finalne
+## 1. Kontekst i cel
 
-### 1.1 Stack
+CoAction (szkoła językowa B2B/B2C, ~5-osobowy zespół) zastępuje Asanę (za droga)
+i Excela CEO (CRM w arkuszu, 35 kolumn, zdenormalizowany) jednym self-hosted
+systemem: **NocoDB** (baza + widoki + formularze) + **n8n** (automatyzacje)
++ **PostgreSQL** (źródło prawdy, raporty SQL). Cel biznesowy: jedna baza danych
+o leadach, spotkaniach i taskach; automatyzacja powtarzalnej pracy krok po
+kroku, zaczynając od miejsc, gdzie dane wpadają ręcznie.
 
-| Usługa | Wersja | Rola | RAM idle |
-|---|---|---|---|
-| **Caddy** | 2.x | TLS (auto Let's Encrypt), reverse proxy, jedyny publiczny port | 30 MB |
-| **PostgreSQL** | 16 | **Źródło prawdy.** Dane CRM, kolejka jobów, logika cenowa | 1 200 MB |
-| **PgBouncer** | 1.22+ | Connection pooling (transaction mode) | 20 MB |
-| **n8n** | latest | **Orchestracja.** Triggery, sekwencje, AI, scheduler, retry | 700 MB |
-| **NocoDB** | latest | **Jedyne UI dla klienta.** Grid, kanban, Button fields | 450 MB |
-| **crm-api** | custom | Renderer: `POST /render` → PPTX + PDF. Bezstanowy | 150 MB / **900 peak** |
-| **MinIO** | latest | Pliki, szablony `.potx`, snapshoty ofert (versioning ON) | 300 MB |
-| **LibreChat** | latest | Czat AI dla zespołu (osobny byt, zero integracji z CRM w MVP) | 600 MB |
-| **MongoDB** | 7 | **Wyłącznie dla LibreChat.** Zero danych CRM | 500 MB |
-| **Uptime Kuma** | latest | Monitoring | 120 MB |
-| **RAZEM idle** | | | **~4 070 MB** |
-| **PEAK (render)** | | | **~4 820 MB** |
-| **Wolne z 8 GB** | | | **~3.2 GB** |
+**Kryteria sukcesu fazy 1:** zespół pracuje wyłącznie w NocoDB (twarde cięcie
+z Asaną/Excelem, historia zaimportowana), każdy widzi swoje taski i kalendarz,
+lead ma czytelny timeline, nikt nie przepisuje danych między systemami.
 
-**Odrzucone świadomie:**
-- ❌ **Appsmith** — 1.8 GB stałego RAM (Java+Mongo+Redis+Nginx). Brak w MVP. Wraca, gdy NocoDB okaże się za surowy (live preview oferty).
-- ❌ **Hono / Node** — drugi runtime bez uzasadnienia. Python obsługuje i API, i render.
-- ❌ **Gotenberg** — LibreOffice w `crm-api` robi PDF z tego samego źródła co PPTX (gwarancja zgodności wizualnej).
-- ❌ **Redis / Celery** — kolejka w Postgresie (`FOR UPDATE SKIP LOCKED`).
+## 2. Użytkownicy i role
 
-### 1.2 Diagram
+| Osoba | Rola | Główne widoki |
+|---|---|---|
+| Przemek (CEO) | handlowiec, owner leadów, weryfikacja AI i dopasowań | kanban leads, taski, kolejka weryfikacji |
+| Dorota | metodyczka B2B — cele szkoleniowe, audyty firmowe | taski, meetings (audyty), participants |
+| Aleksandra | metodyczka B2C/1:1 — cele, audyty indywidualne | jw. |
+| Paulina | finanse | taski cykliczne (fakturowanie) |
+| Kasia | marketing | taski, projekty marketingowe |
+| analityk (rola) | dobór referencji do ofert | taski, testimonials |
+
+## 3. Zakres
+
+**Faza 1 (ten dokument):** model danych, widoki, workflowy W1–W6b, intake
+z 3 źródeł z kaskadą dopasowań, import legacy, Test Runner, lustro xlsx dla CEO
+(okres przejściowy).
+
+**Poza zakresem fazy 1 (ustalone):** tabela `offers`, formularze przed-audytowe,
+dashboardy SQL, wyszukiwanie po zamkniętej historii.
+
+**Otwarte, nierozstrzygnięte:** generowanie oferty jako pliku (PPTX/www) — poprzednia
+wersja PRD traktowała to jako rdzeń MVP, aktualna robocza linia zakłada, że oferta
+kończy się jako gotowe, wycenione dane w NocoDB (status `draft_ready`), ale to nie
+zostało formalnie potwierdzone z klientem/CEO. Patrz §14.
+
+## 4. Infrastruktura
+
+**Hosting: 2× Sfera Host VPS PRO** (KVM, 4 współdzielone vCPU, 12 GB RAM, 120 GB NVMe,
+1 IPv4 + darmowe IPv6, Polska, 59 PLN netto/mies. każdy) — **stan bieżący**, oba
+serwery wykupione i działają, pełny stack na obu, 100% uptime na obu od uruchomienia.
+Zastąpiły Mikr.us 4.1 (powtarzające się stalle dysku I/O, `post-mortem/logs.md`,
+`post-mortem/vps-migration-decision.md`) — decyzja klienta zaakceptowana 2026-07-17.
+
+- **VPS-A = produkcja**, **VPS-B = staging/test** (target Test Runnera).
+  Identyczny compose na obu; na VPS-B `WH_PREFIX=""` — osobny n8n eliminuje
+  potrzebę kopii workflowów `-TEST` i prefiksów ścieżek (wystarczy sed z ID
+  tabel bazy testowej tamtej instancji).
+- **Znane ograniczenie CPU (rozwiązane):** przy pierwszym deployu na Sferahost oba
+  VPS-y pokazywały domyślny, konserwatywny model CPU QEMU (`QEMU Virtual CPU version
+  2.5+`, flagi kończące się na SSE2 — brak AVX/x86-64-v2), co wywalało `mongodb`
+  (wymaga AVX od wersji 5+) i `minio` (wymaga x86-64-v2). To była konfiguracja hosta
+  (brak `host-passthrough`), nie realny limit fizycznego CPU — zgłoszone i naprawione
+  przez Sferahost. Do potwierdzenia: czy `host-passthrough` przetrwa ewentualną
+  migrację VM między hostami klastra dostawcy.
+- **MinIO OSS jest martwe od 2026-04**: upstream (`minio/minio`) oznaczony jako
+  nieutrzymywany, zarchiwizowany na stałe; firma przeszła na płatny AIStor.
+  `RELEASE.2025-10-15T17-29-55Z` to ostatni release, jaki kiedykolwiek powstanie —
+  wersja jest jawnie przypięta w `.env.example`. Decyzja "zamrożone na stałe vs.
+  migracja na Garage/SeaweedFS" nie jest podjęta — istotne, jeśli w przyszłości
+  powstanie integracja S3 SDK (np. renderer ofert, patrz §12).
+- Stack (docker compose, `include:` z `fragments/*.yml`): `postgres`, `nocodb`,
+  `n8n` + `n8n-runner`, `minio` + `minio-init`, `mongodb` (tylko dla LibreChat),
+  `librechat`, `uptime-kuma`, `beszel` + `beszel-agent`, `budibase` (low-code
+  internal-tools builder, dodany 2026-07-18 — własny CouchDB+Redis, ale reużywa
+  wspólne MinIO na storage), `autoheal`, `caddy` (80/443, TLS) — kontenery
+  aplikacyjne bez publikowanych portów, ruch tylko przez Caddy.
+- Ruch wewnętrzny po nazwach serwisów: n8n→NocoDB `http://nocodb:8080`,
+  NocoDB→n8n `http://n8n:5678/webhook/...` (nie przez publiczny internet).
+- Postgres: jedna instancja, bazy `n8n`/`nocodb`/`appdata` (rola `n8n`/`nocodb`
+  własne, `appdata` dzielona na schemat `crm` — tabele tworzone bezpośrednio przez
+  NocoDB Creator UI, patrz §5) + `rag_db` (przygotowanie pod RAG, poza zakresem
+  fazy 1, patrz README.md).
+- **Backup (wymaganie twarde):** `make backup` (`backup/backup.sh`) dumpuje role +
+  `n8n`/`nocodb`/`appdata` + attachmenty NocoDB + mongodump LibreChat do
+  `./backups/`, offsite przez `restic`+`rclone` (dedup, incremental, retencja
+  `--keep-last/--keep-daily/--keep-weekly`). **Cron na VPS-ach i realny offsite
+  target (Backblaze B2 / Hetzner Storage Box) wciąż do dopięcia — priorytet #1**,
+  patrz §13 i §14.
+- MailHog na VPS-B jako SMTP-atrapa dla testów (UI :8025 wewn.).
+
+Pełna tabela usług + dostęp: `README.md`.
+
+## 5. Model danych (baza NocoDB, 9 tabel)
+
+Szczegóły: `fable/nocodb_crm_schema_v2.md`. Skrót relacji:
 
 ```
-                        INTERNET
-                            │
-                    ┌───────▼────────┐
-      Cal.com ─────►│  Caddy :443    │◄──── użytkownicy
-      (webhook)     │  TLS, proxy    │      (NocoDB, n8n UI, LibreChat)
-                    └───────┬────────┘
-                            │
-        ┌──────────┬────────┼────────┬──────────┬──────────┐
-        ▼          ▼        ▼        ▼          ▼          ▼
-     NocoDB       n8n   LibreChat  MinIO   Uptime Kuma   (crm-api
-     (UI)     (logika)  (AI chat) (S3+web)              NIE wystawiony)
-        │          │        │        ▲
-        │          │        │        │
-        │          ├────────┼────────┘
-        │          │        │
-        │          │        └──────────► MongoDB  (${MONGO_URI})
-        │          │                     [ready-to-migrate]
-        │          │
-        │          └── HTTP (net: internal) ──► crm-api
-        │                                        (FastAPI + python-pptx
-        │                                         + LibreOffice)
-        │                                            │
-        └──────────────┬─────────────────────────────┘
-                       ▼
-                  PgBouncer :6432
-                       │
-                       ▼
-                PostgreSQL :5432
-              (bind 127.0.0.1 only)
+companies ──< leads ──< meetings / participants / tasks / activities
+    │           └── }o--o{ testimonials
+    └─────< participants ── |o--o{ meetings (audyt per osoba)
+projects ──< tasks >── task_templates
 ```
 
-**Sieci Dockera:**
+> Ten model **zastępuje** wcześniejszy znormalizowany schemat Postgresa
+> (`organizations/people/clients/opportunities/offers/offer_items`, trigger
+> cenowy — patrz historia wersji na górze dokumentu). Tabele nie powstają już z
+> pliku migracji SQL — są tworzone bezpośrednio przez NocoDB Creator UI na
+> Postgresie (rola `nocodb_crm_user` z `CREATE`+`USAGE` na schemacie `crm`,
+> `REVOKE CREATE ON SCHEMA public` pozostaje krytyczne). Jedynym śladem "jak
+> wygląda schemat" jest stan żywej bazy + `pg_dump` w backupach; mały, ręcznie
+> pisany SQL (widoki, triggery) dopisywany tylko gdy faktycznie potrzebny.
+> Baza testowa "CoAction TEST Base" już istnieje (`fable/meta.json`, utworzona
+> 2026-07-17) i implementuje dokładnie ten model.
 
-| Sieć | Kto | Uwagi |
-|---|---|---|
-| `edge` | caddy, nocodb, n8n, librechat, minio, uptime-kuma | Ruch przez Caddy |
-| `internal` | n8n, crm-api, pgbouncer, minio | **Nie ma dostępu do Caddy.** crm-api tylko tu |
-| `data` | pgbouncer, postgres | Postgres widoczny **wyłącznie** dla PgBouncer |
-| `mongo` | librechat, mongodb | Izolacja — ready-to-migrate |
+- `leads` — szansa sprzedaży; kanban po `stage`, `state` (open/won/lost/archived),
+  pipeline oferty `offer_prep_status`, statusy dopasowań `company_match_status`
+  i `duplicate_check` + self-link `possible_duplicate`, licznik `enquiry_no`,
+  kamienie milowe pisane przez n8n (`received_at`, `offer_sent_at`,
+  `contract_sent_at`, `closed_at`), `legacy_id` (import).
+- `companies` — byt trwały, `domains` jako klucz dedupu.
+- `participants` — osoby szkolone (≠ kupujący); 5 ocen CEFR ze slajdów ofert.
+- `meetings` — tylko realne spotkania; `transcript`, `ai_analysis` (n8n),
+  maszyna stanów `processing_status`.
+- `tasks` — JEDNA tabela dla całej firmy (warunek widoków "moje taski");
+  markery `lead:{id}` / `meeting:{id}` w opisie wiążą taski pipeline'ów.
+- `activities` — append-only log, pisze WYŁĄCZNIE n8n; timeline leada + debug
+  (`flow`, `payload` JSON, typ `automation_error`).
+- `task_templates` (RRULE dla W1), `projects`, `testimonials` (biblioteka
+  referencji, many-to-many z leads).
 
-`crm-api` **nie ma portu wystawionego przez Caddy.** Dostępny tylko dla n8n w sieci `internal`. Zero auth, zero rate-limitu do konfiguracji, zero powierzchni ataku.
+**Zasady projektowe:** ludzie zmieniają statusy tam, gdzie pracują — n8n
+wykonuje robotę i pisze historię; automat NIGDY nie scala po cichu (auto-akcja
+tylko przy dokładnym mailu, reszta = sugestia + task); decyzje przez pola
+select, nie komentarze (komentarze nie triggerują webhooków w CE); guardy
+stara/nowa wartość w każdym workflow na update (triggery per-pole są płatne).
 
-### 1.3 Podział odpowiedzialności
+## 6. Widoki (mapowanie na wymagania)
 
-| Warstwa | Co robi | Kto dotyka |
-|---|---|---|
-| **Postgres** | Stan, relacje, **walidacja (CHECK/FK)**, **logika cenowa (trigger)**, audit trail, kolejka jobów | Ty (migracje w Git) |
-| **n8n** | Triggery, sekwencje, AI, notyfikacje, task creation, scheduler | Ty → **potem klient** |
-| **NocoDB** | Grid, kanban, formularze, Button fields | **Klient codziennie** |
-| **crm-api** | `POST /render` — funkcja czysta `JSON → {pptx, pdf}` | Ty, przy zmianie szablonu |
-
-> **Reguła:** logika cenowa **NIE** żyje w n8n. Klient będzie edytował workflowy — cena musi być broniona przez bazę (`FK → pricing_tiers` + trigger przeliczający `total_price_pln`).
-
----
-
-## 2. Model danych (Postgres)
-
-### 2.1 Enumy
-
-```
-client_type      : B2B | B2C
-lead_source      : google | referral | linkedin | website | inbound_call | partner | other
-contact_form     : booking | email | phone | form | walk_in
-lead_qualif      : MQL | SQL | DISQUALIFIED | UNQUALIFIED
-opp_stage        : nowa | badanie_potrzeb | demo | przygotowanie_oferty | oferta_wyslana
-                 | omowienie_oferty | umowa_wyslana | umowa_podpisana | utracona | archiwum
-opp_state        : otwarta | zamknieta | wstrzymana
-task_status      : todo | in_progress | blocked | done | cancelled
-transcript_src   : manual_paste | asr_auto | upload_file
-offer_status     : draft | ready | sent | accepted | rejected | superseded
-rec_type         : business_english | english_for_it | english_plus_skills | skills_only | mixed
-lesson_format    : 1-1 | pair | group
-job_status       : queued | running | done | failed
-```
-
-### 2.2 Tabele — rdzeń
-
-**`organizations`** — firma (NULL dla czystego B2C)
-
-| Kolumna | Typ | Uwagi |
-|---|---|---|
-| `id` | `bigserial PK` | |
-| `name` | `text NOT NULL` | |
-| `industry` | `text` | "Software Development" |
-| `size_bucket` | `text` | `<50` / `50-250` / `250+` |
-| `nip` | `text` | |
-| `business_context` | `jsonb` | AI-extracted: procesy, role, odbiorcy |
-| `created_at` | `timestamptz DEFAULT now()` | |
-
-**`people`** — osoba fizyczna (kontakt LUB uczestnik; w B2C to ta sama osoba)
-
-| Kolumna | Typ | Uwagi |
-|---|---|---|
-| `id` | `bigserial PK` | |
-| `organization_id` | `bigint FK NULL` | |
-| `first_name`, `last_name` | `text` | |
-| `email` | `citext` | partial UNIQUE gdzie `NOT NULL` |
-| `phone` | `text` | |
-| `job_title` | `text` | "Senior Frontend Developer" |
-| `linkedin_url` | `text` | |
-| `created_at` | `timestamptz` | |
-
-**`clients`** — konto handlowe
-
-| Kolumna | Typ | Uwagi |
-|---|---|---|
-| `id` | `bigserial PK` | **1638, 1639** — dla migrowanych rekordów wstawiane explicit (potem `setval` na sekwencji) |
-| `type` | `client_type NOT NULL` | |
-| `organization_id` | `bigint FK NULL` | |
-| `primary_contact_id` | `bigint FK → people` | |
-| `owner_user_id` | `bigint FK → users` | handlowiec (Przemek) |
-| `source` | `lead_source` | |
-| `contact_form` | `contact_form` | |
-| `qualification` | `lead_qualif` | |
-| `disqualification_reason` | `text` | |
-| `minio_prefix` | `text` | `clients/1638/` |
-| `inbound_at` | `timestamptz` | data + godzina wpłynięcia |
-| `created_at` | `timestamptz` | |
-
-**`opportunities`** — szansa sprzedaży (serce pipeline'u)
-
-| Kolumna | Typ | Uwagi |
-|---|---|---|
-| `id` | `bigserial PK` | |
-| `client_id` | `bigint FK NOT NULL` | |
-| `stage` | `opp_stage NOT NULL DEFAULT 'nowa'` | |
-| `state` | `opp_state NOT NULL DEFAULT 'otwarta'` | |
-| `value_pln` | `numeric(10,2)` | |
-| `label` | `text` | etykieta z Excela |
-| `next_action_at` | `date` | |
-| `next_action` | `text` | |
-| `loss_reason` | `text` | |
-| `notes` | `text` | |
-| `created_at`, `updated_at` | `timestamptz` | |
-
-> **⚠️ Daty etapów NIE jako kolumny.** W legacy Excelu było 11 kolumn `Data_*` (`Data szansy sprzedaży`, `Data DEMO`, `Data wysłania oferty`…). To antywzorzec — każdy nowy etap = migracja schematu.
-
-**`opportunity_stage_history`** — audit trail; **wszystkie daty za darmo**
-
-| Kolumna | Typ |
+| Wymaganie | Realizacja |
 |---|---|
-| `id` | `bigserial PK` |
-| `opportunity_id` | `bigint FK` |
-| `from_stage` | `opp_stage NULL` |
-| `to_stage` | `opp_stage NOT NULL` |
-| `changed_by` | `bigint FK → users NULL` (NULL = system/n8n) |
-| `changed_at` | `timestamptz DEFAULT now()` |
-| `note` | `text` |
+| moje taski ze wszystkich projektów | `tasks` Grid per osoba (filtr assignee, locked) |
+| kalendarz moich tasków | `tasks` Calendar po `due_date` per osoba |
+| taski cykliczne | `task_templates` + W1 (cron n8n; workflows NocoDB płatne) |
+| kanban etapów leadów | `leads` Kanban po `stage`, filtr `state=open` |
+| dodaj lead ręcznie | `leads` Form view |
+| kalendarz spotkań | `meetings` Calendar po `starts_at` |
+| timeline leada | `activities` w expanded record leada |
+| kolejka weryfikacji AI | `meetings` Grid, `processing_status=ai_draft_ready` |
+| produkcja ofert | `leads` Kanban po `offer_prep_status` |
 
-Wypełniane **triggerem** `AFTER UPDATE OF stage ON opportunities`.
-Widok `v_opportunity_dates` pivotuje to do płaskiej postaci **1:1 z legacy Excelem** → NocoDB pokazuje znajomy układ, baza jest czysta.
+## 7. Automatyzacje n8n
 
-### 2.3 Discovery i transkrypcje
-
-**`discovery_calls`**
-
-| Kolumna | Typ | Uwagi |
+| WF | Trigger | Funkcja |
 |---|---|---|
-| `id` | `bigserial PK` | |
-| `opportunity_id` | `bigint FK` | |
-| `scheduled_at`, `ended_at` | `timestamptz` | |
-| `duration_min` | `int` | |
-| `external_event_id` | `text` | ID z Cal.com |
-| `meeting_url` | `text` | |
-| `attendees` | `jsonb` | |
+| W1 | cron 06:00 | taski cykliczne z szablonów (RRULE: DAILY/WEEKLY;BYDAY/MONTHLY;BYMONTHDAY), idempotentny |
+| W2 | leads update | kamienie milowe + state przy zmianie stage; task "uzupełnij powód utraty"; mail do ownera |
+| W3 | tasks insert+update | powiadomienie mail do assignee (łata brak notyfikacji w NocoDB CE) |
+| W4 v2 | 3 webhooki: Tally / CF7 / Bookings | adaptery → wspólna kaskada dopasowań (niżej) |
+| W5 | leads insert | dedup firmy po domenie e-mail (lista domen publicznych!), pending_confirmation + komentarz; guard: pomija leady z już podlinkowaną firmą |
+| W6a | meetings update | transkrypcja → OpenRouter → `ai_analysis` → weryfikacja; akceptacja → cele (routing B2B→Dorota / B2C→Aleksandra); braki/odrzuty → taski naprawcze |
+| W6b | leads update | cele → referencje → walidacja linków → task "złóż ofertę" + `draft_ready` |
 
-**`transcripts`**
+> Te workflowy **zastępują** `n8n-workflows/wf1-wf6*.json` (stary pipeline
+> lead→discovery→audit→recommendation→offer z generowaniem PPTX) — te pliki
+> zostają w repo jako historyczne, nieużywane. Importowalne wersje: `fable/W1_
+> recurring_tasks.json` … `fable/W6b_offer_pipeline.json` + `fable/W4v2_
+> intake_matching.json` (zastępuje `W4_new_lead_intake.json`), spakowane też
+> w `fable/n8n_workflows_coaction.zip` z instrukcją placeholderów/webhooków
+> (`fable/README.md`).
 
-| Kolumna | Typ | Uwagi |
-|---|---|---|
-| `id` | `bigserial PK` | |
-| `discovery_call_id` | `bigint FK NULL` | |
-| `audit_id` | `bigint FK NULL` | audyt też bywa nagrywany |
-| `source` | `transcript_src` | |
-| `language` | `text[]` | `{pl,en}` — **mieszane!** |
-| `raw_text` | `text` | surowy transkrypt |
-| `curated_text` | `text` | po korekcie handlowca |
-| `recording_file_id` | `bigint FK → files NULL` | |
-| `search_tsv` | `tsvector GENERATED` | `to_tsvector('simple', coalesce(curated_text, raw_text))` |
-| `created_at` | `timestamptz` | |
+**Kaskada intake (W4 v2):** Tier 1 dokładny e-mail (jedyna auto-akcja: otwarty
+lead → task "napisał ponownie" bez nowego leada; zamknięty → nowy lead,
+`enquiry_no+1`, dziedziczenie firmy) → Tier 2 domena (delegowane do W5) →
+Tier 3 imię+nazwisko/telefon po normalizacji (sugestia duplikatu, nigdy
+auto-merge) → Tier 4 LLM jako EKSTRAKTOR kryteriów (maile/nazwiska/firmy
+z treści; deterministyczne wyszukiwanie po ekstrakcji; `type_signal` dla B2B
+z prywatnego maila) → Tier 5 czysty nowy lead + task "zaklasyfikuj".
+Booking z MS Bookings zawsze tworzy meeting i linkuje do leada z kaskady.
+Każdy przebieg loguje do `activities` (kryteria AI w payload).
 
-> **`'simple'`, nie `'polish'`** — transkrypty są dwujęzyczne (patrz 1639: polski wywiad + angielska próbka mowy). Stemmer polski zniszczy terminy techniczne EN. Potrzebujesz lepszego FTS → `pg_trgm` + GIN.
+**Integracje:** Tally (natywny webhook), Contact Form 7 (wymaga wtyczki
+webhook na WP; mapa pól w adapterze), MS Bookings (przez Power Automate →
+HTTP POST), OpenRouter (model konfigurowalny per env).
 
-**`extractions`** — output AI, **osobno od danych zatwierdzonych przez człowieka**
+## 8. Migracja danych
 
-| Kolumna | Typ | Uwagi |
-|---|---|---|
-| `id` | `bigserial PK` | |
-| `transcript_id` | `bigint FK` | |
-| `model` | `text` | `claude-sonnet-4-6` |
-| `prompt_version` | `text` | **krytyczne** — prompty będą się zmieniać |
-| `payload` | `jsonb NOT NULL` | ustrukturyzowany output |
-| `accepted_by` | `bigint FK → users NULL` | |
-| `accepted_at` | `timestamptz NULL` | **brama** |
-| `created_at` | `timestamptz` | |
+`fable/import_legacy_excel.py`: Excel CEO → NocoDB. Selecty normalizowane do
+realnych opcji; 12 kolumn dat → kamienie milowe + rekordy meetings (done);
+planowane działania → otwarte taski; `enquiry_no` liczony z historii; pełny
+surowy wiersz w payload activity (nic nie ginie); idempotencja po `legacy_id`.
 
-Kontrakt `payload` (wymuszony JSON Schema w promptcie):
+> To inny import niż opisany w poprzedniej wersji PRD (1600 rekordów, layout
+> kolumn `organizations/opportunities`) — ten kierunek nieaktualny, patrz
+> historia wersji na górze dokumentu.
 
-```json
-{
-  "client_goals": ["odzyskać płynność mówienia", "precyzja techniczna"],
-  "challenges": ["upraszczanie wypowiedzi przy braku zwrotu", "napięcie pod presją"],
-  "communication_situations": ["statusy projektowe", "decyzje architektoniczne"],
-  "business_context": { "industry": "Software Development",
-                        "role": "Senior Frontend Developer",
-                        "international_scope": true },
-  "participant_type": "individual_contributor",
-  "hypothesis_recommendation": "english_for_it",
-  "missing_data": ["budżet", "preferowana intensywność"],
-  "confidence": 0.82
-}
-```
+**Procedura:** pola `legacy_id`+`received_at` → `--dry-run` → uzupełnienie
+STAGE_MAP wg raportu → wyłączenie W3/W4/W5 → import → włączenie workflowów.
+Okres przejściowy: `legacy_crm_2.xlsx` — read-only lustro generowane od zera
+z widoku SQL `legacy_crm_mirror` (Postgres → n8n → xlsx), układ kolumn 1:1 ze
+starym Excelem + kolumna linków do rekordów NocoDB; sunset ~2 mies. po migracji.
+(Widok SQL do napisania po migracji — czeka na `\dt`/`\d` z nowego Postgresa.)
 
-> **AI proponuje, człowiek zatwierdza.** Nic z `extractions` nie trafia do `opportunities`, dopóki `accepted_at IS NOT NULL`. To Twoja ochrona przed halucynacją w ofercie za 11 250 PLN.
+## 9. Testy
 
-### 2.4 Audyt i rekomendacja
+Test Runner (pytest, katalog 63 przypadków w `fable/test_cases.md`): syntetyczne
+payloady webhooków NocoDB → endpointy n8n → asercje przez API. ~25 przypadków
+AUTO zaimplementowanych (guardy, kaskada, pułapki typu substring domen);
+SEMI = LLM z asercjami strukturalnymi; PROC = importer przez dry-run.
+Po migracji na 2 VPS-y: runner celuje w VPS-B (osobna instancja = koniec kopii
+workflowów i prefiksów).
 
-**`participants`**
+## 10. Artefakty projektu
 
-| Kolumna | Typ |
+Wszystkie poniższe pliki leżą w `fable/` (archiwum artefaktów z sesji projektowej
+w przeglądarce Claude, 2026-07-17/18) — ten PRD jest ich podsumowaniem, nie
+zastępuje szczegółów w źródłowych plikach.
+
+| Plik | Zawartość |
 |---|---|
-| `id` | `bigserial PK` |
-| `client_id` | `bigint FK` |
-| `person_id` | `bigint FK → people` |
-| `manager_needs` | `text` |
-| `self_assessment` | `jsonb` |
-| `communication_situations` | `text[]` |
-
-**`audits`**
-
-| Kolumna | Typ | Uwagi |
-|---|---|---|
-| `id` | `bigserial PK` | |
-| `participant_id` | `bigint FK` | |
-| `opportunity_id` | `bigint FK` | |
-| `auditor_user_id` | `bigint FK` | Ola / Dorota |
-| `conducted_at` | `timestamptz` | |
-| `observations` | `text` | |
-| `strengths`, `gaps` | `text[]` | |
-| `scope` | `jsonb` | |
-| `status` | `text` | `planned` / `done` |
-
-**`audit_scores`** — **dokładnie 5 wymiarów z obu decków**
-
-| Kolumna | Typ | Uwagi |
-|---|---|---|
-| `id` | `bigserial PK` | |
-| `audit_id` | `bigint FK` | |
-| `dimension` | `text` | `overall` / `range` / `accuracy` / `fluency` / `communicativeness` |
-| `cefr_level` | `text` | `B2` |
-| `cefr_decimal` | `numeric(2,1)` | `0.6` → render: **`B2.6`** |
-| `cefr_numeric` | `numeric GENERATED` | A1=1.0 … C2=6.0 + decimal |
-| `justification` | `text` | |
-
-`UNIQUE (audit_id, dimension)`
-
-**`cefr_numeric` daje za darmo:** sortowanie, „pokaż wszystkich poniżej B2", progres w czasie (moduł 2.0), automatyczne triggery rekomendacji.
-
-**`recommendations`**
-
-| Kolumna | Typ | Uwagi |
-|---|---|---|
-| `id` | `bigserial PK` | |
-| `opportunity_id` | `bigint FK` | |
-| `audit_id` | `bigint FK NULL` | |
-| `type` | `rec_type` | |
-| `headline` | `text` | „MIĘDZYNARODOWA KOMUNIKACJA BIZNESOWA…" (slajd 4) |
-| `situation_description` | `text` | **slajd 3** — draft AI + korekta metodyka |
-| `rationale` | `text` | |
-| `priority` | `int` | |
-| `approved_by` | `bigint FK NULL` | |
-| `approved_at` | `timestamptz NULL` | **brama do oferty** |
-
-**`recommendation_goals`** — slajdy 5–7, zmienna liczba
-
-| Kolumna | Typ |
-|---|---|
-| `id` | `bigserial PK` |
-| `recommendation_id` | `bigint FK` |
-| `position` | `int` |
-| `title` | `text` |
-| `body` | `text` |
-| `stage_label` | `text` — `"ETAP 1: Business English 60h"` |
-
-### 2.5 Oferta
-
-**`pricing_tiers`** — cennik ze slajdu 8, **wersjonowany, nie hardcode**
-
-| Kolumna | Typ | Przykład |
-|---|---|---|
-| `id` | `bigserial PK` | |
-| `product` | `text` | `business_english` / `english_for_it` / `workshop` |
-| `hours` | `int` | `60` |
-| `format` | `lesson_format` | `1-1` |
-| `price_pln` | `numeric(10,2)` | `11250.00` |
-| `valid_from` | `date NOT NULL` | |
-| `valid_to` | `date NULL` | NULL = aktualny |
-
-Seed z decku: 15h=3750/4500, 30h=6375/7200, 60h=11250/13500, 120h=21000/25800, warsztat 15h=5600/7800.
-
-**`offer_templates`** — **szablony w MinIO**
-
-| Kolumna | Typ | Uwagi |
-|---|---|---|
-| `id` | `bigserial PK` | |
-| `name` | `text` | „CoAction B2C indywidualny" |
-| `variant` | `text` | `b2c` / `b2b` / `continuation` / `special` |
-| `minio_key` | `text` | `templates/coaction_b2c_v3.potx` |
-| `version` | `int` | |
-| `placeholder_manifest` | `jsonb` | lista placeholderów wykrytych przy uploadzie |
-| `slide_map` | `jsonb` | `{"goals_slide_idx": 4, "testimonial_slides": [11,12,...]}` |
-| `active` | `boolean` | |
-| `uploaded_by` | `bigint FK` | |
-| `created_at` | `timestamptz` | |
-
-> **`placeholder_manifest` jest kluczowy.** Przy uploadzie szablonu n8n woła `POST /template/inspect` → `crm-api` skanuje `.potx`, zwraca listę znalezionych `{{...}}`. Jeśli klient wgra szablon bez `{{cefr_overall}}`, dowiaduje się **od razu**, a nie przy pierwszej ofercie u klienta.
-
-**`offers`**
-
-| Kolumna | Typ | Uwagi |
-|---|---|---|
-| `id` | `bigserial PK` | |
-| `opportunity_id` | `bigint FK` | |
-| `recommendation_id` | `bigint FK` | |
-| `template_id` | `bigint FK → offer_templates` | |
-| `version` | `int NOT NULL` | `UNIQUE(opportunity_id, version)` |
-| `status` | `offer_status` | |
-| `total_hours` | `int` | **GENERATED / trigger** |
-| `total_price_pln` | `numeric(10,2)` | **trigger — nigdy z frontu** |
-| `discount_pct` | `numeric(4,2) DEFAULT 0` | |
-| `valid_until` | `date` | |
-| `included_testimonial_ids` | `bigint[]` | selekcja ze slajdów 12–24 |
-| `included_sections` | `text[]` | które statyczne bloki włączyć |
-| `custom_notes` | `text` | |
-| `created_by` | `bigint FK` | |
-| `created_at` | `timestamptz` | |
-
-**`offer_items`** — oferta 1638 ma **DWA** komponenty (60h BE + 15h warsztat)
-
-| Kolumna | Typ | Uwagi |
-|---|---|---|
-| `id` | `bigserial PK` | |
-| `offer_id` | `bigint FK` | |
-| `position` | `int` | |
-| `product` | `text` | |
-| `label` | `text` | „Business English – 60 godzin (2x60 min lub 1x90 min)" |
-| `hours` | `int` | |
-| `format` | `lesson_format` | |
-| `pricing_tier_id` | `bigint FK → pricing_tiers` | **FK broni przed 150h spoza cennika** |
-| `unit_price_pln` | `numeric(10,2)` | **kopiowane z tier przez trigger** |
-
-**Trigger cenowy** (`BEFORE INSERT OR UPDATE ON offer_items`):
-1. `unit_price_pln := (SELECT price_pln FROM pricing_tiers WHERE id = NEW.pricing_tier_id)`
-2. `AFTER` → przelicz `offers.total_hours`, `offers.total_price_pln` (suma items × `(1 - discount_pct/100)`)
-
-**Cena nigdy nie przychodzi z NocoDB ani n8n. Baza liczy sama.**
-
-**`testimonials`** — slajdy 12–24, wybieralne
-
-| Kolumna | Typ | Uwagi |
-|---|---|---|
-| `id` | `bigserial PK` | |
-| `author` | `text` | „Michał Piórkowski" |
-| `role` | `text` | „CEO & Cofounder" |
-| `quote` | `text` | |
-| `tags` | `text[]` | `{it, b2b, ceo}` — dla dopasowania |
-| `slide_template_idx` | `int` | który slajd w `.potx` |
-| `active` | `boolean` | |
-
-> **Drugi moment „aha" dla Przemka:** dla developera IT wybiera Piórkowskiego + Kirejczyka (CEO software house'ów), dla HRBP — Gojtowską + Koniuszy. Dziś robi to **ręcznie kasując slajdy**. To realny ból, który zdejmujesz.
-
-**`offer_snapshots`** — **immutable**
-
-| Kolumna | Typ | Uwagi |
-|---|---|---|
-| `id` | `bigserial PK` | |
-| `offer_id` | `bigint FK` | |
-| `version` | `int` | mirror `offers.version` w chwili generowania |
-| `format` | `text` | `pptx` / `pdf` |
-| `minio_key` | `text` | `offers/1638/v2.pptx` |
-| `sha256` | `text` | wykrywanie manipulacji |
-| `payload_snapshot` | `jsonb` | **pełny JSON użyty do generowania** |
-| `template_id` | `bigint FK` | którym szablonem renderowano |
-| `template_version` | `int` | |
-| `status` | `job_status` | `queued` → `running` → `done` / `failed` |
-| `error` | `text` | |
-| `generated_at` | `timestamptz` | |
-
-> **`payload_snapshot` to Twoja polisa.** Za rok klient zapyta „co dokładnie zaoferowaliśmy 1638?" — dostaniesz odpowiedź, nawet jeśli MinIO padnie i cennik się zmienił.
-
-### 2.6 Taski i kolejka
-
-**`tasks`** — polimorficzne (etap procesu → task dla osoby)
-
-| Kolumna | Typ | Uwagi |
-|---|---|---|
-| `id` | `bigserial PK` | |
-| `entity_type` | `text` | `opportunity` / `audit` / `offer` / `transcript` |
-| `entity_id` | `bigint` | |
-| `assignee_user_id` | `bigint FK` | |
-| `title` | `text` | „Wklej transkrypcję — 1638" |
-| `stage_ref` | `opp_stage` | z którego etapu wynika |
-| `status` | `task_status` | |
-| `due_at` | `timestamptz` | |
-| `payload` | `jsonb` | pola potrzebne **tylko na tym etapie** |
-| `created_at`, `completed_at` | `timestamptz` | |
-
-**`job_queue`** — kolejka z priorytetami (**zamiast Redis/Celery**)
-
-| Kolumna | Typ | Uwagi |
-|---|---|---|
-| `id` | `bigserial PK` | |
-| `kind` | `text` | `render_offer` / `ai_extract` / `asr` |
-| `priority` | `int` | **10** = interaktywne, **3** = AI, **1** = batch |
-| `payload` | `jsonb` | |
-| `status` | `job_status` | |
-| `attempts` | `int DEFAULT 0` | |
-| `last_error` | `text` | |
-| `locked_at` | `timestamptz` | |
-| `created_at` | `timestamptz` | |
-
-Konsument (n8n lub worker):
-```sql
-SELECT * FROM job_queue
-WHERE status = 'queued'
-ORDER BY priority DESC, created_at ASC
-LIMIT 1
-FOR UPDATE SKIP LOCKED;
-```
-
-**Jeden konsument = brak równoległych LibreOffice = semafor za darmo.**
-
-**`files`** — referencje MinIO
-
-| Kolumna | Typ |
-|---|---|
-| `id` | `bigserial PK` |
-| `bucket` | `text` |
-| `key` | `text` |
-| `mime` | `text` |
-| `size_bytes` | `bigint` |
-| `sha256` | `text` |
-| `uploaded_by` | `bigint FK` |
-| `created_at` | `timestamptz` |
-
-### 2.7 Widoki dla NocoDB
-
-NocoDB **nie dotyka tabel bazowych.** Pracuje na widokach, przez usera z ograniczonym `GRANT`.
-
-| Widok | Zawiera | Uprawnienia |
-|---|---|---|
-| `v_pipeline` | opportunity + client + person + stage + daty (pivot z historii) | `SELECT, UPDATE(stage, next_action, notes)` |
-| `v_offer_builder` | **pola 1:1 ze slajdami** (patrz §5) | `SELECT, UPDATE` (bez cen!) |
-| `v_offer_goals` | cele szkoleniowe (linked) | `SELECT, INSERT, UPDATE, DELETE` |
-| `v_audit_scores` | 5 wymiarów CEFR | `SELECT, UPDATE` |
-| `v_tasks` | taski per user | `SELECT, UPDATE(status)` |
-| `v_testimonials` | katalog | `SELECT` |
-| `v_pricing` | aktualny cennik | **`SELECT` only** |
-
-Widoki są `UPDATABLE` przez `INSTEAD OF` triggery tam, gdzie potrzeba (bo widok z JOIN nie jest natywnie updatable).
-
----
-
-## 3. Migracja legacy (Excel → Postgres)
-
-**Zakres:** 1600 rekordów / 15 lat.
-
-| Kolumna Excel | Cel | Uwagi |
-|---|---|---|
-| `ID` | `clients.id` | **zachowaj** — Przemek myśli tymi numerami; insert z explicit `id` (bigserial), potem `setval` na sekwencji |
-| `Nazwa klienta` | `people.first_name/last_name` | split |
-| `Organizacja` | `organizations.name` | NULL → B2C |
-| `B2B / B2C` | `clients.type` | |
-| `Handlowiec` | `clients.owner_user_id` | mapowanie po imieniu |
-| `Branża` | `organizations.industry` | |
-| `Źródło` | `clients.source` | mapowanie na enum |
-| `Forma kontaktu` | `clients.contact_form` | |
-| `Kwalifikacja leada` | `clients.qualification` | |
-| `Data wpłynięcia` + `Godzina` | `clients.inbound_at` | **⚠️ serial Excela** (46149 = data, 0.4416 = godzina) |
-| `Data szansy sprzedaży` … `Data utracenia` (11 kolumn) | **`opportunity_stage_history`** | każda data → wiersz z `to_stage` |
-| `Etap` | `opportunities.stage` | |
-| `Stan` | `opportunities.state` | |
-| `Szansa sprzedaży Wartość` | `opportunities.value_pln` | |
-| `Notatki` | `opportunities.notes` | |
-
-**Pułapka:** daty w Excelu to **serial numbers** (46149 = dni od 1899-12-30), godzina to ułamek doby. Konwersja: `DATE '1899-12-30' + serial * INTERVAL '1 day'`.
-
-**Kolejność:** `users` → `organizations` → `people` → `clients` → `opportunities` → `opportunity_stage_history`.
-
-**Skrypt migracyjny:** jednorazowy, w Pythonie (`openpyxl` + `psycopg`), idempotentny (`ON CONFLICT (id) DO NOTHING`), z raportem rozbieżności.
-
----
-
-## 4. crm-api — kontrakt
-
-Bezstanowy. Bez bazy. Bez auth (sieć `internal`). ~200 linii.
-
-| Endpoint | Metoda | Wejście | Wyjście |
-|---|---|---|---|
-| `/health` | GET | — | `{status, libreoffice_ok}` |
-| `/render` | POST | `{payload, template_key}` | `{pptx: base64, pdf: base64, warnings: []}` |
-| `/template/inspect` | POST | `{template_key}` | `{placeholders: [], slide_count, slide_map}` |
-
-**Stack:** FastAPI + Pydantic v2 + `python-pptx` + LibreOffice (subprocess) + `boto3`/`minio` (pobranie szablonu).
-
-**Flow `/render`:**
-1. Pobierz `.potx` z MinIO (cache lokalny po `sha256`)
-2. `python-pptx`: podmień placeholdery w runach
-3. Usuń nieużywane slajdy celów / testimoniali
-4. Zapisz `.pptx` do `/tmp`
-5. `soffice --headless --convert-to pdf` (subprocess, timeout 60 s, unikalny `-env:UserInstallation`)
-6. Zwróć oba jako base64 (albo strumień)
-
-**Pułapki LibreOffice (obowiązkowe):**
-- `-env:UserInstallation=file:///tmp/lo_$(uuid)` — osobny profil per wywołanie (race condition na `~/.config/libreoffice`)
-- `timeout 60 soffice ...` — LO potrafi zawisnąć w nieskończoność
-- Reap zombie procesów (`subprocess.run` z `timeout=`, potem `kill -9` grupy)
-- **Serializacja** — max 1 konwersja naraz (wymuszona przez jeden konsument `job_queue`)
-
-**Pułapka `python-pptx` — placeholdery w runach:**
-PowerPoint dzieli tekst na `runs` przy **każdej zmianie formatowania**. `{{client_name}}` napisane w szablonie może fizycznie być trzema runami: `{{cli`, `ent_`, `name}}`. Naiwny `.replace()` **nie zadziała**.
-→ Merge runów per paragraf przed podmianą, zachowując formatowanie pierwszego runa.
-
-**Pułapka klonowania slajdów (cele 5–7):**
-`python-pptx` **nie ma API** do kopiowania slajdu. Trzeba `copy.deepcopy` XML + re-attach relacji.
-→ **To jest najbardziej ryzykowna linijka w projekcie. Testujesz ją w DNIU 1.**
-→ **Plan B:** szablon zawiera 3 gotowe slajdy celów (max 6 celów), renderer **usuwa** nieużywane. Usuwanie jest trywialne i niezawodne. Tracisz elastyczność >6 celów — nikogo to nie obchodzi.
-
----
-
-## 5. NocoDB — widok „Offer Builder" (to sprzedaje projekt)
-
-**Zasada:** pola nazywają się **jak slajdy**, nie jak kolumny. Przemek otwiera i od razu widzi mapowanie.
-
-| Pole NocoDB | Slajd | Typ | Uwagi |
-|---|---|---|---|
-| `Imię i nazwisko` | 1 | SingleLineText | |
-| `Stanowisko` | 1 | SingleLineText | |
-| `Data oferty` | 1 | Date | |
-| `Poziom: Ogólny` | 3 | SingleSelect | `A1.0` … `C2.9` |
-| `Poziom: Zakres języka` | 3 | SingleSelect | |
-| `Poziom: Poprawność` | 3 | SingleSelect | |
-| `Poziom: Płynność` | 3 | SingleSelect | |
-| `Poziom: Komunikatywność` | 3 | SingleSelect | |
-| `Opis sytuacji` | 3 | LongText | draft AI + korekta |
-| `Nagłówek rekomendacji` | 4 | LongText | |
-| `Wariant 1: produkt` | 4 | SingleSelect | z `pricing_tiers` |
-| `Wariant 1: godziny` | 4 | SingleSelect | **tylko wartości z cennika** |
-| `Wariant 1: cena` | 4 | **read-only** | ← trigger PG |
-| `Wariant 2: warsztat` | 4 | SingleSelect | katalog + „brak" |
-| `Wariant 2: godziny` | 4 | SingleSelect | |
-| `Wariant 2: cena` | 4 | **read-only** | ← trigger PG |
-| `Razem godzin` | 4 | **read-only** | ← trigger PG |
-| `Razem cena` | 4 | **read-only** | ← trigger PG |
-| `Cele szkoleniowe` | 5–7 | Linked Records | → `offer_goals` |
-| `Testimoniale` | 12–24 | Linked Records (multi) | → `testimonials` |
-| `Szablon` | — | Linked Record | → `offer_templates` |
-| `Wersja` | — | read-only | |
-| `Status generowania` | — | read-only | `queued`/`running`/`done`/`failed` |
-| `⬇ PPTX` / `⬇ PDF` | — | URL | presigned MinIO |
-| **`[Generuj ofertę]`** | — | **Button → webhook** | → n8n |
-
-**Kluczowy efekt demo:** Przemek zmienia `60 → 45`, cena **przelicza się natychmiast** (trigger PG, NocoDB odświeża pole), klika Generuj, po ~20 s ma PPTX ze zmianą.
-
-**Gotcha:** NocoDB Button webhook jest **fire-and-forget** — nie czeka na odpowiedź. Link nie pojawi się sam, dopóki n8n nie zrobi `PATCH` przez NocoDB API. Stąd pole `Status generowania` — Przemek widzi `generowanie…` → `gotowe`.
-
----
-
-## 6. Workflowy n8n
-
-### WF-1: Lead inbound
-```
-[Webhook: Cal.com booking.created]  LUB  [NocoDB: nowy wiersz w v_pipeline]
-  → [Postgres] UPSERT people, clients, opportunities (stage='nowa')
-  → [Postgres] INSERT tasks (assignee=Przemek, title='Zweryfikuj leada #{client_id}')
-  → [Slack/email] notyfikacja
-```
-
-### WF-2: Po discovery call → task na transkrypcję
-```
-[Cal.com: booking.ended]  LUB  [Schedule: 30 min po scheduled_at]
-  → [Postgres] INSERT discovery_calls
-  → [Postgres] UPDATE opportunities SET stage='badanie_potrzeb'  (→ trigger loguje historię)
-  → [Postgres] INSERT tasks ('Wklej / zatwierdź transkrypcję — {client}')
-```
-
-### WF-3: Transkrypcja → ekstrakcja AI
-```
-[NocoDB Button: 'Analizuj transkrypcję']  LUB  [Trigger: transcripts.curated_text IS NOT NULL]
-  → [Postgres] INSERT job_queue (kind='ai_extract', priority=3)
-  ─── (nocny scheduler LUB natychmiast, jeśli CPU wolne) ───
-  → [Postgres] SELECT ... FOR UPDATE SKIP LOCKED
-  → [HTTP] Anthropic API  (structured output, JSON Schema, prompt_version)
-  → [Postgres] INSERT extractions (payload, model, prompt_version)
-  → [Postgres] INSERT tasks ('Zatwierdź analizę AI — {client}', assignee=metodyk)
-```
-**Retry:** 3× z backoff. Po 3 failach → task „AI nie zadziałało, uzupełnij ręcznie".
-
-### WF-4: Zatwierdzenie ekstrakcji → task audytu
-```
-[Trigger: extractions.accepted_at zmienione z NULL]
-  → [Postgres] UPDATE organizations SET business_context = payload->'business_context'
-  → [Postgres] INSERT participants (z payload)
-  → [Postgres] INSERT audits (status='planned', auditor=Ola|Dorota)
-  → [Postgres] INSERT tasks ('Przeprowadź audyt — {participant}')
-```
-
-### WF-5: Audyt → rekomendacja (draft AI)
-```
-[Trigger: audits.status → 'done']
-  → [Postgres] SELECT audit + scores + extraction + client
-  → [HTTP] Anthropic API → draft situation_description + goals
-  → [Postgres] INSERT recommendations (approved_at = NULL)
-  → [Postgres] INSERT recommendation_goals
-  → [Postgres] INSERT tasks ('Zatwierdź rekomendację — {client}', assignee=metodyk+Przemek)
-```
-
-### WF-6: Generowanie oferty ⭐ (rdzeń MVP)
-```
-[NocoDB Button: 'Generuj ofertę']  → webhook  { record_id, table_id }
-  │
-  ├─ [Postgres] SELECT hydrated offer (offer + items + rec + goals + scores
-  │              + testimonials + client + template)
-  │
-  ├─ [Postgres] INSERT offer_snapshots (status='queued', version=offers.version+1)
-  ├─ [NocoDB API] PATCH record → Status generowania = 'generowanie…'
-  │
-  ├─ [Postgres] INSERT job_queue (kind='render_offer', priority=10)   ← NAJWYŻSZY
-  │
-  ├─ [HTTP] crm-api POST /render  { payload, template_key }
-  │         (timeout 90 s, retry 2×)
-  │
-  ├─ [MinIO] PUT offers/{client_id}/v{n}.pptx
-  ├─ [MinIO] PUT offers/{client_id}/v{n}.pdf
-  │
-  ├─ [Postgres] UPDATE offer_snapshots
-  │             SET status='done', minio_key, sha256, payload_snapshot = <hydrated JSON>
-  ├─ [Postgres] UPDATE offers SET version = version + 1
-  ├─ [Postgres] UPDATE opportunities SET stage='przygotowanie_oferty'
-  │
-  └─ [NocoDB API] PATCH record → Status='gotowe', ⬇PPTX = presigned URL, ⬇PDF = presigned URL
-```
-**Error branch:** `UPDATE offer_snapshots SET status='failed', error=...` + `PATCH NocoDB → 'BŁĄD'` + task dla Ciebie.
-
-### WF-7: Upload szablonu (`.potx`)
-```
-[NocoDB: nowy wiersz w offer_templates z załącznikiem]
-  → [MinIO] PUT templates/{name}_v{n}.potx
-  → [HTTP] crm-api POST /template/inspect
-  → [Postgres] UPDATE offer_templates SET placeholder_manifest, slide_map
-  → [IF] brakuje wymaganych placeholderów
-       → [NocoDB] PATCH → Status = 'BŁĄD: brakuje {{cefr_overall}}'
-     [ELSE]
-       → SET active = true
-```
-
-### WF-8: Scheduler nocny
-```
-[Cron 02:00]  → przetwórz job_queue WHERE priority <= 3   (AI, batch)
-[Cron 03:00]  → backup: pg_dump → MinIO; mongodump → MinIO
-[Cron 03:30]  → MinIO → offsite (rclone → S3/Backblaze)
-[Cron 04:00 nd] → VACUUM ANALYZE; REINDEX
-```
-
-**To jest Twój „tryb nocny"** — deklaratywnie, bez `docker compose down`, bez Docker socketa w n8n.
-
----
-
-## 7. Priorytetyzacja CPU (prawdziwe wąskie gardło)
-
-**RAM masz z zapasem (3.2 GB). CPU nie — masz 2 vCPU.**
-
-LibreOffice = 1 pełny rdzeń przez 5–10 s. Jeśli Przemek generuje ofertę **na żywo przy kliencie**, a n8n akurat mieli AI-ekstrakcję → render czeka, Postgres zagłodzony, NocoDB muli. **Przemek stoi przed klientem i patrzy w spinner.**
-
-### Rozwiązanie (3 warstwy, zero nowych narzędzi)
-
-**1. Priorytety w `job_queue`**
-
-| Zadanie | Priorytet |
-|---|---|
-| Render oferty (klik) | **10** |
-| Regeneracja po zmianie danych | 5 |
-| AI-ekstrakcja | 3 |
-| Backup, ASR, cleanup | 1 |
-
-Jeden konsument, `ORDER BY priority DESC` → render zawsze wyprzedza AI.
-
-**2. `cpu_shares` w compose** (soft priority, działa tylko przy kontencji)
-
-| Serwis | `cpu_shares` |
-|---|---|
-| `postgres` | **2048** (nigdy nie głoduje) |
-| `n8n` | 1024 |
-| `nocodb` | 1024 |
-| `crm-api` | **512** (ustępuje bazie) |
-| `librechat` | 512 |
-
-**3. Okna czasowe** — ciężkie joby na 02:00–04:00 (WF-8).
-
-### Czego NIE robić
-❌ `docker compose down` z n8n w ciągu dnia:
-- wymaga Docker socketa w n8n → **root na hoście**
-- restart Postgresa = cold cache → wolne zapytania przez minuty
-- Uptime Kuma zaczyna alertować
-
-**Zysk: 1 GB RAM, którego nie potrzebujesz. Koszt: dziura bezpieczeństwa.** Nie warto.
-
----
-
-## 8. Wąskie gardła i pułapki
-
-### 8.1 PgBouncer + n8n — prepared statements ⚠️
-PgBouncer w **transaction mode** nie obsługuje protokołu prepared statements. n8n (node-postgres) i NocoDB mogą ich używać.
-
-**Objaw:** losowe `prepared statement "S_1" already exists`.
-
-**Rozwiązanie:**
-- PgBouncer ≥ 1.21 + `max_prepared_statements = 100` (od tej wersji PgBouncer to obsługuje w transaction mode)
-- Albo: n8n/NocoDB → **bezpośrednio do Postgresa** (`5432`), tylko `crm-api` przez PgBouncer
-- **Ustawienia:** `pool_mode=transaction`, `default_pool_size=20`, `max_client_conn=100`, `server_lifetime=600`
-
-### 8.2 NocoDB schema drift ⚠️⚠️
-NocoDB podpięty do zewnętrznego Postgresa **potrafi zmodyfikować schemat** przy „Sync" — dodać kolumny meta (`nc_order`), zmienić typy.
-
-**Rozwiązanie:**
-- Osobny user `nocodb_app` z `GRANT SELECT, INSERT, UPDATE, DELETE` **tylko na widokach**
-- **`REVOKE CREATE ON SCHEMA public FROM nocodb_app`** ← krytyczne
-- `REVOKE ALL ON ALL TABLES` → grant tylko na `v_*`
-- NocoDB nigdy nie widzi tabel bazowych
-
-### 8.3 Rate limity API AI
-Anthropic/OpenAI mają limity RPM/TPM. Transkrypt 40-min ≈ 8–12k tokenów.
-
-**Rozwiązanie:** kolejka (`priority=3`), retry z exponential backoff (3×), circuit breaker → po 3 failach task manualny. Przy 5 leadach/dzień to nieistotne, ale nie zakładaj że zawsze zadziała.
-
-### 8.4 Backup — pułapka self-hostingu ⚠️⚠️⚠️
-**3 osobne systemy stanu:** Postgres, MinIO, MongoDB. Backup jednego bez pozostałych = bezużyteczny.
-
-| Co | Jak | Retencja | Gdzie |
-|---|---|---|---|
-| **Postgres** | `pg_dump -Fc` (nocnie) + WAL archiving (opcjonalnie) | 30 dni | MinIO + offsite |
-| **MinIO** | `mc mirror` → offsite (Backblaze B2 / Hetzner Storage Box) | 90 dni | offsite |
-| **MongoDB** | `mongodump` | 14 dni (tylko LibreChat, mniej krytyczne) | MinIO + offsite |
-| **n8n workflows** | Export JSON → Git (**n8n ma natywny Git sync**) | ∞ | Git |
-| **Schema PG** | Migracje w Git | ∞ | Git |
-| **NocoDB meta** | Meta w tym samym PG → objęte `pg_dump` | — | — |
-
-> **⚠️ Backup MinIO do MinIO to nie backup.** Musi być offsite. 80 GB NVMe — jak dysk padnie, tracisz wszystko.
-
-**Restore drill: obowiązkowy przed oddaniem klientowi.** Odtwórz całość na czystym VPS z samych backupów. Jeśli nie przećwiczysz — nie masz backupu, masz nadzieję.
-
-### 8.5 MinIO versioning + lifecycle
-
-| Bucket | Versioning | Lifecycle |
-|---|---|---|
-| `offers` | **ON** | Retencja ∞ (snapshoty ofert = dokumenty handlowe) |
-| `templates` | **ON** | Retencja ∞ |
-| `recordings` | OFF | **Expire po 90 dniach** (⚠️ 80 GB dysku!) |
-| `transcripts` | OFF | ∞ (tekst, mały) |
-| `backups` | OFF | Expire 30 dni |
-
-**Dysk 80 GB — realne zagrożenie:** nagrania to ~50 MB/h. Przy 20 spotkaniach/mies. = 1 GB/mies. Przez rok = 12 GB. **Do przyjęcia, ale monitoruj** (Uptime Kuma → alert przy 80% dysku).
-
-### 8.6 Whisper / ASR — NIE na tym VPS ❌
-Rozważałeś nocne przetwarzanie. Matematyka:
-- `whisper.cpp` model `small`, CPU-only, 2 vCPU → **~1.5–2× realtime**
-- 40-min rozmowa = **60–80 min mielenia CPU**
-- Jakość dla mieszanego PL/EN → **słaba** (patrz transkrypt 1639 — sieczka)
-
-**Rekomendacja:** zewnętrzny ASR (Deepgram / AssemblyAI / OpenAI Whisper API). Koszt ~$0.006/min → 40-min rozmowa = **$0.24**. Kilkanaście rozmów/mies. = **~$4**.
-
-Nie warto poświęcać VPS-a i jakości dla $4/mies. **Nagranie → MinIO → n8n → zewnętrzny ASR → transkrypt do PG.**
-
-### 8.7 Ready-to-migrate (wymóg klienta)
-
-| Zasada | Realizacja |
-|---|---|
-| Zero credentiali w `docker-compose.yml` | **Wszystko przez `${VAR}` z `.env`** |
-| LibreChat ↔ Mongo tylko przez `${MONGO_URI}` | ✅ |
-| Odpięcie kontenera Mongo nie wysypuje LibreChata | ✅ — zmiana `MONGO_URI` na zewnętrzny host |
-| To samo dla Uptime Kuma | Kuma = SaaS-ready (Uptime Kuma Cloud / Better Uptime) |
-
-**Analogicznie przygotuj:** `${POSTGRES_URI}`, `${MINIO_ENDPOINT}`, `${S3_*}` — żeby dało się wyprowadzić bazę i storage do managed service bez zmiany compose'a.
-
-**`.env` — pełna lista (do wygenerowania przy bootstrapie):**
-```
-POSTGRES_HOST / PORT / DB / USER / PASSWORD
-POSTGRES_URI            (composed)
-PGBOUNCER_*
-NOCODB_DB_USER / PASSWORD   (ograniczony!)
-MONGO_URI               ← LibreChat, ready-to-migrate
-MINIO_ROOT_USER / PASSWORD / ENDPOINT
-MINIO_BUCKET_*
-N8N_ENCRYPTION_KEY      ← ⚠️ utrata = utrata wszystkich credentiali w n8n
-N8N_WEBHOOK_URL
-CRM_API_URL             (internal)
-ANTHROPIC_API_KEY
-ASR_API_KEY
-CADDY_DOMAIN / EMAIL
-BACKUP_S3_*             (offsite)
-```
-
-> **`N8N_ENCRYPTION_KEY` — zapisz w password managerze klienta.** Utrata = utrata wszystkich credentiali zapisanych w n8n.
-
-### 8.8 Cal.com
-**Rekomendacja: Cal.com Cloud** (free tier wystarcza dla 1 handlowca).
-- ✅ Natywny webhook → n8n (`booking.created`, `booking.ended`)
-- ✅ Zero Azure AD, zero app registration, zero Graph API
-- ✅ **Zero RAM na VPS** (self-hosted to +600 MB + własna baza)
-
-### 8.9 Ryzyko #1 projektu — nie techniczne ⚠️⚠️⚠️
-Dokument klienta przyznaje wprost:
-> *„Które elementy rekomendacji są oparte na kryteriach metodycznych, które trzeba spisać, bo obecnie funkcjonują głównie »w głowie«."*
-
-**Skąd `B2.6` vs `B2`? Dlaczego 1638 → 60h BE + 15h warsztat, a 1639 → 60h English for IT?**
-
-Ten mapping **jest produktem.** Bez niego zbudujesz system, który generuje puste slajdy.
-**n8n tego nie rozwiąże. Ustalone: wyciągacie to iteracyjnie po MVP.** Do MVP: metodyk wpisuje ręcznie, AI tylko draftuje tekst.
-
----
-
-## 9. Kolejność wdrożenia
-
-### FAZA 0 — Bramka techniczna (DZIEŃ 1) ⚠️
-**Zanim zbudujesz cokolwiek innego.**
-
-1. Wyciągnij szablon z decku 1638 → `coaction_b2c_v1.potx`
-2. Zaznacz placeholdery na slajdach 1, 3, 4, 5–7
-3. Napisz minimalny `render_offer.py` (hardcoded JSON → PPTX)
-4. **TEST:** czy podmiana tekstu w runach działa na tym 11 MB decku?
-5. **TEST:** czy klonowanie / usuwanie slajdów celów działa?
-6. **TEST:** czy `soffice --convert-to pdf` daje poprawny PDF?
-
-> **To jest jedyny prawdziwy risk techniczny.** Jeśli tu się wywali → Plan B (3 gotowe slajdy celów, tylko usuwanie).
-> **Nie idź dalej, dopóki to nie działa.**
-
-### FAZA 1 — Infrastruktura (dni 2–3)
-1. VPS: `ufw` (tylko 22, 80, 443), fail2ban, unattended-upgrades
-2. Docker + Compose v2
-3. `.env` (wygeneruj hasła: `openssl rand -base64 32`)
-4. Sieci: `edge`, `internal`, `data`, `mongo`
-5. **Postgres** (bind `127.0.0.1`, `shared_buffers=1GB`, `work_mem=16MB`, `max_connections=100`)
-6. **PgBouncer** (`transaction`, `max_prepared_statements=100`)
-7. **Caddy** + domeny (`back-office.`, `n8n.`, `chat.`, `s3.`, `status.`)
-8. **MinIO** + buckety + versioning + lifecycle
-9. **Uptime Kuma** — monitoring wszystkiego od razu
-
-### FAZA 2 — Baza (dni 4–5)
-1. Migracje (`dbmate` / `Atlas`) w Git
-2. Enumy → tabele → indeksy → triggery
-3. **Trigger cenowy** (`offer_items` → `offers`)
-4. **Trigger historii** (`opportunities.stage` → `opportunity_stage_history`)
-5. Seed: `pricing_tiers` (ze slajdu 8), `testimonials` (slajdy 12–24), `users`
-6. Widoki `v_*` + `INSTEAD OF` triggery
-7. `nocodb_app` user + `GRANT` + **`REVOKE CREATE ON SCHEMA public`**
-8. **Migracja legacy Excela** (1600 rekordów)
-
-### FAZA 3 — crm-api (dni 6–7)
-1. FastAPI + Pydantic + `python-pptx` + LibreOffice (Dockerfile)
-2. `POST /render` (z Fazy 0)
-3. `POST /template/inspect`
-4. Pobieranie szablonu z MinIO + cache po `sha256`
-5. Timeout, unikalny profil LO, reap zombie
-6. **Nie wystawiaj przez Caddy** — tylko sieć `internal`
-
-### FAZA 4 — n8n + NocoDB (dni 8–10)
-1. n8n: credentials (PG, MinIO, Anthropic, NocoDB), **Git sync** workflowów
-2. **WF-6 (generowanie oferty) — najpierw!** To jest demo.
-3. NocoDB: podłącz do widoków, zbuduj **Offer Builder** (§5)
-4. Button field → webhook n8n
-5. Pola po polsku, ukryj techniczne kolumny, grupowanie
-6. **Test pętli:** zmień 60h → 45h → Generuj → PPTX ze zmianą
-
-### FAZA 5 — DEMO (dzień 11) 🎯
-**Przemek klika, nie Ty.**
-1. Otwiera rekord 1638 w NocoDB
-2. Zmienia `60h → 45h` → **cena przelicza się na jego oczach**
-3. Zmienia testimoniale (IT → HR)
-4. Klika `[Generuj ofertę]`
-5. Po ~20 s ma PPTX. **Swój deck. Ze swoją zmianą.**
-
-**Jeśli to zadziała — kupi.**
-
-### FAZA 6 — Reszta pipeline'u (dni 12–18)
-WF-1 … WF-5, WF-7, WF-8. Taski. AI-ekstrakcja. Cal.com.
-
-### FAZA 7 — Hardening + przekazanie (dni 19–21)
-1. Backup + **restore drill na czystym VPS**
-2. Uptime Kuma: wszystkie serwisy + dysk + cert expiry
-3. `cpu_shares`
-4. Dokumentacja (runbook: restart, restore, dodanie pola, zmiana szablonu)
-5. **Szkolenie klienta:** NocoDB (codziennie), n8n (rozszerzanie), upload szablonu
-
----
-
-## 10. Dług techniczny — świadomy
-
-| Dług | Kiedy zapłacić |
-|---|---|
-| **Brak live preview oferty** — Przemek czeka 20 s na każdą iterację | Gdy zaboli → **Appsmith Cloud** albo własny front (FastAPI + HTMX) |
-| **NocoDB nie waliduje biznesu** — broni tylko baza (CHECK/FK) | OK na zawsze, jeśli constrainty są szczelne |
-| **Kryteria metodyczne „w głowie"** | Iteracyjnie po MVP — to jest wspólna praca z metodykami |
-| **ASR zewnętrzny** (nie self-hosted) | Nigdy — $4/mies. to nie jest problem |
-| **Brak modułu post-sprzedażowego** (lektorzy, analiza lekcji) | Wersja 2.0 + większy dysk |
-
----
-
-## 11. Otwarte pytania (do potwierdzenia z klientem)
-
-1. **Czy Przemek zaakceptuje, że NIE edytuje PPTX ręcznie?** Jeśli nie → +3–4 dni na re-import tabeli „Podsumowanie handlowe" (Model 3).
-2. ~~**Domena**~~ — **rozstrzygnięte:** `back-office.coaction.pl` (zaakceptowane przez CEO). CRM to część backoffice; docelowo pod tą samą domeną znajdą się też widoki dla lektorów (np. notatki po lekcji).
-3. **Kto dostaje taski** — potwierdzić listę: Przemek (sprzedaż), Ola/Dorota (metodyka), Kasia (?), Paulina (finanse).
-4. **Offsite backup** — gdzie? (Backblaze B2 ~$6/TB/mies., Hetzner Storage Box ~€3/mies. za 1 TB)
-5. **Dostawca ASR** — Deepgram / AssemblyAI / OpenAI Whisper API?
+| `fable/nocodb_crm_schema_v2.md` (+ `v1.md`, wcześniejsza iteracja) | pełny schemat 9 tabel + zasady |
+| `fable/crm_flow.mermaid`, `fable/crm_erd.mermaid`, `fable/crm_intake_matching.mermaid` | diagramy: cykl życia leada, ERD, kaskada intake |
+| `fable/W1..W6b*.json` + `fable/README.md` (`fable/n8n_workflows_coaction.zip`) | importowalne workflowy + instrukcja placeholderów/webhooków |
+| `fable/W4v2_intake_matching.json` | intake 3 źródeł + kaskada (zastępuje W4) |
+| `fable/W0_seed_sample_data.json`, `fable/seed_nocodb.py`, `fable/sample_data_overview.md` | dane przykładowe (2 drogi) + mapa relacji |
+| `fable/import_legacy_excel.py` | migracja legacy z dry-run |
+| `fable/test_runner_coaction.zip` (`fable/test_cases.md`, `fable/conftest.py`, `fable/test_workflows.py`, `fable/nocodb.py`) | katalog przypadków + harness pytest |
+| `fable/meta.json` | eksport żywej struktury "CoAction TEST Base" z NocoDB (2026-07-17) — dowód, że model jest wdrożony, nie tylko zaprojektowany |
+
+## 11. Znane ograniczenia i ryzyka
+
+1. **Brak offsite backupu z realnym cronem/targetem na obu VPS-ach** — mechanizm
+   (`backup/backup.sh`, restic+rclone) gotowy, ale konfiguracja crona na serwerach
+   i wybór dostawcy (Backblaze B2 / Hetzner Storage Box) — otwarte, priorytet #1.
+2. NocoDB CE: brak powiadomień push/apki mobilnej (łatane przez W3 mail),
+   jedna aktywna sesja per konto (ryzyko UX telefon+laptop — do weryfikacji
+   na bieżącej wersji), triggery per-pole płatne (stąd guardy), komentarze
+   bez webhooków, filtrowane rollupy płatne (raporty → SQL na Postgresie).
+3. Kształt payloadów webhooków NocoDB różni się między wersjami (pole User:
+   obiekt/tablica) — guardy pisane defensywnie; po każdym upgrade NocoDB
+   przebieg Test Runnera na VPS-B PRZED aktualizacją produkcji.
+4. Tier 3/4 matchuje tylko otwarte leady i firmy (limit 200) — świadoma
+   granica; przy skali setek zapytań/mies. → wyszukiwanie w Postgresie.
+5. Wiązanie tasków pipeline'ów markerami w opisie — nie edytować ręcznie.
+6. Seed i import nie są transakcyjne — seed tworzy duplikaty przy re-runie
+   (importer nie, dzięki `legacy_id`).
+7. **CPU passthrough i status MinIO OSS** — patrz §4; oba udokumentowane,
+   pierwsze naprawione, drugie świadomie zamrożone bez docelowej decyzji.
+
+## 12. Backlog (faza 2)
+
+Tabela `offers` + generowanie oferty PPTX/www z pól `participants` i
+`testimonials`; formularze przed-audytowe dla uczestników; AI-draft
+`needs_summary` z transkrypcji; dashboard SQL (czas new→won, konwersja per
+source, per branża); asercje mailowe w Test Runnerze (MailHog API); rozszerzenie
+parsera RRULE (YEARLY/INTERVAL); wyszukiwanie po zamkniętej historii (Postgres
+FTS); sunset lustra xlsx.
+
+**Generowanie oferty jako plik (PPTX/PDF) — wraca do zakresu tylko po decyzji
+klienta/CEO** (patrz §14). Poprzednia wersja PRD zawierała gotowy, szczegółowy
+projekt tego serwisu — zachowany, nie stracony:
+- Kontrakt `crm-api` (FastAPI + `python-pptx` + LibreOffice, bezstanowy,
+  `POST /render`, `POST /template/inspect`, sieć `internal` bez portu w Caddy).
+- Znane pułapki: podmiana tekstu w `runs` PowerPoint (merge przed replace),
+  klonowanie slajdów celów (`python-pptx` bez natywnego API, `copy.deepcopy` XML;
+  plan B: gotowe sloty + samo usuwanie), `soffice --convert-to pdf` (timeout,
+  unikalny `-env:UserInstallation`, reap zombie procesów).
+- `job_queue` w Postgresie (`FOR UPDATE SKIP LOCKED`, priorytety) jako zamiennik
+  Redis/Celery, gdyby render miał być kolejkowany.
+Ten materiał żyje wyłącznie w git history starej wersji tego pliku — do
+wydobycia (`git log -- .ai/PRD.md`) w razie potwierdzenia potrzeby.
+
+## 13. Status / najbliższe kroki
+
+- [x] schemat, seed (przeszedł na realnej bazie), workflowy, importer, testy — dostarczone (patrz §10)
+- [x] VPS-A (produkcja) i VPS-B (staging) wykupione i działają — pełny stack, 100% uptime
+- [ ] Baza NocoDB modelu z §5 wdrożona i uzupełniona danymi na obu VPS-ach (dziś istnieje jako "CoAction TEST Base" — zweryfikować, czy to już VPS-A/B, czy osobne środowisko do przeniesienia)
+- [ ] **backup offsite** (cron na serwerach + wybór dostawcy — patrz §11 pkt 1)
+- [ ] podmiana placeholderów workflowów na ID z docelowej instancji (sed per VPS, patrz `fable/README.md`)
+- [ ] wtyczka webhook CF7 na WordPressie + realny payload → mapa pól adaptera
+- [ ] Power Automate dla Bookings → adapter
+- [ ] dry-run importu na pełnym Excelu → STAGE_MAP → import na produkcji
+- [ ] widok SQL `legacy_crm_mirror` + workflow lustra (po dostarczeniu `\dt`/`\d`)
+- [ ] przebieg Test Runnera na VPS-B → poprawka builderów payloadów pod realną wersję NocoDB
+- [ ] rollout zespołowy: pokaz `fable/crm_flow.mermaid`, widoki per osoba, data twardego cięcia
+- [ ] rozstrzygnięcie otwartych pytań biznesowych, patrz §14
+
+## 14. Otwarte pytania (do potwierdzenia z klientem/CEO)
+
+1. **Generowanie oferty jako plik (PPTX/PDF)** — czy MVP kończy się na wycenionych,
+   gotowych danych w NocoDB (`offer_prep_status=draft_ready`), czy klient
+   oczekuje realnego pliku do wysyłki? Jeśli tak — wraca projekt `crm-api` z §12.
+   Powiązane pytanie z poprzedniej wersji PRD: czy Przemek zaakceptuje, że NIE
+   edytuje PPTX ręcznie (jeśli renderer wróci w zakres)?
+2. **Offsite backup — gdzie?** Backblaze B2 (~$6/TB/mies.) czy Hetzner Storage
+   Box (~€3/mies. za 1 TB)?
+3. **Dostawca ASR** (transkrypcja spotkań, jeśli nagrania mają być automatycznie
+   transkrybowane zamiast ręcznego wklejania) — Deepgram / AssemblyAI / OpenAI
+   Whisper API?
+4. **MinIO OSS: zamrożone na stałe czy migracja** na aktywnie rozwijaną
+   alternatywę (Garage, SeaweedFS) — patrz §4/§11 pkt 7. Ma znaczenie głównie,
+   jeśli powstanie integracja S3 SDK (np. renderer z pytania #1).
+5. **Kto dostaje taski poza już zamodelowanymi rolami** — role Kasi (marketing)
+   i Pauliny (finanse) są w §2, ale nie były jeszcze przetestowane na żywych
+   danych/workflowach tak jak Przemek/Dorota/Aleksandra.

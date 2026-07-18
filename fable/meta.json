@@ -1,0 +1,1490 @@
+[
+  {
+    "id": "p5a5pocv2qgyeye",
+    "title": "CoAction TEST Base",
+    "meta": {
+      "icon_color": "#36BFFF"
+    },
+    "workspace_id": "ws8amqq9",
+    "created_at": "2026-07-17 16:48:17+00:00",
+    "updated_at": "2026-07-17 17:59:10+00:00",
+    "sources": [
+      {
+        "id": "b6bx71643g1xkxo",
+        "title": "CoAction TEST appdata",
+        "type": "pg",
+        "is_schema_readonly": false,
+        "is_data_readonly": false
+      }
+    ],
+    "tables": [
+      {
+        "id": "myvr4lq0k17je7t",
+        "title": "Companies",
+        "meta": {
+          "icon": "🏢"
+        },
+        "description": "Firma jako byt trwały. Lead to pojedyncza szansa sprzedaży; firma może mieć wiele leadów w czasie (inny dział, kolejny rok).",
+        "source_id": "b6bx71643g1xkxo",
+        "base_id": "p5a5pocv2qgyeye",
+        "workspace_id": "ws8amqq9",
+        "views": [
+          {
+            "id": "vwmaf1a7vca8pa3t",
+            "title": "Companies",
+            "view_type": "grid"
+          }
+        ],
+        "display_field_id": "cbzwivdaubqmr3y",
+        "fields": [
+          {
+            "id": "crbtadqdwb4dpuv",
+            "table_id": "myvr4lq0k17je7t",
+            "title": "Id",
+            "type": "ID",
+            "system": false
+          },
+          {
+            "id": "cbzwivdaubqmr3y",
+            "table_id": "myvr4lq0k17je7t",
+            "title": "name",
+            "type": "SingleLineText"
+          },
+          {
+            "id": "ciac7idjg6srv0b",
+            "table_id": "myvr4lq0k17je7t",
+            "title": "domains",
+            "type": "SingleLineText",
+            "system": false,
+            "description": "domeny e-mail rozdzielone przecinkiem, np. acme.pl, acme.com — klucz do dedupu"
+          },
+          {
+            "id": "cfyg6hoaxyay9me",
+            "table_id": "myvr4lq0k17je7t",
+            "title": "leads",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "mx00y54712018vc",
+              "relation_type": "om"
+            }
+          },
+          {
+            "id": "ci4sxodwlr93zem",
+            "table_id": "myvr4lq0k17je7t",
+            "title": "participants",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "mb0glo0usspuyxr",
+              "relation_type": "om"
+            }
+          }
+        ]
+      },
+      {
+        "id": "mx00y54712018vc",
+        "title": "Leads",
+        "meta": {
+          "icon": "💸"
+        },
+        "description": "Jedna szansa sprzedaży. Kanban żyje tutaj.",
+        "source_id": "b6bx71643g1xkxo",
+        "base_id": "p5a5pocv2qgyeye",
+        "workspace_id": "ws8amqq9",
+        "views": [
+          {
+            "id": "vwnad844frxc4707",
+            "title": "Leads",
+            "view_type": "grid"
+          },
+          {
+            "id": "vweuop9lt13h9dzh",
+            "title": "New lead",
+            "view_type": "form"
+          },
+          {
+            "id": "vwztfb0qa4m39uuj",
+            "title": "Kanban (stage)",
+            "view_type": "kanban"
+          }
+        ],
+        "display_field_id": "ck1k7fg7uj4s53q",
+        "fields": [
+          {
+            "id": "c83gde2qfjjf4wq",
+            "table_id": "mx00y54712018vc",
+            "title": "Id",
+            "type": "ID",
+            "system": false
+          },
+          {
+            "id": "ck1k7fg7uj4s53q",
+            "table_id": "mx00y54712018vc",
+            "title": "name",
+            "type": "SingleLineText"
+          },
+          {
+            "id": "cxpflgkmdp110b4",
+            "table_id": "mx00y54712018vc",
+            "title": "Company",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "myvr4lq0k17je7t",
+              "relation_type": "mo"
+            }
+          },
+          {
+            "id": "cj2bdjbl8ckr6hb",
+            "table_id": "mx00y54712018vc",
+            "title": "lead_id",
+            "type": "Number",
+            "system": false,
+            "options": {
+              "separator": "none_period"
+            },
+            "description": "kontynuacja numeracji z Excela (import ustawi sekwencję od 1640+)"
+          },
+          {
+            "id": "co9r4e173rnvggg",
+            "table_id": "mx00y54712018vc",
+            "title": "contact_name",
+            "type": "SingleLineText",
+            "system": false,
+            "description": "osoba kontaktowa = kupujący (nie mylić z participant)"
+          },
+          {
+            "id": "cuup8vz5ot4od1b",
+            "table_id": "mx00y54712018vc",
+            "title": "contact_email",
+            "type": "Email",
+            "system": false,
+            "options": {
+              "validate": true
+            },
+            "description": "klucz dedupu domenowego"
+          },
+          {
+            "id": "ck9osr9yvvfhue0",
+            "table_id": "mx00y54712018vc",
+            "title": "contact_phone",
+            "type": "PhoneNumber",
+            "system": false
+          },
+          {
+            "id": "co7xdgywezigtsz",
+            "table_id": "mx00y54712018vc",
+            "title": "type",
+            "type": "SingleSelect",
+            "system": false,
+            "options": {
+              "choices": [
+                {
+                  "title": "B2B",
+                  "color": "#48B63EFF",
+                  "id": "s0ftwmeklpdlc7p"
+                },
+                {
+                  "title": "B2C",
+                  "color": "#553D7BFF",
+                  "id": "sao2ysnqxvzlck6"
+                }
+              ]
+            }
+          },
+          {
+            "id": "cpdkwc3gqtfd9l3",
+            "table_id": "mx00y54712018vc",
+            "title": "owner",
+            "type": "User",
+            "system": false,
+            "options": {
+              "allow_multiple_users": true,
+              "notify": false
+            }
+          },
+          {
+            "id": "cdhpaqphwzr91yh",
+            "table_id": "mx00y54712018vc",
+            "title": "source",
+            "type": "SingleSelect",
+            "system": false,
+            "options": {
+              "is_color_code_enabled": true,
+              "choices": [
+                {
+                  "title": "bookings",
+                  "color": "#ffdaf6",
+                  "id": "sgsqmeory4icqlt"
+                },
+                {
+                  "title": "formularz",
+                  "color": "#cfdffe",
+                  "id": "sxh7syhmbtjorjp"
+                },
+                {
+                  "title": "email",
+                  "color": "#d0f1fd",
+                  "id": "s2n6ajgprs3y4bd"
+                },
+                {
+                  "title": "telefon",
+                  "color": "#c2f5e8",
+                  "id": "sb1jzi4ytvt6v5e"
+                }
+              ]
+            }
+          },
+          {
+            "id": "czing6tm5hoyner",
+            "table_id": "mx00y54712018vc",
+            "title": "qualification",
+            "type": "SingleSelect",
+            "system": false,
+            "options": {
+              "choices": [
+                {
+                  "title": "unqualified",
+                  "color": "#cfdffe",
+                  "id": "s7102ufrrw0psp1"
+                },
+                {
+                  "title": "MQL",
+                  "color": "#d0f1fd",
+                  "id": "s9v407x89c3lq7f"
+                },
+                {
+                  "title": "SQL",
+                  "color": "#c2f5e8",
+                  "id": "sk3lbz6w12y9sot"
+                }
+              ]
+            }
+          },
+          {
+            "id": "cgwcljwzopeqtxu",
+            "table_id": "mx00y54712018vc",
+            "title": "disqualify_reason",
+            "type": "SingleLineText",
+            "system": false
+          },
+          {
+            "id": "cmvwpkcyii9da9o",
+            "table_id": "mx00y54712018vc",
+            "title": "disqualify_note",
+            "type": "LongText",
+            "system": false,
+            "options": {
+              "rich_text": true,
+              "smart_mode": false
+            }
+          },
+          {
+            "id": "cfbd4ajeuejwzip",
+            "table_id": "mx00y54712018vc",
+            "title": "stage",
+            "type": "SingleSelect",
+            "system": false,
+            "options": {
+              "choices": [
+                {
+                  "title": "new",
+                  "color": "#cfdffe",
+                  "id": "swr2rcxrobphaoe"
+                },
+                {
+                  "title": "discovery_scheduled",
+                  "color": "#d0f1fd",
+                  "id": "szmbu1s6qmn3gar"
+                },
+                {
+                  "title": "discovery_done",
+                  "color": "#c2f5e8",
+                  "id": "sruij1yegr4vr0f"
+                },
+                {
+                  "title": "audit",
+                  "color": "#ffdaf6",
+                  "id": "smh4nonb1tzvhh2"
+                },
+                {
+                  "title": "recommendation",
+                  "color": "#ffdce5",
+                  "id": "s33lzpqd01nwxmn"
+                },
+                {
+                  "title": "offer_sent",
+                  "color": "#fee2d5",
+                  "id": "sj5h089l7a2pv1i"
+                },
+                {
+                  "title": "offer_discussed",
+                  "color": "#ffeab6",
+                  "id": "s1hqqudqpdaxv6s"
+                },
+                {
+                  "title": "contract_sent",
+                  "color": "#d1f7c4",
+                  "id": "s9re9hw312kjxjh"
+                },
+                {
+                  "title": "contract_signed",
+                  "color": "#ede2fe",
+                  "id": "skrzx8e126ind40"
+                },
+                {
+                  "title": "lost",
+                  "color": "#eeeeee",
+                  "id": "svq1vyh0g8cjoew"
+                },
+                {
+                  "title": "archived",
+                  "color": "#cfdffe",
+                  "id": "s9ymgdrb01fdb00"
+                }
+              ]
+            }
+          },
+          {
+            "id": "cjp7iqlbsvyiug2",
+            "table_id": "mx00y54712018vc",
+            "title": "value",
+            "type": "Currency",
+            "system": false,
+            "options": {
+              "currency_locale": "pl-PL",
+              "currency_code": "PLN",
+              "precision": 2
+            },
+            "description": "wartość szansy"
+          },
+          {
+            "id": "cn3aj0grl2i4dtn",
+            "table_id": "mx00y54712018vc",
+            "title": "state",
+            "type": "SingleSelect",
+            "system": false,
+            "options": {
+              "choices": [
+                {
+                  "title": "open",
+                  "color": "#cfdffe",
+                  "id": "sbmryqmhkbscgf7"
+                },
+                {
+                  "title": "won",
+                  "color": "#d0f1fd",
+                  "id": "slxuroubxjsdafd"
+                },
+                {
+                  "title": "lost",
+                  "color": "#c2f5e8",
+                  "id": "sxlpch9psn9vtb8"
+                },
+                {
+                  "title": "archived",
+                  "color": "#ffdaf6",
+                  "id": "s48whrn5uatdnb3"
+                }
+              ]
+            },
+            "description": "n8n ustawia won przy stage=contract_signed"
+          },
+          {
+            "id": "c2v2pq7gjqi9yh1",
+            "table_id": "mx00y54712018vc",
+            "title": "label",
+            "type": "SingleSelect",
+            "system": false,
+            "options": {
+              "choices": [
+                {
+                  "title": "hot",
+                  "color": "#cfdffe",
+                  "id": "s46rjrq5uk17lg8"
+                },
+                {
+                  "title": "oferta_specjalna",
+                  "color": "#d0f1fd",
+                  "id": "swk5e5ev95547ru"
+                }
+              ]
+            }
+          },
+          {
+            "id": "crh0p39k4jyq7xk",
+            "table_id": "mx00y54712018vc",
+            "title": "company_match_status",
+            "type": "SingleSelect",
+            "system": false,
+            "options": {
+              "choices": [
+                {
+                  "title": "none",
+                  "color": "#cfdffe",
+                  "id": "sv2gyvw4uyuvr5v"
+                },
+                {
+                  "title": "pending_confirmation",
+                  "color": "#d0f1fd",
+                  "id": "sjaoaqdegg3oghg"
+                },
+                {
+                  "title": "confirmed",
+                  "color": "#c2f5e8",
+                  "id": "s95t4vh68olhp7a"
+                },
+                {
+                  "title": "rejected",
+                  "color": "#ffdaf6",
+                  "id": "sj1l6i577gcwscn"
+                }
+              ]
+            }
+          },
+          {
+            "id": "cpa8o27y4pft40n",
+            "table_id": "mx00y54712018vc",
+            "title": "offer_prep_status",
+            "type": "SingleSelect",
+            "system": false,
+            "options": {
+              "choices": [
+                {
+                  "title": "none",
+                  "color": "#cfdffe",
+                  "id": "si0u09tq3ybsd2o"
+                },
+                {
+                  "title": "waiting_goals",
+                  "color": "#d0f1fd",
+                  "id": "s9u3ck03efotrex"
+                },
+                {
+                  "title": "goals_provided",
+                  "color": "#c2f5e8",
+                  "id": "sxkxrlus2cf5p8q"
+                },
+                {
+                  "title": "testimonials_provided",
+                  "color": "#ffdaf6",
+                  "id": "sqd24i80il2ksha"
+                },
+                {
+                  "title": "draft_ready",
+                  "color": "#ffdce5",
+                  "id": "snkdfxslt3p0vox"
+                }
+              ]
+            },
+            "description": "pipeline produkcji oferty (workflow W6); celowo osobno od stage, żeby kanban sprzedażowy pozostał czysty"
+          },
+          {
+            "id": "cz5a6uoqse25m7i",
+            "table_id": "mx00y54712018vc",
+            "title": "training_goals",
+            "type": "LongText",
+            "system": false,
+            "options": {
+              "rich_text": true,
+              "smart_mode": false
+            }
+          },
+          {
+            "id": "c2aeg1l0oemtwfz",
+            "table_id": "mx00y54712018vc",
+            "title": "selected_testimonials",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "mmotpjht9ypon3k",
+              "relation_type": "mm"
+            }
+          },
+          {
+            "id": "cb1wd0tbdm0c605",
+            "table_id": "mx00y54712018vc",
+            "title": "offer_sent_at",
+            "type": "Date",
+            "system": false,
+            "options": {
+              "date_format": "YYYY-MM-DD"
+            }
+          },
+          {
+            "id": "c5y88f53ihx0jip",
+            "table_id": "mx00y54712018vc",
+            "title": "contract_sent_at",
+            "type": "Date",
+            "system": false,
+            "options": {
+              "date_format": "YYYY-MM-DD"
+            }
+          },
+          {
+            "id": "c7srbognuq8n1nh",
+            "table_id": "mx00y54712018vc",
+            "title": "closed_at",
+            "type": "Date",
+            "system": false,
+            "options": {
+              "date_format": "YYYY-MM-DD"
+            }
+          },
+          {
+            "id": "citrnapar44sd2r",
+            "table_id": "mx00y54712018vc",
+            "title": "tasks",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "mdqdz4zjmarhmmu",
+              "relation_type": "om"
+            }
+          },
+          {
+            "id": "cncc0hg29gbn8g0",
+            "table_id": "mx00y54712018vc",
+            "title": "meetings",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "marzjzld5cynlfw",
+              "relation_type": "om"
+            }
+          },
+          {
+            "id": "c0bcxdduj0ahmnu",
+            "table_id": "mx00y54712018vc",
+            "title": "participants",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "mb0glo0usspuyxr",
+              "relation_type": "om"
+            }
+          },
+          {
+            "id": "c68dgrjbh6vekpn",
+            "table_id": "mx00y54712018vc",
+            "title": "Activities",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "m1d4hmx0ib4s77s",
+              "relation_type": "om"
+            }
+          },
+          {
+            "id": "cf7guml1ih6z14i",
+            "table_id": "mx00y54712018vc",
+            "title": "note",
+            "type": "LongText",
+            "system": false
+          },
+          {
+            "id": "ce9l0x8ck752vp8",
+            "table_id": "mx00y54712018vc",
+            "title": "possible_duplicate",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "mx00y54712018vc",
+              "relation_type": "mm"
+            }
+          }
+        ]
+      },
+      {
+        "id": "marzjzld5cynlfw",
+        "title": "Meetings",
+        "meta": {
+          "icon": "👋"
+        },
+        "description": "Tylko prawdziwe spotkania. Kalendarz spotkań = widok Calendar na tej tabeli.",
+        "source_id": "b6bx71643g1xkxo",
+        "base_id": "p5a5pocv2qgyeye",
+        "workspace_id": "ws8amqq9",
+        "views": [
+          {
+            "id": "vwjfzz4tgpw4adqj",
+            "title": "Meetings",
+            "view_type": "grid"
+          },
+          {
+            "id": "vwk8bblgu8ezmx3y",
+            "title": "Meetings Calendar",
+            "view_type": "calendar"
+          }
+        ],
+        "display_field_id": "cqaw7cafnl0tvkt",
+        "fields": [
+          {
+            "id": "c4qotqe11hsbh3g",
+            "table_id": "marzjzld5cynlfw",
+            "title": "Id",
+            "type": "ID",
+            "system": false
+          },
+          {
+            "id": "cqaw7cafnl0tvkt",
+            "table_id": "marzjzld5cynlfw",
+            "title": "title",
+            "type": "SingleLineText"
+          },
+          {
+            "id": "coydw2dymwf0tkf",
+            "table_id": "marzjzld5cynlfw",
+            "title": "Lead",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "mx00y54712018vc",
+              "relation_type": "mo"
+            }
+          },
+          {
+            "id": "c9itga2cr3qpdbo",
+            "table_id": "marzjzld5cynlfw",
+            "title": "type",
+            "type": "SingleSelect",
+            "system": false,
+            "options": {
+              "choices": [
+                {
+                  "title": "discovery",
+                  "color": "#cfdffe",
+                  "id": "sve3i7tmhoz4cok"
+                },
+                {
+                  "title": "demo",
+                  "color": "#d0f1fd",
+                  "id": "s3ulp6xmhs1jzbs"
+                },
+                {
+                  "title": "audit",
+                  "color": "#c2f5e8",
+                  "id": "sq6gzwt8pywzyra"
+                },
+                {
+                  "title": "needs_analysis",
+                  "color": "#ffdaf6",
+                  "id": "sn09om9t05j1v1o"
+                },
+                {
+                  "title": "offer_discussion",
+                  "color": "#ffdce5",
+                  "id": "ssiyutc0zi4htgj"
+                },
+                {
+                  "title": "other",
+                  "color": "#fee2d5",
+                  "id": "stlom4o31krina9"
+                }
+              ]
+            }
+          },
+          {
+            "id": "c1boiwifjdludlm",
+            "table_id": "marzjzld5cynlfw",
+            "title": "starts_at",
+            "type": "DateTime",
+            "system": false,
+            "options": {
+              "date_format": "YYYY-MM-DD",
+              "time_format": "HH:mm",
+              "12hr_format": false
+            }
+          },
+          {
+            "id": "critpw5zph97n4l",
+            "table_id": "marzjzld5cynlfw",
+            "title": "ends_at",
+            "type": "DateTime",
+            "system": false,
+            "options": {
+              "date_format": "YYYY-MM-DD",
+              "time_format": "HH:mm",
+              "12hr_format": false
+            }
+          },
+          {
+            "id": "crm6otvja1l67dw",
+            "table_id": "marzjzld5cynlfw",
+            "title": "participant",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "mb0glo0usspuyxr",
+              "relation_type": "om"
+            }
+          },
+          {
+            "id": "cotqk2g0f8xprb8",
+            "table_id": "marzjzld5cynlfw",
+            "title": "owner",
+            "type": "User",
+            "default_value": "",
+            "system": false,
+            "options": {
+              "allow_multiple_users": true,
+              "notify": false
+            }
+          },
+          {
+            "id": "ci7kzcu8h1u5iep",
+            "table_id": "marzjzld5cynlfw",
+            "title": "transcript",
+            "type": "LongText",
+            "system": false,
+            "description": ""
+          },
+          {
+            "id": "cdd4gfq4hjenq53",
+            "table_id": "marzjzld5cynlfw",
+            "title": "ai_analysis",
+            "type": "LongText",
+            "system": false,
+            "description": "szkic analizy z LLM (OpenRouter); człowiek nie edytuje - poprawki wpisuje do notes/outcome, a szkic akceptuje lub odrzuca statusem"
+          },
+          {
+            "id": "cr4zbul9258mnhz",
+            "table_id": "marzjzld5cynlfw",
+            "title": "notes",
+            "type": "LongText",
+            "system": false,
+            "options": {
+              "rich_text": true,
+              "smart_mode": false
+            }
+          },
+          {
+            "id": "c93zffu81g1uwzq",
+            "table_id": "marzjzld5cynlfw",
+            "title": "processing_status",
+            "type": "SingleSelect",
+            "system": false,
+            "options": {
+              "choices": [
+                {
+                  "title": "none",
+                  "color": "#cfdffe",
+                  "id": "s0dky9s7qrabtsp"
+                },
+                {
+                  "title": "analysis_pending",
+                  "color": "#d0f1fd",
+                  "id": "svx1fxd1cu4256d"
+                },
+                {
+                  "title": "ai_draft_ready",
+                  "color": "#c2f5e8",
+                  "id": "sl7qzufxc31k564"
+                },
+                {
+                  "title": "ai_accepted",
+                  "color": "#ffdaf6",
+                  "id": "smoz1c1ip2515up"
+                },
+                {
+                  "title": "ai_rejected",
+                  "color": "#ffdce5",
+                  "id": "saglls4ghpsfppg"
+                }
+              ]
+            },
+            "description": "maszyna stanów W6a; dotyczy TEGO spotkania - dalsze etapy (cele, referencje) żyją na leadzie w offer_prep_status"
+          },
+          {
+            "id": "cfc0drrdse5xm4f",
+            "table_id": "marzjzld5cynlfw",
+            "title": "outcome",
+            "type": "LongText",
+            "system": false,
+            "description": "decyzje po spotkaniu"
+          },
+          {
+            "id": "cvairg10m9fpn6f",
+            "table_id": "marzjzld5cynlfw",
+            "title": "Activities",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "m1d4hmx0ib4s77s",
+              "relation_type": "om"
+            }
+          }
+        ]
+      },
+      {
+        "id": "mb0glo0usspuyxr",
+        "title": "Participants",
+        "meta": {
+          "icon": "👥"
+        },
+        "description": "Osoba faktycznie szkolona. Dla B2C \"kupuję dla siebie\" - lead ORAZ participant to ta sama osoba fizyczna, ale dwa rekordy (participant powstaje przy audycie/starcie). Dla par/grup - wiele participants na jeden lead. Dla B2B - CEO jest w leads, pracownicy tutaj.",
+        "source_id": "b6bx71643g1xkxo",
+        "base_id": "p5a5pocv2qgyeye",
+        "workspace_id": "ws8amqq9",
+        "views": [
+          {
+            "id": "vwsb30l98ez72z3s",
+            "title": "Participants",
+            "view_type": "grid"
+          }
+        ],
+        "display_field_id": "cnwmm60zk5jha9d",
+        "fields": [
+          {
+            "id": "cbc1ynna4iv1gif",
+            "table_id": "mb0glo0usspuyxr",
+            "title": "Id",
+            "type": "ID",
+            "system": false
+          },
+          {
+            "id": "cnwmm60zk5jha9d",
+            "table_id": "mb0glo0usspuyxr",
+            "title": "title",
+            "type": "SingleLineText"
+          },
+          {
+            "id": "c85ux8v7z7t0uwq",
+            "table_id": "mb0glo0usspuyxr",
+            "title": "Company",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "myvr4lq0k17je7t",
+              "relation_type": "mo"
+            }
+          },
+          {
+            "id": "c963dftadwfqezl",
+            "table_id": "mb0glo0usspuyxr",
+            "title": "Lead",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "mx00y54712018vc",
+              "relation_type": "mo"
+            }
+          },
+          {
+            "id": "cppznn8at3l0jn8",
+            "table_id": "mb0glo0usspuyxr",
+            "title": "Meeting",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "marzjzld5cynlfw",
+              "relation_type": "mo"
+            }
+          }
+        ]
+      },
+      {
+        "id": "mdqdz4zjmarhmmu",
+        "title": "Tasks",
+        "meta": {
+          "icon": "✅"
+        },
+        "source_id": "b6bx71643g1xkxo",
+        "base_id": "p5a5pocv2qgyeye",
+        "workspace_id": "ws8amqq9",
+        "views": [
+          {
+            "id": "vwu9upzi71u3ljkd",
+            "title": "Tasks",
+            "view_type": "grid"
+          }
+        ],
+        "display_field_id": "cphlrtcvbxwzslp",
+        "fields": [
+          {
+            "id": "ceyh33f2xq15vuu",
+            "table_id": "mdqdz4zjmarhmmu",
+            "title": "Id",
+            "type": "ID",
+            "system": false
+          },
+          {
+            "id": "cphlrtcvbxwzslp",
+            "table_id": "mdqdz4zjmarhmmu",
+            "title": "title",
+            "type": "SingleLineText"
+          },
+          {
+            "id": "cgdabsgc9g9v92d",
+            "table_id": "mdqdz4zjmarhmmu",
+            "title": "Lead",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "mx00y54712018vc",
+              "relation_type": "mo"
+            }
+          },
+          {
+            "id": "cnmq6e9zcsjh1mq",
+            "table_id": "mdqdz4zjmarhmmu",
+            "title": "assignee",
+            "type": "User",
+            "system": false,
+            "options": {
+              "allow_multiple_users": true,
+              "notify": false
+            }
+          },
+          {
+            "id": "cixvkaorvb3m54d",
+            "table_id": "mdqdz4zjmarhmmu",
+            "title": "due_date",
+            "type": "Date",
+            "system": false,
+            "options": {
+              "date_format": "YYYY-MM-DD"
+            }
+          },
+          {
+            "id": "cvq49t236eyxydo",
+            "table_id": "mdqdz4zjmarhmmu",
+            "title": "status",
+            "type": "SingleSelect",
+            "system": false,
+            "options": {
+              "choices": [
+                {
+                  "title": "todo",
+                  "color": "#FECFCFFF",
+                  "id": "sekbtx7uh1piyq9"
+                },
+                {
+                  "title": "in_progress",
+                  "color": "#cfdffe",
+                  "id": "sz5eh6s2b3yuds0"
+                },
+                {
+                  "title": "done",
+                  "color": "#d0f1fd",
+                  "id": "s4d13ixzael4lcn"
+                },
+                {
+                  "title": "cancelled",
+                  "color": "#c2f5e8",
+                  "id": "szh8a42bif99hv3"
+                }
+              ]
+            }
+          },
+          {
+            "id": "ctarkmb66q1cr6c",
+            "table_id": "mdqdz4zjmarhmmu",
+            "title": "priority",
+            "type": "SingleSelect",
+            "system": false,
+            "options": {
+              "choices": [
+                {
+                  "title": "low",
+                  "color": "#cfdffe",
+                  "id": "s6orzd6c1dsznbg"
+                },
+                {
+                  "title": "normal",
+                  "color": "#d0f1fd",
+                  "id": "sms7zdut9t0fw9g"
+                },
+                {
+                  "title": "high",
+                  "color": "#c2f5e8",
+                  "id": "s89qmtffz4et4ys"
+                }
+              ]
+            }
+          },
+          {
+            "id": "caarto2u7y656um",
+            "table_id": "mdqdz4zjmarhmmu",
+            "title": "Project",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "mea5er0h7z8hzhr",
+              "relation_type": "om"
+            }
+          },
+          {
+            "id": "c99urmc31yejfuz",
+            "table_id": "mdqdz4zjmarhmmu",
+            "title": "description",
+            "type": "LongText",
+            "system": false,
+            "options": {
+              "rich_text": true,
+              "smart_mode": false
+            }
+          },
+          {
+            "id": "cok5b6gkjwz3fq2",
+            "table_id": "mdqdz4zjmarhmmu",
+            "title": "Template",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "mxpjf61n00yokq8",
+              "relation_type": "mo"
+            }
+          },
+          {
+            "id": "cyaicu6hp8xabhs",
+            "table_id": "mdqdz4zjmarhmmu",
+            "title": "created_by_flow",
+            "type": "SingleLineText",
+            "system": false,
+            "description": "nazwa workflow n8n (debug)"
+          },
+          {
+            "id": "cwg0r3lt3w7if5a",
+            "table_id": "mdqdz4zjmarhmmu",
+            "title": "Activities",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "m1d4hmx0ib4s77s",
+              "relation_type": "om"
+            }
+          }
+        ]
+      },
+      {
+        "id": "m1d4hmx0ib4s77s",
+        "title": "Activities",
+        "meta": {
+          "icon": "🚴"
+        },
+        "source_id": "b6bx71643g1xkxo",
+        "base_id": "p5a5pocv2qgyeye",
+        "workspace_id": "ws8amqq9",
+        "views": [
+          {
+            "id": "vwqbbljoadjkfqp7",
+            "title": "Activities",
+            "view_type": "grid"
+          }
+        ],
+        "display_field_id": "cdjeiw3cklqmdoc",
+        "fields": [
+          {
+            "id": "cycpm8c3xak3sk0",
+            "table_id": "m1d4hmx0ib4s77s",
+            "title": "Id",
+            "type": "ID",
+            "system": false
+          },
+          {
+            "id": "cdjeiw3cklqmdoc",
+            "table_id": "m1d4hmx0ib4s77s",
+            "title": "summary",
+            "type": "SingleLineText"
+          },
+          {
+            "id": "cyhv79kxkbz8you",
+            "table_id": "m1d4hmx0ib4s77s",
+            "title": "type",
+            "type": "SingleSelect",
+            "system": false,
+            "options": {
+              "choices": [
+                {
+                  "title": "lead_created",
+                  "color": "#cfdffe",
+                  "id": "s37vyye171n13qt"
+                },
+                {
+                  "title": "stage_changed",
+                  "color": "#d0f1fd",
+                  "id": "s314i109a7jawve"
+                },
+                {
+                  "title": "task_created",
+                  "color": "#c2f5e8",
+                  "id": "sz929m6bj3woca2"
+                },
+                {
+                  "title": "task_completed",
+                  "color": "#ffdaf6",
+                  "id": "sn162ce9iyiojlt"
+                },
+                {
+                  "title": "meeting_created",
+                  "color": "#ffdce5",
+                  "id": "s5j9ei61dqo1ckj"
+                },
+                {
+                  "title": "transcript_added",
+                  "color": "#fee2d5",
+                  "id": "szj6fmqoo7owj95"
+                },
+                {
+                  "title": "ai_analysis_done",
+                  "color": "#ffeab6",
+                  "id": "s0xe1ozmnktf98w"
+                },
+                {
+                  "title": "ai_accepted",
+                  "color": "#d1f7c4",
+                  "id": "sb6k2fl2ag738tm"
+                },
+                {
+                  "title": "goals_provided",
+                  "color": "#ede2fe",
+                  "id": "suauqdgboziiw9a"
+                },
+                {
+                  "title": "testimonials_provided",
+                  "color": "#eeeeee",
+                  "id": "s4go2kydagurkf6"
+                },
+                {
+                  "title": "offer_draft_ready",
+                  "color": "#cfdffe",
+                  "id": "si0zv3jn73dl14y"
+                },
+                {
+                  "title": "company_match_suggested",
+                  "color": "#d0f1fd",
+                  "id": "s63wv6nayk18djt"
+                },
+                {
+                  "title": "notification_sent",
+                  "color": "#c2f5e8",
+                  "id": "si8fmeugl33ihoc"
+                },
+                {
+                  "title": "automation_error",
+                  "color": "#ffdaf6",
+                  "id": "slk5cyd1t6wnd58"
+                }
+              ]
+            }
+          },
+          {
+            "id": "ca2g6r4nc84ru61",
+            "table_id": "m1d4hmx0ib4s77s",
+            "title": "lead",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "mx00y54712018vc",
+              "relation_type": "mo"
+            }
+          },
+          {
+            "id": "ciku1jds0akesqf",
+            "table_id": "m1d4hmx0ib4s77s",
+            "title": "triggered_by",
+            "type": "SingleLineText",
+            "system": false
+          },
+          {
+            "id": "c2m3ab79adojnt9",
+            "table_id": "m1d4hmx0ib4s77s",
+            "title": "flow",
+            "type": "SingleLineText",
+            "system": false
+          },
+          {
+            "id": "caz9unpesf04252",
+            "table_id": "m1d4hmx0ib4s77s",
+            "title": "payload",
+            "type": "LongText",
+            "system": false
+          },
+          {
+            "id": "cwk3hyqbvi2d637",
+            "table_id": "m1d4hmx0ib4s77s",
+            "title": "created_at",
+            "type": "CreatedTime",
+            "system": false,
+            "options": {
+              "date_format": "YYYY-MM-DD",
+              "time_format": "HH:mm",
+              "12hr_format": false
+            }
+          },
+          {
+            "id": "cw42egd2q71qqns",
+            "table_id": "m1d4hmx0ib4s77s",
+            "title": "meeting",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "marzjzld5cynlfw",
+              "relation_type": "mo"
+            }
+          },
+          {
+            "id": "c97vgfqpnuje2mw",
+            "table_id": "m1d4hmx0ib4s77s",
+            "title": "task",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "mdqdz4zjmarhmmu",
+              "relation_type": "mo"
+            }
+          }
+        ]
+      },
+      {
+        "id": "mmotpjht9ypon3k",
+        "title": "Testimonials",
+        "meta": {
+          "icon": "💝"
+        },
+        "source_id": "b6bx71643g1xkxo",
+        "base_id": "p5a5pocv2qgyeye",
+        "workspace_id": "ws8amqq9",
+        "views": [
+          {
+            "id": "vw02s33pl7deoq7m",
+            "title": "Testimonials",
+            "view_type": "grid"
+          }
+        ],
+        "display_field_id": "cs1f3lpyy0k6jgq",
+        "fields": [
+          {
+            "id": "cvl7f0x6rx693tx",
+            "table_id": "mmotpjht9ypon3k",
+            "title": "Id",
+            "type": "ID",
+            "system": false
+          },
+          {
+            "id": "cs1f3lpyy0k6jgq",
+            "table_id": "mmotpjht9ypon3k",
+            "title": "title",
+            "type": "SingleLineText"
+          },
+          {
+            "id": "cr1mbxmyrxc3qr1",
+            "table_id": "mmotpjht9ypon3k",
+            "title": "used_in_leads",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "mx00y54712018vc",
+              "relation_type": "mm"
+            }
+          },
+          {
+            "id": "ce6zmz1m8ckg4fj",
+            "table_id": "mmotpjht9ypon3k",
+            "title": "client_name",
+            "type": "SingleLineText",
+            "system": false
+          },
+          {
+            "id": "c8pl4oozz8whpqc",
+            "table_id": "mmotpjht9ypon3k",
+            "title": "content",
+            "type": "LongText",
+            "system": false
+          },
+          {
+            "id": "c3je7lespykz3ue",
+            "table_id": "mmotpjht9ypon3k",
+            "title": "Text",
+            "type": "SingleLineText",
+            "system": false
+          }
+        ]
+      },
+      {
+        "id": "mt7zfk8vtbv9xki",
+        "title": "Offers",
+        "meta": {
+          "icon": "💰"
+        },
+        "source_id": "b6bx71643g1xkxo",
+        "base_id": "p5a5pocv2qgyeye",
+        "workspace_id": "ws8amqq9",
+        "views": [
+          {
+            "id": "vwtool0ol83k74p6",
+            "title": "Offers",
+            "view_type": "grid"
+          }
+        ],
+        "display_field_id": "c3wvtd72gw794a4",
+        "fields": [
+          {
+            "id": "cgol72jzs26t0ss",
+            "table_id": "mt7zfk8vtbv9xki",
+            "title": "Id",
+            "type": "ID",
+            "system": false
+          },
+          {
+            "id": "c3wvtd72gw794a4",
+            "table_id": "mt7zfk8vtbv9xki",
+            "title": "title",
+            "type": "SingleLineText"
+          }
+        ]
+      },
+      {
+        "id": "mea5er0h7z8hzhr",
+        "title": "Projects",
+        "meta": {
+          "icon": "📒"
+        },
+        "source_id": "b6bx71643g1xkxo",
+        "base_id": "p5a5pocv2qgyeye",
+        "workspace_id": "ws8amqq9",
+        "views": [
+          {
+            "id": "vw7a8ysqvxngnn66",
+            "title": "Projects",
+            "view_type": "grid"
+          }
+        ],
+        "display_field_id": "cj0r0dyii8v14hi",
+        "fields": [
+          {
+            "id": "c5ykwm4vqzdhvnk",
+            "table_id": "mea5er0h7z8hzhr",
+            "title": "Id",
+            "type": "ID",
+            "system": false
+          },
+          {
+            "id": "cj0r0dyii8v14hi",
+            "table_id": "mea5er0h7z8hzhr",
+            "title": "name",
+            "type": "SingleLineText"
+          },
+          {
+            "id": "c9a337vl60qmnr6",
+            "table_id": "mea5er0h7z8hzhr",
+            "title": "Task",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "mdqdz4zjmarhmmu",
+              "relation_type": "mo"
+            }
+          },
+          {
+            "id": "cjk4smqybwvwv8n",
+            "table_id": "mea5er0h7z8hzhr",
+            "title": "team",
+            "type": "SingleSelect",
+            "system": false,
+            "options": {
+              "is_color_code_enabled": false,
+              "choices": [
+                {
+                  "title": "marketing",
+                  "color": "#cfdffe",
+                  "id": "smazc7c9bsw68ya"
+                },
+                {
+                  "title": "sales",
+                  "color": "#d0f1fd",
+                  "id": "s3sndusnzrunly3"
+                },
+                {
+                  "title": "ops",
+                  "color": "#c2f5e8",
+                  "id": "stu35yhhfq9b0mb"
+                }
+              ]
+            }
+          },
+          {
+            "id": "c5an4lc7fs5wo34",
+            "table_id": "mea5er0h7z8hzhr",
+            "title": "active",
+            "type": "Checkbox",
+            "default_value": "false",
+            "system": false,
+            "options": {
+              "color": "#777",
+              "icon": "circle-check"
+            }
+          },
+          {
+            "id": "cw4b0cf3mx9sdsd",
+            "table_id": "mea5er0h7z8hzhr",
+            "title": "Task_templates",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "mxpjf61n00yokq8",
+              "relation_type": "om"
+            }
+          }
+        ]
+      },
+      {
+        "id": "mxpjf61n00yokq8",
+        "title": "Task_templates",
+        "meta": {
+          "icon": "➰"
+        },
+        "source_id": "b6bx71643g1xkxo",
+        "base_id": "p5a5pocv2qgyeye",
+        "workspace_id": "ws8amqq9",
+        "views": [
+          {
+            "id": "vw3lir5smc52yjj8",
+            "title": "Task_templates",
+            "view_type": "grid"
+          }
+        ],
+        "display_field_id": "cg359lt8ikbthwo",
+        "fields": [
+          {
+            "id": "c3bog81li8pb61s",
+            "table_id": "mxpjf61n00yokq8",
+            "title": "Id",
+            "type": "ID",
+            "system": false
+          },
+          {
+            "id": "cg359lt8ikbthwo",
+            "table_id": "mxpjf61n00yokq8",
+            "title": "title",
+            "type": "SingleLineText"
+          },
+          {
+            "id": "ciu2hx32rci2ycp",
+            "table_id": "mxpjf61n00yokq8",
+            "title": "Tasks",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "mdqdz4zjmarhmmu",
+              "relation_type": "om"
+            }
+          },
+          {
+            "id": "cxjbj9uttslj7yu",
+            "table_id": "mxpjf61n00yokq8",
+            "title": "Projects",
+            "type": "LinkToAnotherRecord",
+            "system": false,
+            "options": {
+              "related_table_id": "mea5er0h7z8hzhr",
+              "relation_type": "mo"
+            }
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,330 @@
+{
+  "name": "W5 - Company dedup by email domain",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "w5-company-dedup",
+        "options": {}
+      },
+      "id": "node-027",
+      "name": "NocoDB: leads inserted",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "wh-w5-company-dedup"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Company dedup, step 1: extract a business email domain, skip public providers.\nconst PUBLIC = ['gmail.com','googlemail.com','wp.pl','o2.pl','onet.pl','op.pl',\n  'interia.pl','icloud.com','me.com','outlook.com','hotmail.com','live.com',\n  'proton.me','protonmail.com','yahoo.com','gazeta.pl','poczta.fm'];\nconst b = $input.first().json.body || $input.first().json;\nconst row = (b.data && b.data.rows && b.data.rows[0]) || {};\nconst emailAddr = String(row.contact_email || '').toLowerCase();\nconst domain = emailAddr.split('@')[1];\nif (!domain || PUBLIC.includes(domain)) return []; // nothing to match\nconst ownerRaw = row.owner;\nconst owner = (Array.isArray(ownerRaw) ? ownerRaw[0] && ownerRaw[0].email\n              : ownerRaw && ownerRaw.email) || 'przemek.fidzina@coaction-test.pl';\nreturn [{ json: { domain, lead_id: row.Id,\n  lead_name: row.contact_name || ('lead #' + row.Id), owner_email: owner } }];"
+      },
+      "id": "node-028",
+      "name": "Extract domain",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/myvr4lq0k17je7t/records?where=(domains,like,%{{ $json.domain }}%)&limit=5",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "node-029",
+      "name": "Search companies",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Company dedup, step 2: exact-token match against the comma-separated domains field.\nconst d = $('Extract domain').item.json;\nconst list = $input.first().json.list || [];\nconst hit = list.find(cmp => String(cmp.domains || '').toLowerCase()\n  .split(',').map(s => s.trim()).includes(d.domain));\nif (!hit) return []; // no match -> end quietly\nreturn [{ json: { ...d, company_id: hit.Id, company_name: hit.name,\n  patch: { Id: d.lead_id, company_match_status: 'pending_confirmation' },\n  comment: `Found existing company '${hit.name}' based on email domain ${d.domain}. ` +\n           `Please confirm this is the same company (set company_match_status to confirmed or rejected).`,\n  activity: { summary: `Company match suggested: ${hit.name} (${d.domain})`,\n              type: 'company_match_suggested', flow: 'W5', triggered_by: 'system',\n              payload: JSON.stringify({ lead_id: d.lead_id, company_id: hit.Id, domain: d.domain }) }\n} }];"
+      },
+      "id": "node-030",
+      "name": "Evaluate match",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mx00y54712018vc/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.patch) }}"
+      },
+      "id": "node-031",
+      "name": "Patch lead status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/mx00y54712018vc/links/cxpflgkmdp110b4/records/{{ $('Evaluate match').item.json.lead_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Evaluate match').item.json.company_id }]) }}"
+      },
+      "id": "node-032",
+      "name": "Link lead -> company",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/meta/comments",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ fk_model_id: 'mx00y54712018vc', row_id: String($('Evaluate match').item.json.lead_id), comment: $('Evaluate match').item.json.comment }) }}"
+      },
+      "id": "node-033",
+      "name": "Add record comment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Evaluate match').item.json.activity) }}"
+      },
+      "id": "node-034",
+      "name": "Log activity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/links/ca2g6r4nc84ru61/records/{{ $json.Id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Evaluate match').item.json.lead_id }]) }}"
+      },
+      "id": "node-035",
+      "name": "Link activity -> lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1600,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "fromEmail": "info@coaction-test.pl",
+        "toEmail": "={{ $('Evaluate match').item.json.owner_email }}",
+        "subject": "={{ 'CRM: possible returning company - ' + $('Evaluate match').item.json.company_name }}",
+        "text": "={{ $('Evaluate match').item.json.comment + '\\n\\nLead: ' + $('Evaluate match').item.json.lead_name }}",
+        "options": {}
+      },
+      "id": "node-036",
+      "name": "Notify owner",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1800,
+        0
+      ],
+      "credentials": {
+        "smtp": {
+          "id": null,
+          "name": "SMTP"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "NocoDB: leads inserted": {
+      "main": [
+        [
+          {
+            "node": "Extract domain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract domain": {
+      "main": [
+        [
+          {
+            "node": "Search companies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search companies": {
+      "main": [
+        [
+          {
+            "node": "Evaluate match",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate match": {
+      "main": [
+        [
+          {
+            "node": "Patch lead status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Patch lead status": {
+      "main": [
+        [
+          {
+            "node": "Link lead -> company",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link lead -> company": {
+      "main": [
+        [
+          {
+            "node": "Add record comment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add record comment": {
+      "main": [
+        [
+          {
+            "node": "Log activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log activity": {
+      "main": [
+        [
+          {
+            "node": "Link activity -> lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link activity -> lead": {
+      "main": [
+        [
+          {
+            "node": "Notify owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

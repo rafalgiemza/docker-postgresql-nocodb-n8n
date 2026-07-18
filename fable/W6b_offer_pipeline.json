@@ -1,0 +1,761 @@
+{
+  "name": "W6b - Offer production pipeline (goals -> testimonials -> draft)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "w6b-offer-pipeline",
+        "options": {}
+      },
+      "id": "node-061",
+      "name": "NocoDB: leads updated",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "wh-w6b-offer-pipeline"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Offer production pipeline guard: react only to real offer_prep_status changes.\nconst b = $input.first().json.body || $input.first().json;\nconst row  = (b.data && b.data.rows && b.data.rows[0]) || {};\nconst prev = (b.data && b.data.previous_rows && b.data.previous_rows[0]) || {};\nconst s = row.offer_prep_status, p = prev.offer_prep_status;\nif (!s || s === p) return [];\nif (s !== 'goals_provided' && s !== 'testimonials_provided') return [];\nconst name = row.contact_name || ('lead #' + row.Id);\nreturn [{ json: { branch: s, lead_id: row.Id, lead_name: name } }];"
+      },
+      "id": "node-062",
+      "name": "Guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 2,
+        "output": "={{ ['goals_provided','testimonials_provided'].indexOf($json.branch) }}"
+      },
+      "id": "node-063",
+      "name": "Route by status",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records?where=(description,like,%lead:{{ $('Guard').item.json.lead_id }}%)~and(title,like,Define training goals%)~and(status,neq,done)&limit=20",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "node-064",
+      "name": "Find open goals tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        -150
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Close the previous pipeline task(s) for this lead (bulk PATCH payload).\nconst tasks = $input.first().json.list || [];\nreturn [{ json: { patches: tasks.map(t => ({ Id: t.Id, status: 'done' })) } }];"
+      },
+      "id": "node-065",
+      "name": "Build close patches (goals)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        -150
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.patches) }}"
+      },
+      "id": "node-066",
+      "name": "Close goals tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        -150
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// goals_provided: prepare the testimonials task + activity.\nconst src = $('Guard').item.json;\nreturn [{ json: { ...src,\n  task: { title: `Select testimonials: ${src.lead_name}`, status: 'todo',\n          priority: 'normal', assignee: 'katarzyna@coaction.pl', created_by_flow: 'W6b',\n          description: `lead:${src.lead_id}\\nPick matching testimonials/case studies and link them to the lead.` },\n  activity: { summary: `Goals saved, testimonials requested (${src.lead_name})`,\n              type: 'goals_provided', flow: 'W6b', triggered_by: 'user',\n              payload: JSON.stringify({ lead_id: src.lead_id }) }\n} }];"
+      },
+      "id": "node-067",
+      "name": "Prepare testimonials task",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        -150
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.task) }}"
+      },
+      "id": "node-068",
+      "name": "Create testimonials task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        -150
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Prepare testimonials task').item.json.activity) }}"
+      },
+      "id": "node-069",
+      "name": "Log activity (goals)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1600,
+        -150
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/links/ca2g6r4nc84ru61/records/{{ $json.Id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Guard').item.json.lead_id }]) }}"
+      },
+      "id": "node-070",
+      "name": "Link activity -> lead (goals)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1800,
+        -150
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/mx00y54712018vc/links/c2aeg1l0oemtwfz/records/{{ $json.lead_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "node-071",
+      "name": "Get linked testimonials",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        150
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// testimonials_provided: verify that at least one testimonial is actually linked.\nconst src = $('Guard').item.json;\nconst linked = ($input.first().json.list || []).length;\nreturn [{ json: { ...src, linked, ok: linked > 0,\n  patch_lead: { Id: src.lead_id, offer_prep_status: 'draft_ready' },\n  task: { title: `Offer draft ready - assemble the offer: ${src.lead_name}`,\n          status: 'todo', priority: 'high', assignee: 'przemek.fidzina@coaction-test.pl',\n          created_by_flow: 'W6b', description: `lead:${src.lead_id}` },\n  comment: 'No testimonials linked. Please link at least one testimonial to the lead ' +\n           'and set offer_prep_status back to testimonials_provided.',\n  activity_ok: { summary: `${linked} testimonial(s) linked, offer draft ready (${src.lead_name})`,\n                 type: 'testimonials_provided', flow: 'W6b', triggered_by: 'user',\n                 payload: JSON.stringify({ lead_id: src.lead_id, linked }) },\n  activity_err: { summary: `testimonials_provided set but no testimonials linked (${src.lead_name})`,\n                  type: 'automation_error', flow: 'W6b', triggered_by: 'system',\n                  payload: JSON.stringify({ lead_id: src.lead_id }) }\n} }];"
+      },
+      "id": "node-072",
+      "name": "Check & prepare",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-073",
+      "name": "Any testimonials?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1000,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records?where=(description,like,%lead:{{ $('Guard').item.json.lead_id }}%)~and(title,like,Select testimonials%)~and(status,neq,done)&limit=20",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "node-074",
+      "name": "Find open testimonial tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        50
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Close the previous pipeline task(s) for this lead (bulk PATCH payload).\nconst tasks = $input.first().json.list || [];\nreturn [{ json: { patches: tasks.map(t => ({ Id: t.Id, status: 'done' })) } }];"
+      },
+      "id": "node-075",
+      "name": "Build close patches (testi)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        50
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.patches) }}"
+      },
+      "id": "node-076",
+      "name": "Close testimonial tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1600,
+        50
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mx00y54712018vc/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Check & prepare').item.json.patch_lead) }}"
+      },
+      "id": "node-077",
+      "name": "Patch lead (draft_ready)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1800,
+        50
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Check & prepare').item.json.task) }}"
+      },
+      "id": "node-078",
+      "name": "Create offer task for owner",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        50
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Check & prepare').item.json.activity_ok) }}"
+      },
+      "id": "node-079",
+      "name": "Log activity (ready)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        50
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/links/ca2g6r4nc84ru61/records/{{ $json.Id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Guard').item.json.lead_id }]) }}"
+      },
+      "id": "node-080",
+      "name": "Link activity -> lead (ready)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2400,
+        50
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/meta/comments",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ fk_model_id: 'mx00y54712018vc', row_id: String($('Guard').item.json.lead_id), comment: $('Check & prepare').item.json.comment }) }}"
+      },
+      "id": "node-081",
+      "name": "Comment: no testimonials",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Check & prepare').item.json.activity_err) }}"
+      },
+      "id": "node-082",
+      "name": "Log activity (error)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/links/ca2g6r4nc84ru61/records/{{ $json.Id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Guard').item.json.lead_id }]) }}"
+      },
+      "id": "node-083",
+      "name": "Link activity -> lead (err)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1600,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "NocoDB: leads updated": {
+      "main": [
+        [
+          {
+            "node": "Guard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guard": {
+      "main": [
+        [
+          {
+            "node": "Route by status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by status": {
+      "main": [
+        [
+          {
+            "node": "Find open goals tasks",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get linked testimonials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find open goals tasks": {
+      "main": [
+        [
+          {
+            "node": "Build close patches (goals)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build close patches (goals)": {
+      "main": [
+        [
+          {
+            "node": "Close goals tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Close goals tasks": {
+      "main": [
+        [
+          {
+            "node": "Prepare testimonials task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare testimonials task": {
+      "main": [
+        [
+          {
+            "node": "Create testimonials task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create testimonials task": {
+      "main": [
+        [
+          {
+            "node": "Log activity (goals)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log activity (goals)": {
+      "main": [
+        [
+          {
+            "node": "Link activity -> lead (goals)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get linked testimonials": {
+      "main": [
+        [
+          {
+            "node": "Check & prepare",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check & prepare": {
+      "main": [
+        [
+          {
+            "node": "Any testimonials?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any testimonials?": {
+      "main": [
+        [
+          {
+            "node": "Find open testimonial tasks",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Comment: no testimonials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find open testimonial tasks": {
+      "main": [
+        [
+          {
+            "node": "Build close patches (testi)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build close patches (testi)": {
+      "main": [
+        [
+          {
+            "node": "Close testimonial tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Close testimonial tasks": {
+      "main": [
+        [
+          {
+            "node": "Patch lead (draft_ready)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Patch lead (draft_ready)": {
+      "main": [
+        [
+          {
+            "node": "Create offer task for owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create offer task for owner": {
+      "main": [
+        [
+          {
+            "node": "Log activity (ready)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log activity (ready)": {
+      "main": [
+        [
+          {
+            "node": "Link activity -> lead (ready)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Comment: no testimonials": {
+      "main": [
+        [
+          {
+            "node": "Log activity (error)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log activity (error)": {
+      "main": [
+        [
+          {
+            "node": "Link activity -> lead (err)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

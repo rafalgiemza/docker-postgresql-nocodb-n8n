@@ -1,0 +1,64 @@
+erDiagram
+    companies ||--o{ leads : "firma wraca po wiecej"
+    companies ||--o{ participants : "pracownicy"
+    leads ||--o{ participants : "kto jest szkolony"
+    leads ||--o{ meetings : "discovery, demo, audyty"
+    leads ||--o{ tasks : "taski sprzedazowe"
+    leads ||--o{ activities : "timeline (pisze n8n)"
+    leads }o--o{ testimonials : "selected_testimonials"
+    participants |o--o{ meetings : "audyt per osoba"
+    projects ||--o{ tasks : "marketing / sprzedaz / ops"
+    task_templates ||--o{ tasks : "taski cykliczne (W1)"
+
+    companies {
+        string name
+        string domains "klucz dedupu W5"
+        select industry
+    }
+    leads {
+        string contact_name
+        select stage "kanban"
+        select state "open-won-lost"
+        select offer_prep_status "pipeline W6b"
+        select company_match_status "W5"
+        date offer_sent_at "pisze n8n"
+        date closed_at "pisze n8n"
+    }
+    participants {
+        string full_name
+        string cefr_overall "5 ocen czastkowych"
+        text needs_summary "do oferty"
+    }
+    meetings {
+        select type
+        datetime starts_at "widok Calendar"
+        text transcript
+        text ai_analysis "pisze n8n (W6a)"
+        select processing_status "maszyna stanow W6a"
+    }
+    tasks {
+        string title
+        user assignee "widoki per osoba"
+        date due_date "widok Calendar"
+        select status
+        string created_by_flow "W1-W6"
+    }
+    activities {
+        string summary
+        select type
+        string flow "ktory workflow"
+        text payload "JSON"
+    }
+    testimonials {
+        string title
+        select industry
+        multiselect variant
+    }
+    task_templates {
+        string rrule "FREQ=WEEKLY..."
+        number due_offset_days
+    }
+    projects {
+        string name
+        select team
+    }

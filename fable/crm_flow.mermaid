@@ -1,0 +1,64 @@
+flowchart TD
+    %% ── Intake ──────────────────────────────────────────────
+    A["Klient wysyła formularz Tally"] -->|webhook| W4["n8n W4: utwórz lead<br/>+ task 'Schedule discovery'"]
+    W4 --> T1["Task dla Przemka"]
+    W4 -->|insert lead| W5{"n8n W5: domena firmowa<br/>znana w companies?"}
+    W5 -->|tak| W5a["Link lead → firma<br/>status: pending_confirmation<br/>komentarz + mail do ownera"]
+    W5 -->|nie / domena publiczna| W5b["nic — koniec cicho"]
+    W5a --> H0["Przemek: confirmed / rejected"]
+
+    %% ── Spotkanie ───────────────────────────────────────────
+    T1 --> H1["Przemek dzwoni, tworzy meeting<br/>(Grid/Calendar w NocoDB)"]
+    H1 --> M1["Spotkanie odbywa się"]
+    M1 --> H2["Przemek wkleja transkrypcję<br/>processing_status = analysis_pending"]
+
+    %% ── W6a: analiza AI ─────────────────────────────────────
+    H2 -->|webhook| G1{"n8n W6a: transkrypcja<br/>niepusta?"}
+    G1 -->|nie| E1["Task: 'Paste transcript'<br/>+ activity: automation_error"]
+    G1 -->|tak| LLM["OpenRouter LLM<br/>→ pole ai_analysis"]
+    LLM --> V1["status: ai_draft_ready<br/>+ task 'Verify AI analysis'"]
+    V1 --> H3{"Przemek weryfikuje szkic"}
+    H3 -->|ai_rejected| E2["Task: popraw notatki,<br/>uruchom ponownie"]
+    E2 --> H2
+    H3 -->|ai_accepted| R1{"n8n W6a: routing<br/>po typie leada"}
+    R1 -->|B2B| MD["Task 'Określ cele' → Dorota"]
+    R1 -->|B2C| MA["Task 'Określ cele' → Aleksandra"]
+    R1 --> S1["lead.offer_prep_status = waiting_goals<br/>zamknij task weryfikacji"]
+
+    %% ── W6b: produkcja oferty ───────────────────────────────
+    MD --> H4["Metodyk wpisuje training_goals<br/>status = goals_provided"]
+    MA --> H4
+    H4 -->|webhook| P1["n8n W6b: zamknij task celów<br/>+ task 'Dobierz referencje' → analityk"]
+    P1 --> H5["Analityk linkuje testimonials<br/>status = testimonials_provided"]
+    H5 -->|webhook| G2{"n8n W6b: co najmniej<br/>1 referencja podlinkowana?"}
+    G2 -->|nie| E3["Komentarz: 'link testimonials'<br/>+ activity: automation_error"]
+    E3 --> H5
+    G2 -->|tak| P2["status = draft_ready<br/>+ task 'Złóż ofertę' → Przemek"]
+
+    %% ── W2: sprzedaż ────────────────────────────────────────
+    P2 --> H6["Przemek składa i wysyła ofertę<br/>stage = offer_sent (kanban)"]
+    H6 -->|webhook| W2["n8n W2: offer_sent_at = dziś<br/>+ mail do ownera"]
+    W2 --> H7{"Wynik rozmów"}
+    H7 -->|contract_signed| WIN["n8n W2: state = won<br/>closed_at = dziś"]
+    H7 -->|lost bez powodu| LOSTT["n8n W2: task<br/>'Uzupełnij powód utraty'"]
+
+    %% ── Log ─────────────────────────────────────────────────
+    W4 -.log.-> ACT[("activities<br/>(append-only, pisze tylko n8n)")]
+    W5a -.log.-> ACT
+    LLM -.log.-> ACT
+    R1 -.log.-> ACT
+    P1 -.log.-> ACT
+    P2 -.log.-> ACT
+    W2 -.log.-> ACT
+    E1 -.log.-> ACT
+    E3 -.log.-> ACT
+
+    %% ── Style ───────────────────────────────────────────────
+    classDef human fill:#fff3cd,stroke:#b8860b,color:#000
+    classDef auto fill:#d1e7dd,stroke:#146c43,color:#000
+    classDef err fill:#f8d7da,stroke:#b02a37,color:#000
+    classDef log fill:#e2e3e5,stroke:#6c757d,color:#000
+    class A,H0,H1,M1,H2,H3,H4,H5,H6,H7,T1,MD,MA human
+    class W4,W5,W5a,W5b,LLM,V1,R1,S1,P1,P2,G1,G2,W2,WIN,LOSTT auto
+    class E1,E2,E3 err
+    class ACT log

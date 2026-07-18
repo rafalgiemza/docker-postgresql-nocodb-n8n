@@ -1,0 +1,1848 @@
+{
+  "name": "W4 v2 - Multi-source intake & matching cascade",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "w4-tally-intake",
+        "options": {}
+      },
+      "id": "n001",
+      "name": "Webhook Tally",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -300
+      ],
+      "webhookId": "wh-w4-tally-intake"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tally adapter. EDIT LABELS to match your Tally form.\nconst LABELS = { name: 'Imię i nazwisko', email: 'E-mail', phone: 'Telefon', message: 'Wiadomość' };\nconst b = $input.first().json.body || $input.first().json;\nconst fields = (b.data && b.data.fields) || [];\nconst get = l => { const f = fields.find(f => (f.label||'').trim().toLowerCase() === l.toLowerCase());\n  return f ? ((f.value && f.value.text) || f.value) : undefined; };\nreturn [{ json: { name: get(LABELS.name)||'', email_raw: String(get(LABELS.email)||''),\n  phone_raw: String(get(LABELS.phone)||''), message: String(get(LABELS.message)||''),\n  channel: 'formularz', source: 'google', booking: null } }];"
+      },
+      "id": "n002",
+      "name": "Adapter: Tally",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "w4-cf7-intake",
+        "options": {}
+      },
+      "id": "n003",
+      "name": "Webhook CF7",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "wh-w4-cf7-intake"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Contact Form 7 adapter (WP plugin 'CF7 to Webhook' posts flat JSON of form fields).\n// EDIT FIELDS to match your CF7 field names (check one real payload in the execution log).\nconst FIELDS = { name: 'your-name', email: 'your-email', phone: 'your-phone', message: 'your-message' };\nconst b = $input.first().json.body || $input.first().json;\nreturn [{ json: { name: String(b[FIELDS.name]||''), email_raw: String(b[FIELDS.email]||''),\n  phone_raw: String(b[FIELDS.phone]||''), message: String(b[FIELDS.message]||''),\n  channel: 'formularz', source: 'google', booking: null } }];"
+      },
+      "id": "n004",
+      "name": "Adapter: CF7",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "w4-bookings-intake",
+        "options": {}
+      },
+      "id": "n005",
+      "name": "Webhook Bookings",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "wh-w4-bookings-intake"
+    },
+    {
+      "parameters": {
+        "jsCode": "// MS Bookings adapter. Bookings has no native outbound webhook - route it via\n// Power Automate ('When an appointment is created' -> HTTP POST here) and EDIT the map.\nconst b = $input.first().json.body || $input.first().json;\nreturn [{ json: { name: String(b.customerName||''), email_raw: String(b.customerEmail||''),\n  phone_raw: String(b.customerPhone||''), message: String(b.customerNotes||''),\n  channel: 'bookings', source: 'google',\n  booking: { title: `Discovery — ${b.customerName||'nowy klient'}`,\n             starts_at: b.startTime || null, ends_at: b.endTime || null } } }];"
+      },
+      "id": "n006",
+      "name": "Adapter: Bookings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Shared normalization for all sources.\nconst PUBLIC = ['gmail.com','googlemail.com','wp.pl','o2.pl','onet.pl','op.pl','interia.pl',\n  'icloud.com','me.com','outlook.com','hotmail.com','live.com','proton.me','protonmail.com',\n  'yahoo.com','gazeta.pl','poczta.fm'];\nconst j = $input.first().json;\nconst email = j.email_raw.trim().toLowerCase();\nconst domain = email.split('@')[1] || '';\nreturn [{ json: { ...j, email,\n  email_query: email || 'no-email@none.invalid',   // matches nothing when empty\n  public_domain: !domain || PUBLIC.includes(domain),\n  has_booking: !!j.booking } }];"
+      },
+      "id": "n007",
+      "name": "Normalize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/mx00y54712018vc/records?where=(contact_email,eq,{{ $json.email_query }})&limit=50",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "n008",
+      "name": "Find leads by email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mx00y54712018vc/records?where=(state,eq,open)&limit=200",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "n009",
+      "name": "Get open leads",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/myvr4lq0k17je7t/records?limit=200",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "n010",
+      "name": "Get companies",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Matching cascade. Tier 2 (company domain) is intentionally absent here:\n// creating a lead fires the existing W5 webhook which handles it.\nconst inp = $('Normalize').first().json;\nconst byEmail = ($('Find leads by email').first().json.list || [])\n  .sort((a, b) => b.Id - a.Id);                       // newest first\nconst openLeads = $('Get open leads').first().json.list || [];\nconst fold = s => String(s||'').toLowerCase().normalize('NFD')\n  .replace(/[\\u0300-\\u036f]/g, '').replace(/ł/g, 'l').trim();\nconst phone9 = s => String(s||'').replace(/\\D/g, '').slice(-9);\n\nconst base = { contact_name: inp.name || 'Unknown', contact_email: inp.email,\n  contact_phone: inp.phone_raw, notes: inp.message, source: inp.source,\n  contact_channel: inp.channel, stage: 'new', state: 'open',\n  qualification: 'unqualified', offer_prep_status: 'none',\n  company_match_status: 'none', duplicate_check: 'none',\n  owner: 'przemek.fidzina@coaction-test.pl', enquiry_no: 1,\n  type: inp.public_domain ? 'B2C' : 'B2B' };\n\nlet tier, extra = {};\nconst open = byEmail.find(l => l.state === 'open');\nif (open) { tier = 'tier1_open'; extra = { match: open }; }\nelse if (byEmail.length) {\n  tier = 'tier1_closed';\n  extra = { old: byEmail[0] };\n  base.enquiry_no = byEmail.length + 1;\n  base.source = 'powrot_klienta';\n} else {\n  const nameOk = fold(inp.name).length > 4;\n  const cand = openLeads.find(l =>\n    (nameOk && fold(l.contact_name) === fold(inp.name)) ||\n    (phone9(inp.phone_raw).length === 9 && phone9(l.contact_phone) === phone9(inp.phone_raw)));\n  if (cand) { tier = 'tier3'; extra = { cand }; base.duplicate_check = 'pending_confirmation'; }\n  else if ((inp.message || '').trim().length > 30) tier = 'llm';\n  else tier = 'tier5';\n}\nreturn [{ json: { tier, base, ...extra, has_booking: inp.has_booking,\n  booking: inp.booking, message: inp.message } }];"
+      },
+      "id": "n011",
+      "name": "Cascade decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 5,
+        "output": "={{ ['tier1_open','tier1_closed','tier3','llm','tier5'].indexOf($json.tier) }}"
+      },
+      "id": "n012",
+      "name": "Route by tier",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// tier1_open: no new lead - task + activity on the existing one.\nconst d = $('Cascade decision').item.json;\nconst m = d.match;\nconst owner = (Array.isArray(m.owner) ? m.owner[0] && m.owner[0].email\n              : m.owner && m.owner.email) || 'przemek.fidzina@coaction-test.pl';\nreturn [{ json: { final_lead_id: m.Id,\n  task: { title: `Klient napisał ponownie: ${m.contact_name}`, status: 'todo',\n          priority: 'high', assignee: owner, created_by_flow: 'W4',\n          description: `lead:${m.Id}\\n---\\n${d.message}` },\n  activity: { summary: `Returning enquiry on open lead: ${m.contact_name}`,\n              type: 'lead_created', flow: 'W4', triggered_by: 'system',\n              payload: JSON.stringify({ lead_id: m.Id, tier: 'tier1_open',\n                                        message: d.message.slice(0, 500) }) } } }];"
+      },
+      "id": "n013",
+      "name": "Finish tier1_open",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        -600
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Finish tier1_open').item.json.task) }}"
+      },
+      "id": "n014",
+      "name": "T1o: create task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1800,
+        -600
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Finish tier1_open').item.json.activity) }}"
+      },
+      "id": "n015",
+      "name": "T1o: log activity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        -600
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/links/ca2g6r4nc84ru61/records/{{ $json.Id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Finish tier1_open').item.json.final_lead_id }]) }}"
+      },
+      "id": "n016",
+      "name": "T1o: link act",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        -600
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{final_lead_id: $('Finish tier1_open').item.json.final_lead_id}}];"
+      },
+      "id": "n017",
+      "name": "T1o: out",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        -600
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mx00y54712018vc/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.base) }}"
+      },
+      "id": "n018",
+      "name": "T1c: create lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1600,
+        -300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// tier1_closed: lead was created in the previous node; carry ids + old-lead ref.\nconst d = $('Cascade decision').item.json;\nconst newId = $input.first().json.Id;\nreturn [{ json: { final_lead_id: newId, old_id: d.old.Id,\n  task: { title: `Powracający klient (${d.base.enquiry_no}. zapytanie): ${d.base.contact_name}`,\n          status: 'todo', priority: 'high', assignee: 'przemek.fidzina@coaction-test.pl',\n          created_by_flow: 'W4', description: `lead:${newId}\\npoprzedni lead: #${d.old.Id}` },\n  activity: { summary: `Returning client, new opportunity (prev lead #${d.old.Id})`,\n              type: 'lead_created', flow: 'W4', triggered_by: 'system',\n              payload: JSON.stringify({ lead_id: newId, tier: 'tier1_closed',\n                                        previous_lead_id: d.old.Id,\n                                        enquiry_no: d.base.enquiry_no }) } } }];"
+      },
+      "id": "n019",
+      "name": "Finish tier1_closed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1800,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/mx00y54712018vc/links/cxpflgkmdp110b4/records/{{ $json.old_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "n020",
+      "name": "T1c: get old company",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        -300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare company re-link for the returning client (may be empty).\nconst ids = ($input.first().json.list || []).map(r => ({ Id: r.Id }));\nreturn [{ json: { ...$('Finish tier1_closed').item.json, company_ids: ids } }];"
+      },
+      "id": "n021",
+      "name": "T1c: prep company link",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/mx00y54712018vc/links/cxpflgkmdp110b4/records/{{ $json.final_lead_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.company_ids) }}"
+      },
+      "id": "n022",
+      "name": "T1c: link company",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2400,
+        -300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Finish tier1_closed').item.json.task) }}"
+      },
+      "id": "n023",
+      "name": "T1c: create task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2600,
+        -300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Finish tier1_closed').item.json.activity) }}"
+      },
+      "id": "n024",
+      "name": "T1c: log activity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2800,
+        -300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/links/ca2g6r4nc84ru61/records/{{ $json.Id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Finish tier1_closed').item.json.final_lead_id }]) }}"
+      },
+      "id": "n025",
+      "name": "T1c: link act",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3000,
+        -300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{final_lead_id: $('Finish tier1_closed').item.json.final_lead_id}}];"
+      },
+      "id": "n026",
+      "name": "T1c: out",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mx00y54712018vc/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.base) }}"
+      },
+      "id": "n027",
+      "name": "T3: create lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1600,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// tier3: lead created with duplicate_check=pending; prepare suggestion payloads.\nconst d = $('Cascade decision').item.json;\nconst newId = $input.first().json.Id;\nreturn [{ json: { final_lead_id: newId, cand_id: d.cand.Id,\n  comment: `Possible duplicate of lead #${d.cand.Id} (${d.cand.contact_name}) - ` +\n           `matched by name/phone. Confirm via 'duplicate_check' field.`,\n  task: { title: `Potwierdź dopasowanie: ${d.base.contact_name} ↔ #${d.cand.Id}`,\n          status: 'todo', priority: 'normal', assignee: 'przemek.fidzina@coaction-test.pl',\n          created_by_flow: 'W4', description: `lead:${newId}` },\n  activity: { summary: `Duplicate suggested: new lead vs #${d.cand.Id} (${d.cand.contact_name})`,\n              type: 'company_match_suggested', flow: 'W4', triggered_by: 'system',\n              payload: JSON.stringify({ lead_id: newId, candidate: d.cand.Id, tier: 'tier3' }) } } }];"
+      },
+      "id": "n028",
+      "name": "Finish tier3",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/mx00y54712018vc/links/ce9l0x8ck752vp8/records/{{ $json.final_lead_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Finish tier3').item.json.cand_id }]) }}"
+      },
+      "id": "n029",
+      "name": "T3: link possible duplicate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2000,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/meta/comments",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ fk_model_id: 'mx00y54712018vc', row_id: String($('Finish tier3').item.json.final_lead_id), comment: $('Finish tier3').item.json.comment }) }}"
+      },
+      "id": "n030",
+      "name": "T3: comment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Finish tier3').item.json.task) }}"
+      },
+      "id": "n031",
+      "name": "T3: create task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2400,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Finish tier3').item.json.activity) }}"
+      },
+      "id": "n032",
+      "name": "T3: log activity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2600,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/links/ca2g6r4nc84ru61/records/{{ $json.Id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Finish tier3').item.json.final_lead_id }]) }}"
+      },
+      "id": "n033",
+      "name": "T3: link act",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2800,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{final_lead_id: $('Finish tier3').item.json.final_lead_id}}];"
+      },
+      "id": "n034",
+      "name": "T3: out",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3000,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'anthropic/claude-sonnet-4.5', messages: [{ role: 'system', content: 'Extract search criteria from a contact-form message of an English-training company. Respond ONLY with JSON: {\"emails\":[],\"phones\":[],\"person_names\":[],\"company_names\":[],\"type_signal\":\"B2B\"|\"B2C\"|null,\"reasoning\":\"\"}. type_signal=B2B when the message implies buying for a team/company.' },{ role: 'user', content: $('Cascade decision').item.json.message }] }) }}"
+      },
+      "id": "n035",
+      "name": "Extract criteria (LLM)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1600,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "OpenRouter"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Run deterministic searches with the AI-extracted criteria (extractor, not judge).\nconst d = $('Cascade decision').item.json;\nconst openLeads = $('Get open leads').first().json.list || [];\nconst companies = $('Get companies').first().json.list || [];\nconst raw = $input.first().json;\nconst content = raw.choices && raw.choices[0] && raw.choices[0].message\n  && raw.choices[0].message.content || '{}';\nlet c;\ntry { c = JSON.parse(content.replace(/```json|```/g, '').trim()); }\ncatch (e) { c = {}; }\nconst fold = s => String(s||'').toLowerCase().normalize('NFD')\n  .replace(/[\\u0300-\\u036f]/g, '').replace(/ł/g, 'l').trim();\nconst phone9 = s => String(s||'').replace(/\\D/g, '').slice(-9);\nconst emails = (c.emails||[]).map(e => e.toLowerCase());\nconst phones = (c.phones||[]).map(phone9).filter(p => p.length === 9);\nconst names  = (c.person_names||[]).map(fold).filter(n => n.length > 4);\nconst comps  = (c.company_names||[]).map(fold).filter(n => n.length > 2);\nconst domains = emails.map(e => e.split('@')[1]).filter(Boolean);\n\nconst lead = openLeads.find(l =>\n  emails.includes(String(l.contact_email||'').toLowerCase()) ||\n  phones.includes(phone9(l.contact_phone)) ||\n  names.includes(fold(l.contact_name)));\nconst company = !lead && companies.find(co =>\n  comps.some(n => fold(co.name).includes(n)) ||\n  domains.some(dm => String(co.domains||'').toLowerCase().includes(dm)));\n\nreturn [{ json: { ...d, found: !!(lead || company),\n  cand_lead_id: lead ? lead.Id : null, cand_lead_name: lead ? lead.contact_name : null,\n  cand_company_id: company ? company.Id : null, cand_company_name: company ? company.name : null,\n  criteria: c, type_signal: c.type_signal || null } }];"
+      },
+      "id": "n036",
+      "name": "Match extracted criteria",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1800,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.found }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n037",
+      "name": "Criteria matched?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2000,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mx00y54712018vc/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify(Object.assign({}, $json.base, { duplicate_check: $json.cand_lead_id ? 'pending_confirmation' : 'none', company_match_status: $json.cand_company_id ? 'pending_confirmation' : 'none', type: $json.type_signal || $json.base.type })) }}"
+      },
+      "id": "n038",
+      "name": "LLM: create lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        250
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// AI-assisted match found: lead was just created; prepare suggestion payloads.\nconst d = $('Match extracted criteria').item.json;\nconst newId = $input.first().json.Id;\nconst target = d.cand_lead_id\n  ? `lead #${d.cand_lead_id} (${d.cand_lead_name})`\n  : `company '${d.cand_company_name}'`;\nreturn [{ json: { final_lead_id: newId,\n  cand_lead_id: d.cand_lead_id, cand_company_id: d.cand_company_id,\n  comment: `AI-extracted criteria matched ${target}. Reasoning: ` +\n           `${(d.criteria.reasoning||'').slice(0,300)}. Confirm via 'duplicate_check' / 'company_match_status'.`,\n  task: { title: `Zaklasyfikuj (AI, do potwierdzenia): ${d.base.contact_name}`,\n          status: 'todo', priority: 'normal', assignee: 'przemek.fidzina@coaction-test.pl',\n          created_by_flow: 'W4', description: `lead:${newId}` },\n  activity: { summary: `AI criteria matched ${target}`,\n              type: 'company_match_suggested', flow: 'W4', triggered_by: 'system',\n              payload: JSON.stringify({ lead_id: newId, criteria: d.criteria,\n                cand_lead_id: d.cand_lead_id, cand_company_id: d.cand_company_id }) } } }];"
+      },
+      "id": "n039",
+      "name": "Finish llm",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/mx00y54712018vc/links/ce9l0x8ck752vp8/records/{{ $json.final_lead_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.cand_lead_id ? [{ Id: $json.cand_lead_id }] : []) }}"
+      },
+      "id": "n040",
+      "name": "LLM: link duplicate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2600,
+        250
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/mx00y54712018vc/links/cxpflgkmdp110b4/records/{{ $('Finish llm').item.json.final_lead_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Finish llm').item.json.cand_company_id ? [{ Id: $('Finish llm').item.json.cand_company_id }] : []) }}"
+      },
+      "id": "n041",
+      "name": "LLM: link company",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2800,
+        250
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/meta/comments",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ fk_model_id: 'mx00y54712018vc', row_id: String($('Finish llm').item.json.final_lead_id), comment: $('Finish llm').item.json.comment }) }}"
+      },
+      "id": "n042",
+      "name": "LLM: comment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3000,
+        250
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Finish llm').item.json.task) }}"
+      },
+      "id": "n043",
+      "name": "LLM: create task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3200,
+        250
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Finish llm').item.json.activity) }}"
+      },
+      "id": "n044",
+      "name": "LLM: log activity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3400,
+        250
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/links/ca2g6r4nc84ru61/records/{{ $json.Id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Finish llm').item.json.final_lead_id }]) }}"
+      },
+      "id": "n045",
+      "name": "LLM: link act",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3600,
+        250
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{final_lead_id: $('Finish llm').item.json.final_lead_id}}];"
+      },
+      "id": "n046",
+      "name": "LLM: out",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3800,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// tier5 (also LLM-miss fallback): plain new lead.\nconst src = $('Match extracted criteria').isExecuted\n  ? $('Match extracted criteria').item.json : $('Cascade decision').item.json;\nconst base = { ...src.base };\nif (src.type_signal) base.type = src.type_signal;   // AI hint, human verifies anyway\nreturn [{ json: { base } }];"
+      },
+      "id": "n047",
+      "name": "Prepare plain lead",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mx00y54712018vc/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.base) }}"
+      },
+      "id": "n048",
+      "name": "T5: create lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1800,
+        600
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Prepare plain lead').item.json;\nconst newId = $input.first().json.Id;\nreturn [{ json: { final_lead_id: newId,\n  task: { title: `Zaklasyfikuj / pierwszy kontakt: ${d.base.contact_name}`, status: 'todo',\n          priority: 'high', assignee: 'przemek.fidzina@coaction-test.pl', created_by_flow: 'W4',\n          description: `lead:${newId}` },\n  activity: { summary: `Lead created (no match): ${d.base.contact_name}`,\n              type: 'lead_created', flow: 'W4', triggered_by: 'system',\n              payload: JSON.stringify({ lead_id: newId, tier: 'tier5' }) } } }];"
+      },
+      "id": "n049",
+      "name": "Finish tier5",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Finish tier5').item.json.task) }}"
+      },
+      "id": "n050",
+      "name": "T5: create task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        600
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Finish tier5').item.json.activity) }}"
+      },
+      "id": "n051",
+      "name": "T5: log activity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2400,
+        600
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/links/ca2g6r4nc84ru61/records/{{ $json.Id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Finish tier5').item.json.final_lead_id }]) }}"
+      },
+      "id": "n052",
+      "name": "T5: link act",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2600,
+        600
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{final_lead_id: $('Finish tier5').item.json.final_lead_id}}];"
+      },
+      "id": "n053",
+      "name": "T5: out",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2800,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Cascade decision').item.json.has_booking }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n054",
+      "name": "Booking?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4000,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/marzjzld5cynlfw/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ title: $('Cascade decision').item.json.booking.title, type: 'discovery', starts_at: $('Cascade decision').item.json.booking.starts_at, ends_at: $('Cascade decision').item.json.booking.ends_at, owner: 'przemek.fidzina@coaction-test.pl', status: 'scheduled', processing_status: 'none' }) }}"
+      },
+      "id": "n055",
+      "name": "Create meeting",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4200,
+        -50
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/marzjzld5cynlfw/links/coydw2dymwf0tkf/records/{{ $json.Id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Booking?').item.json.final_lead_id }]) }}"
+      },
+      "id": "n056",
+      "name": "Link meeting -> lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4400,
+        -50
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Webhook Tally": {
+      "main": [
+        [
+          {
+            "node": "Adapter: Tally",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Adapter: Tally": {
+      "main": [
+        [
+          {
+            "node": "Normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook CF7": {
+      "main": [
+        [
+          {
+            "node": "Adapter: CF7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Adapter: CF7": {
+      "main": [
+        [
+          {
+            "node": "Normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Bookings": {
+      "main": [
+        [
+          {
+            "node": "Adapter: Bookings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Adapter: Bookings": {
+      "main": [
+        [
+          {
+            "node": "Normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize": {
+      "main": [
+        [
+          {
+            "node": "Find leads by email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find leads by email": {
+      "main": [
+        [
+          {
+            "node": "Get open leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get open leads": {
+      "main": [
+        [
+          {
+            "node": "Get companies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get companies": {
+      "main": [
+        [
+          {
+            "node": "Cascade decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cascade decision": {
+      "main": [
+        [
+          {
+            "node": "Route by tier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by tier": {
+      "main": [
+        [
+          {
+            "node": "Finish tier1_open",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "T1c: create lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "T3: create lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract criteria (LLM)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare plain lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finish tier1_open": {
+      "main": [
+        [
+          {
+            "node": "T1o: create task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T1o: create task": {
+      "main": [
+        [
+          {
+            "node": "T1o: log activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T1o: log activity": {
+      "main": [
+        [
+          {
+            "node": "T1o: link act",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T1o: link act": {
+      "main": [
+        [
+          {
+            "node": "T1o: out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T1o: out": {
+      "main": [
+        [
+          {
+            "node": "Booking?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T1c: create lead": {
+      "main": [
+        [
+          {
+            "node": "Finish tier1_closed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finish tier1_closed": {
+      "main": [
+        [
+          {
+            "node": "T1c: get old company",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T1c: get old company": {
+      "main": [
+        [
+          {
+            "node": "T1c: prep company link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T1c: prep company link": {
+      "main": [
+        [
+          {
+            "node": "T1c: link company",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T1c: link company": {
+      "main": [
+        [
+          {
+            "node": "T1c: create task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T1c: create task": {
+      "main": [
+        [
+          {
+            "node": "T1c: log activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T1c: log activity": {
+      "main": [
+        [
+          {
+            "node": "T1c: link act",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T1c: link act": {
+      "main": [
+        [
+          {
+            "node": "T1c: out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T1c: out": {
+      "main": [
+        [
+          {
+            "node": "Booking?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T3: create lead": {
+      "main": [
+        [
+          {
+            "node": "Finish tier3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finish tier3": {
+      "main": [
+        [
+          {
+            "node": "T3: link possible duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T3: link possible duplicate": {
+      "main": [
+        [
+          {
+            "node": "T3: comment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T3: comment": {
+      "main": [
+        [
+          {
+            "node": "T3: create task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T3: create task": {
+      "main": [
+        [
+          {
+            "node": "T3: log activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T3: log activity": {
+      "main": [
+        [
+          {
+            "node": "T3: link act",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T3: link act": {
+      "main": [
+        [
+          {
+            "node": "T3: out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T3: out": {
+      "main": [
+        [
+          {
+            "node": "Booking?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract criteria (LLM)": {
+      "main": [
+        [
+          {
+            "node": "Match extracted criteria",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match extracted criteria": {
+      "main": [
+        [
+          {
+            "node": "Criteria matched?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criteria matched?": {
+      "main": [
+        [
+          {
+            "node": "LLM: create lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare plain lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM: create lead": {
+      "main": [
+        [
+          {
+            "node": "Finish llm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finish llm": {
+      "main": [
+        [
+          {
+            "node": "LLM: link duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM: link duplicate": {
+      "main": [
+        [
+          {
+            "node": "LLM: link company",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM: link company": {
+      "main": [
+        [
+          {
+            "node": "LLM: comment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM: comment": {
+      "main": [
+        [
+          {
+            "node": "LLM: create task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM: create task": {
+      "main": [
+        [
+          {
+            "node": "LLM: log activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM: log activity": {
+      "main": [
+        [
+          {
+            "node": "LLM: link act",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM: link act": {
+      "main": [
+        [
+          {
+            "node": "LLM: out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM: out": {
+      "main": [
+        [
+          {
+            "node": "Booking?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare plain lead": {
+      "main": [
+        [
+          {
+            "node": "T5: create lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T5: create lead": {
+      "main": [
+        [
+          {
+            "node": "Finish tier5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finish tier5": {
+      "main": [
+        [
+          {
+            "node": "T5: create task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T5: create task": {
+      "main": [
+        [
+          {
+            "node": "T5: log activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T5: log activity": {
+      "main": [
+        [
+          {
+            "node": "T5: link act",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T5: link act": {
+      "main": [
+        [
+          {
+            "node": "T5: out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T5: out": {
+      "main": [
+        [
+          {
+            "node": "Booking?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Booking?": {
+      "main": [
+        [
+          {
+            "node": "Create meeting",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Create meeting": {
+      "main": [
+        [
+          {
+            "node": "Link meeting -> lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

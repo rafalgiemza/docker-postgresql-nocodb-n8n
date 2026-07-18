@@ -1,0 +1,38 @@
+flowchart TD
+    T["Tally"] --> N["Adapter zrodla:<br/>normalizacja do<br/>{name, email, phone, message, channel, booking?}"]
+    C["Contact Form 7<br/>(WP + wtyczka webhook)"] --> N
+    B["MS Bookings<br/>(booking = meeting)"] --> N
+
+    N --> T1{"TIER 1<br/>dokladny e-mail<br/>w leads / participants?"}
+
+    T1 -->|"trafienie w OTWARTEGO leada"| A1["BEZ nowego leada<br/>activity 'returning enquiry' + tresc<br/>task dla ownera: klient napisal ponownie"]
+    T1 -->|"trafienie tylko w ZAMKNIETEGO"| A2["NOWY lead (nowa szansa)<br/>source = powrot_klienta<br/>link do tej samej firmy<br/>activity z ref. do starego leada"]
+    T1 -->|"brak"| T2{"TIER 2<br/>domena firmowa<br/>w companies.domains?"}
+
+    T2 -->|"tak"| A3["NOWY lead<br/>istniejacy W5:<br/>pending_confirmation + komentarz"]
+    T2 -->|"nie / domena publiczna"| T3{"TIER 3<br/>imie i nazwisko<br/>(lowercase, bez diakrytykow)?"}
+
+    T3 -->|"trafienie"| A4["NOWY lead<br/>komentarz: possible duplicate of #X<br/>task: potwierdz dopasowanie<br/>(NIGDY auto-merge po nazwisku)"]
+    T3 -->|"brak"| T4{"TIER 4<br/>AI: tresc textarea vs<br/>otwarte leady + firmy"}
+
+    T4 -->|"kandydat znaleziony<br/>(kazdy confidence)"| A5["NOWY lead<br/>komentarz: AI sugeruje leada #X / typ B2B<br/>+ reasoning<br/>task: zaklasyfikuj, nie jestem pewien"]
+    T4 -->|"brak sygnalu"| A6["TIER 5: NOWY lead<br/>task: zaklasyfikuj / pierwszy kontakt"]
+
+    A1 --> BK{"bylo booking<br/>z Bookings?"}
+    A2 --> BK
+    A3 --> BK
+    A4 --> BK
+    A5 --> BK
+    A6 --> BK
+    BK -->|"tak"| M["utworz meeting (zawsze -<br/>ktos realnie zajal termin)<br/>i podepnij do leada z kaskady"]
+    BK -->|"nie"| E["koniec + activity log"]
+    M --> E
+
+    classDef src fill:#cfe2ff,stroke:#0d6efd,color:#000
+    classDef auto fill:#d1e7dd,stroke:#146c43,color:#000
+    classDef sugg fill:#fff3cd,stroke:#b8860b,color:#000
+    classDef tier fill:#e2e3e5,stroke:#6c757d,color:#000
+    class T,C,B src
+    class A1,A2,M,E auto
+    class A3,A4,A5,A6 sugg
+    class N,T1,T2,T3,T4,BK tier

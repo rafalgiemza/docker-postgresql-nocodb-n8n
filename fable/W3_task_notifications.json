@@ -1,0 +1,122 @@
+{
+  "name": "W3 - Task assignment notifications",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "w3-task-notify",
+        "options": {}
+      },
+      "id": "node-016",
+      "name": "NocoDB: tasks insert/update",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "wh-w3-task-notify"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Notify assignee on task creation or reassignment.\n// Attach BOTH NocoDB webhooks (after insert + after update) to this same URL.\nconst b = $input.first().json.body || $input.first().json;\nconst t = b.type || '';\nconst row  = (b.data && b.data.rows && b.data.rows[0]) || {};\nconst prev = (b.data && b.data.previous_rows && b.data.previous_rows[0]) || {};\nconst pick = v => !v ? null : (Array.isArray(v) ? v[0] && v[0].email : (v.email || v));\nconst cur = pick(row.assignee), old = pick(prev.assignee);\nif (!cur) return [];\nif (t.includes('update') && cur === old) return []; // only real reassignments\nreturn [{ json: {\n  to: cur,\n  subject: `New task: ${row.title}`,\n  text: `You have a task in the CRM:\\n\\n${row.title}\\nDue: ${row.due_date || '-'}\\nPriority: ${row.priority || 'normal'}\\n\\nOpen NocoDB for details.`,\n  activity: { summary: `Notification sent to ${cur}: ${row.title}`,\n              type: 'notification_sent', flow: 'W3', triggered_by: 'system',\n              payload: JSON.stringify({ task_id: row.Id }) }\n} }];"
+      },
+      "id": "node-017",
+      "name": "Guard & compose",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "info@coaction-test.pl",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "text": "={{ $json.text }}",
+        "options": {}
+      },
+      "id": "node-018",
+      "name": "Send email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        400,
+        0
+      ],
+      "credentials": {
+        "smtp": {
+          "id": null,
+          "name": "SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/records",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Guard & compose').item.json.activity) }}"
+      },
+      "id": "node-019",
+      "name": "Log activity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": null,
+          "name": "NocoDB Token"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "NocoDB: tasks insert/update": {
+      "main": [
+        [
+          {
+            "node": "Guard & compose",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guard & compose": {
+      "main": [
+        [
+          {
+            "node": "Send email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send email": {
+      "main": [
+        [
+          {
+            "node": "Log activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}
