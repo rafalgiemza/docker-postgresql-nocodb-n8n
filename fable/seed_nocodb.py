@@ -20,11 +20,11 @@ import requests
 
 # ----------------------------------------------------------------- CONFIG
 CONFIG = {
-    "url": "https://noco.example.com",      # no trailing slash
-    "token": "PASTE_NOCODB_API_TOKEN",
-    "base_id": "PASTE_BASE_ID",             # p... id, visible in the base URL
+    "url": "https://back-office-coaction-test.giemza.dev",      # no trailing slash
+    "token": "nc_pat_GhrICdSDdIorjyw3EKiEu0fNXenf3BtUOQmqDCC2",
+    "base_id": "p5a5pocv2qgyeye",             # p... id, visible in the base URL
     "emails": {
-        "przemek": "przemek@example.com",
+        "przemek": "p.fidzina@example.com",
         "dorota": "dorota@example.com",
         "aleksandra": "aleksandra@example.com",
         "paulina": "paulina@example.com",
@@ -59,8 +59,7 @@ def resolve_meta():
         sys.exit(f"Tables not found in base (check titles): {missing}")
     for title, tid in tables.items():
         links[title] = {}
-        for col in api("GET", f"/api/v2/meta/tables/{tid}/columns").get("list",
-                api("GET", f"/api/v2/meta/tables/{tid}").get("columns", [])):
+        for col in api("GET", f"/api/v2/meta/tables/{tid}").get("columns", []):
             if col.get("uidt") in ("Links", "LinkToAnotherRecord"):
                 links[title][col["title"].strip().lower()] = col["id"]
     return tables, links
