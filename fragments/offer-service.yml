@@ -1,0 +1,20 @@
+# Jedyny customowy (build:) obraz w tym compose — reszta serwisów w
+# fragments/ to gotowe obrazy. Renderuje oferty PPTX z szablonu w NocoDB,
+# patrz offer-service/README.md. Bezstanowy, gada z NocoDB po HTTP API.
+services:
+  offer-service:
+    build: ../offer-service
+    restart: unless-stopped
+    environment:
+      - NOCODB_URL=http://nocodb:8080
+      - NOCODB_TOKEN=${NC_API_TOKEN}
+      - NOCODB_BASE_ID=${NC_CRM_BASE_ID}
+    depends_on:
+      nocodb:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    # brak portów na zewnątrz — woła go tylko n8n z sieci wewnętrznej

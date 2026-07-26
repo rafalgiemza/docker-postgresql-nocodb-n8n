@@ -1,6 +1,6 @@
 # n8n workflows — CoAction CRM (NocoDB)
 
-7 importowalnych workflowów zgodnych ze schematem `nocodb_crm_schema_v2.md`:
+8 importowalnych workflowów zgodnych ze schematem `nocodb_crm_schema_v2.md`:
 
 | Plik | Trigger | Co robi |
 |---|---|---|
@@ -11,6 +11,7 @@
 | `W5_company_dedup.json` | webhook: leads insert | dopasowanie firmy po domenie, `pending_confirmation`, komentarz, mail |
 | `W6a_meeting_ai_pipeline.json` | webhook: meetings update | transkrypcja → OpenRouter → `ai_analysis` → task weryfikacji; akceptacja → task "cele" (routing B2B→Dorota / B2C→Aleksandra); odrzucenie / brak transkrypcji → task naprawczy |
 | `W6b_offer_pipeline.json` | webhook: leads update | `goals_provided` → task referencji; `testimonials_provided` → walidacja linków → task "złóż ofertę" + `draft_ready` |
+| `W9_generate_offer.json` | Button na leadzie | woła `offer-service` (renderuje PPTX z szablonu) → task review + activity, albo task błędu; patrz `offer-service/README.md` |
 
 Każdy workflow kończy się wpisem do `activities` (+ link do leada tam, gdzie lead jest znany).
 
@@ -63,13 +64,29 @@ Dla każdego workflow z triggerem webhook: tabela → *Details* → *Webhooks* �
 
 W4: URL `.../webhook/w4-tally-intake` wklej w Tally → Integrations → Webhooks.
 
+W9 nie jest webhookiem tabeli — to pole **Button** na `leads` (patrz
+`offer-service/README.md` krok 5), wywołujące bezpośrednio
+`.../webhook/w9-generate-offer`. Wymaga uruchomionego serwisu
+`offer-service` (`docker compose up -d --build offer-service`) i co
+najmniej jednego rekordu `offer_templates` z `active=true`.
+
 ## 4. Kolejność uruchamiania i test
 
-Włączaj po jednym: **W3 → W2 → W1 → W4 → W5 → W6a → W6b** (powiadomienia najpierw). Po każdym: wykonaj akcję testową w NocoDB i sprawdź execution log w n8n + wpis w `activities`.
+Włączaj po jednym: **W3 → W2 → W1 → W4 → W5 → W6a → W6b → W9** (powiadomienia najpierw). Po każdym: wykonaj akcję testową w NocoDB i sprawdź execution log w n8n + wpis w `activities`.
 
-Smoke test W6 (scenariusz "Piotr"): utwórz testowy lead + spotkanie z linkiem do leada → wklej transkrypcję → `processing_status = analysis_pending` → sprawdź `ai_analysis`, task weryfikacji i activity → `ai_accepted` → sprawdź task celów u właściwej metodyczki → na leadzie `goals_provided` → task referencji → podlinkuj testimonial → `testimonials_provided` → task dla Przemka + `draft_ready`.
+Smoke test W6 (scenariusz "Piotr"): utwórz testowy lead + spotkanie z linkiem do leada → wklej transkrypcję → `processing_status = analysis_pending` → sprawdź `ai_analysis`, task weryfikacji i activity → `ai_accepted` → sprawdź task celów u właściwej metodyczki → na leadzie `goals_provided` → task referencji → podlinkuj testimonial → `testimonials_provided` → task dla Przemka + `draft_ready` → kliknij **Generuj ofertę** → sprawdź rekord w `offers` (patrz `offer-service/README.md`).
 
-## 5. Znane uproszczenia (do świadomej akceptacji)
+## 5. Test Runner (pytest)
+
+```
+pip install -r fable/requirements.txt
+pytest fable/ -v
+```
+
+Wymaga zmiennych środowiskowych opisanych w `fable/conftest.py`
+(`NC_URL`, `NC_TOKEN`, `NC_TEST_BASE`, `N8N_URL`, opcjonalnie `WH_PREFIX`).
+
+## 6. Znane uproszczenia (do świadomej akceptacji)
 
 - **Kształt payloadu webhooków NocoDB różni się między wersjami** (pole User: obiekt vs tablica; linki: licznik vs obiekt). Guardy piszą defensywnie oba warianty, ale po pierwszym realnym wywołaniu obejrzyj payload w execution logu i w razie czego popraw ścieżki w Code node'ach. To najbardziej prawdopodobne miejsce jednorazowej korekty.
 - **Wiązanie tasków z pipeline'em** działa przez marker w opisie (`meeting:{id}` / `lead:{id}`), a nie przez pole Links — celowo, bo linki przez API to osobne wywołania per rekord. Nie edytuj tych markerów ręcznie.

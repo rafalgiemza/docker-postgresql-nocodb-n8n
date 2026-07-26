@@ -6,11 +6,13 @@ import requests
 
 class NocoDB:
     TABLES = ["companies", "leads", "participants", "meetings", "tasks",
-              "task_templates", "projects", "activities", "testimonials"]
+              "task_templates", "projects", "activities", "testimonials",
+              "offer_templates", "offers"]
     # Tables wiped between tests (order matters only for readability; NocoDB
     # link rows are cleaned up automatically on record delete):
-    WIPE = ["activities", "tasks", "meetings", "participants", "leads",
-            "companies", "task_templates", "testimonials"]
+    WIPE = ["activities", "offers", "offer_templates", "tasks", "meetings",
+            "participants", "leads", "companies", "task_templates",
+            "testimonials"]
 
     def __init__(self, url, token, base_id):
         self.base = url.rstrip("/")
@@ -58,6 +60,18 @@ class NocoDB:
         for t in self.WIPE:
             rows = self.list(t, limit=1000)
             self.delete(t, [r["Id"] for r in rows])
+
+    # ---- attachments -----------------------------------------------------
+    def upload_attachment(self, content, filename, mimetype):
+        """Upload a file to NocoDB storage; returns the list-of-dict value to
+        assign directly to an Attachment field on create/update. Overrides
+        the session's default JSON Content-Type (None removes it) so
+        requests can set the multipart one with the right boundary."""
+        r = self.s.post(f"{self.base}/api/v2/storage/upload",
+                        files={"file": (filename, content, mimetype)},
+                        headers={"Content-Type": None})
+        assert r.ok, f"upload {filename} -> {r.status_code}: {r.text[:400]}"
+        return r.json()
 
     # ---- links ---------------------------------------------------------
     def link(self, table, field, rid, target_ids):

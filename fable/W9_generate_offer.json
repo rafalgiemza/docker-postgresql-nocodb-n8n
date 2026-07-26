@@ -1,0 +1,94 @@
+{
+  "name": "W9 - Generate offer (button -> offer-service)",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "w9-generate-offer", "options": {} },
+      "id": "n1", "name": "Button: Generate offer",
+      "type": "n8n-nodes-base.webhook", "typeVersion": 2, "position": [0, 0],
+      "webhookId": "wh-w9-generate-offer"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the native NocoDB Button payload -> lead_id.\nconst b = $input.first().json.body || $input.first().json;\nconst row = (b.data && b.data.rows && b.data.rows[0]) || b.row || b;\nconst id = row.Id || row.id;\nif (!id) throw new Error('No lead Id in button payload: ' + JSON.stringify(b).slice(0,300));\nreturn [{ json: { lead_id: id } }];"
+      },
+      "id": "n2", "name": "Parse lead id",
+      "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://offer-service:8000/generate",
+        "sendBody": true, "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $json.lead_id }) }}",
+        "options": { "timeout": 120000 }
+      },
+      "id": "n3", "name": "Call offer-service",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [400, 0],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "__NOCODB_URL__/api/v2/tables/__TBL_TASKS__/records",
+        "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+        "sendBody": true, "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ title: 'Sprawdź wygenerowaną ofertę (lead #' + $('Parse lead id').item.json.lead_id + ')', status: 'todo', priority: 'high', assignee: '__EMAIL_PRZEMEK__', created_by_flow: 'W9', description: 'lead:' + $('Parse lead id').item.json.lead_id + '\\noffer_id:' + ($json.offer_id||'?') + '\\nwarnings: ' + JSON.stringify($json.warnings||[]) }) }}",
+        "options": {}
+      },
+      "id": "n4", "name": "Task: review offer",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [600, -80],
+      "credentials": { "httpHeaderAuth": { "id": null, "name": "NocoDB Token" } }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "__NOCODB_URL__/api/v2/tables/__TBL_ACTIVITIES__/records",
+        "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+        "sendBody": true, "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ summary: 'Offer generated for lead #' + $('Parse lead id').item.json.lead_id, type: 'offer_draft_ready', flow: 'W9', triggered_by: 'user', payload: JSON.stringify({ lead_id: $('Parse lead id').item.json.lead_id, offer_id: $json.offer_id, template: $json.template, warnings: $json.warnings }) }) }}",
+        "options": {}
+      },
+      "id": "n5", "name": "Log activity",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [800, -80],
+      "credentials": { "httpHeaderAuth": { "id": null, "name": "NocoDB Token" } }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "__NOCODB_URL__/api/v2/tables/__TBL_TASKS__/records",
+        "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+        "sendBody": true, "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ title: 'BŁĄD generowania oferty (lead #' + $('Parse lead id').item.json.lead_id + ')', status: 'todo', priority: 'high', assignee: '__EMAIL_PRZEMEK__', created_by_flow: 'W9', description: 'lead:' + $('Parse lead id').item.json.lead_id + '\\n' + JSON.stringify($json).slice(0,500) }) }}",
+        "options": {}
+      },
+      "id": "n6", "name": "Task: generation failed",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [600, 120],
+      "credentials": { "httpHeaderAuth": { "id": null, "name": "NocoDB Token" } }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "__NOCODB_URL__/api/v2/tables/__TBL_ACTIVITIES__/records",
+        "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
+        "sendBody": true, "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ summary: 'Offer generation FAILED for lead #' + $('Parse lead id').item.json.lead_id, type: 'automation_error', flow: 'W9', triggered_by: 'system', payload: JSON.stringify($json).slice(0,800) }) }}",
+        "options": {}
+      },
+      "id": "n7", "name": "Log error",
+      "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [800, 120],
+      "credentials": { "httpHeaderAuth": { "id": null, "name": "NocoDB Token" } }
+    }
+  ],
+  "connections": {
+    "Button: Generate offer": { "main": [[{ "node": "Parse lead id", "type": "main", "index": 0 }]] },
+    "Parse lead id": { "main": [[{ "node": "Call offer-service", "type": "main", "index": 0 }]] },
+    "Call offer-service": { "main": [
+      [{ "node": "Task: review offer", "type": "main", "index": 0 }],
+      [{ "node": "Task: generation failed", "type": "main", "index": 0 }]
+    ] },
+    "Task: review offer": { "main": [[{ "node": "Log activity", "type": "main", "index": 0 }]] },
+    "Task: generation failed": { "main": [[{ "node": "Log error", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false
+}

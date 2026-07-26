@@ -1,4 +1,15 @@
-# FAZA 3 — Offer Builder (n8n + NocoDB)
+# FAZA 3 — Offer Builder (n8n + NocoDB) — NIEAKTUALNE
+
+> **Historyczne, nieaktualne** (analogicznie do banneru w `.ai/PRD.md`): ten
+> dokument opisuje architekturę porzuconą 2026-07-17/18 — znormalizowany
+> schemat Postgresa (`crm.v_offer_builder`, `schema.sql` sekcje 14/15,
+> role `nocodb_crm_user`/`n8n_crm_user`) zastąpiony modelem NocoDB-native
+> (`.ai/PRD.md` §5). `schema.sql`, na który ten runbook się powołuje, już nie
+> istnieje w repo. Generowanie pliku oferty — o którym mowa niżej jako
+> "poza zakresem MVP" — zostało zaimplementowane 2026-07-26 jako
+> `offer-service/` + workflow `W9`, patrz `offer-service/README.md` i
+> `.ai/PRD.md` §12/§14 pkt 1. Zostawione jako materiał historyczny, nie do
+> wykonywania.
 
 Runbook dla `.ai/IMPLEMENTATION_PLAN.md` FAZA 3. Zakłada, że `make migrate` i `make seed` już przeszły (widoki `crm.v_*`, role `nocodb_crm_user`/`n8n_crm_user`, dane referencyjne).
 
