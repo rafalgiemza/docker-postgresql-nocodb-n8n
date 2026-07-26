@@ -24,11 +24,11 @@ CONFIG = {
     "token": "nc_pat_GhrICdSDdIorjyw3EKiEu0fNXenf3BtUOQmqDCC2",
     "base_id": "p5a5pocv2qgyeye",             # p... id, visible in the base URL
     "emails": {
-        "przemek": "p.fidzina@example.com",
-        "dorota": "dorota@example.com",
-        "aleksandra": "aleksandra@example.com",
-        "paulina": "paulina@example.com",
-        "kasia": "kasia@example.com",
+        "przemek": "rafalgiemza@gmail.com",
+        "dorota": "rafalgiemza@gmail.com",
+        "aleksandra": "rafalgiemza@gmail.com",
+        "paulina": "rafalgiemza@gmail.com",
+        "kasia": "rafalgiemza@gmail.com",
     },
 }
 # Table titles as created in NocoDB (case-insensitive match):
