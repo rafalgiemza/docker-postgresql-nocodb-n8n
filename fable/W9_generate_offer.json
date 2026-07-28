@@ -29,10 +29,10 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "__NOCODB_URL__/api/v2/tables/__TBL_TASKS__/records",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records",
         "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
         "sendBody": true, "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ title: 'Sprawdź wygenerowaną ofertę (lead #' + $('Parse lead id').item.json.lead_id + ')', status: 'todo', priority: 'high', assignee: '__EMAIL_PRZEMEK__', created_by_flow: 'W9', description: 'lead:' + $('Parse lead id').item.json.lead_id + '\\noffer_id:' + ($json.offer_id||'?') + '\\nwarnings: ' + JSON.stringify($json.warnings||[]) }) }}",
+        "jsonBody": "={{ JSON.stringify({ title: 'Sprawdź wygenerowaną ofertę (lead #' + $('Parse lead id').item.json.lead_id + ')', status: 'todo', priority: 'high', assignee: 'rafalgiemza@gmail.com', created_by_flow: 'W9', description: 'lead:' + $('Parse lead id').item.json.lead_id + '\\noffer_id:' + ($json.offer_id||'?') + '\\nwarnings: ' + JSON.stringify($json.warnings||[]) }) }}",
         "options": {}
       },
       "id": "n4", "name": "Task: review offer",
@@ -42,7 +42,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "__NOCODB_URL__/api/v2/tables/__TBL_ACTIVITIES__/records",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/records",
         "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
         "sendBody": true, "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ summary: 'Offer generated for lead #' + $('Parse lead id').item.json.lead_id, type: 'offer_draft_ready', flow: 'W9', triggered_by: 'user', payload: JSON.stringify({ lead_id: $('Parse lead id').item.json.lead_id, offer_id: $json.offer_id, template: $json.template, warnings: $json.warnings }) }) }}",
@@ -55,10 +55,10 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "__NOCODB_URL__/api/v2/tables/__TBL_TASKS__/records",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records",
         "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
         "sendBody": true, "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ title: 'BŁĄD generowania oferty (lead #' + $('Parse lead id').item.json.lead_id + ')', status: 'todo', priority: 'high', assignee: '__EMAIL_PRZEMEK__', created_by_flow: 'W9', description: 'lead:' + $('Parse lead id').item.json.lead_id + '\\n' + JSON.stringify($json).slice(0,500) }) }}",
+        "jsonBody": "={{ JSON.stringify({ title: 'BŁĄD generowania oferty (lead #' + $('Parse lead id').item.json.lead_id + ')', status: 'todo', priority: 'high', assignee: 'rafalgiemza@gmail.com', created_by_flow: 'W9', description: 'lead:' + $('Parse lead id').item.json.lead_id + '\\n' + JSON.stringify($json).slice(0,500) }) }}",
         "options": {}
       },
       "id": "n6", "name": "Task: generation failed",
@@ -68,7 +68,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "__NOCODB_URL__/api/v2/tables/__TBL_ACTIVITIES__/records",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/records",
         "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
         "sendBody": true, "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ summary: 'Offer generation FAILED for lead #' + $('Parse lead id').item.json.lead_id, type: 'automation_error', flow: 'W9', triggered_by: 'system', payload: JSON.stringify($json).slice(0,800) }) }}",
