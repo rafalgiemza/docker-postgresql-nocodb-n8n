@@ -47,7 +47,7 @@ migrate: ## Apply appdata/appdata_schema.sql to appdata (see app_migrate.sh)
 	./scripts/app_migrate.sh
 
 dump-appdata-schema: ## Dump current schema of a running appdata DB into appdata/appdata_schema.sql
-	docker exec -i docker-postgres-1 pg_dump -U $(APPDATA_OWNER_USER) -d $(APP_DB) --schema-only > ./appdata/appdata_schema.sql
+	docker exec -i docker-postgres-1 pg_dump -U $(POSTGRES_USER) -d $(APP_DB) --schema-only > ./appdata/appdata_schema.sql
 	@echo "✅ Zapisano appdata/appdata_schema.sql"
 
 seed: ## Load reference data (pricing tiers, testimonials, users)
