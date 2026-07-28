@@ -72,7 +72,7 @@ def test_placeholder_split_across_runs_collapses_to_first_run():
 def test_repeat_participants_duplicates_slide_per_item():
     prs = _new_prs()
     _add_slide(prs, ["{{lead.contact_name}}"])
-    _add_slide(prs, ["{{p.full_name}}"], notes="repeat:participants")
+    _add_slide(prs, ["{{participant.full_name}}"], notes="repeat:participants")
     warnings = []
     data = {
         "lead": {"contact_name": "Ala"},
@@ -89,10 +89,39 @@ def test_repeat_participants_duplicates_slide_per_item():
 def test_repeat_with_empty_list_drops_slide_and_warns():
     prs = _new_prs()
     _add_slide(prs, ["{{lead.contact_name}}"])
-    _add_slide(prs, ["{{p.full_name}}"], notes="repeat:participants")
+    _add_slide(prs, ["{{participant.full_name}}"], notes="repeat:participants")
     warnings = []
     data = {"lead": {"contact_name": "Ala"}, "participants": []}
     out = _render(prs, data, warnings)
     assert len(out.slides) == 1
     assert _textbox_text(out.slides[0]) == "Ala"
     assert any("repeat:participants" in w and "dropped" in w for w in warnings)
+
+
+def test_repeat_testimonials_uses_testimonial_prefix():
+    prs = _new_prs()
+    _add_slide(prs, ["{{testimonial.client_name}}"], notes="repeat:testimonials")
+    warnings = []
+    data = {"testimonials": [{"client_name": "Firma X"}]}
+    out = _render(prs, data, warnings)
+    assert _textbox_text(list(out.slides)[0]) == "Firma X"
+    assert warnings == []
+
+
+def test_participant_extra_dict_exposes_assessment_alias():
+    prs = _new_prs()
+    _add_slide(prs, ["{{participant.full_name}} {{a.o}}"], notes="repeat:participants")
+    warnings = []
+    data = {"participants": [{"full_name": "Basia", "_extra": {"a": {"o": "B2"}}}]}
+    out = _render(prs, data, warnings)
+    assert _textbox_text(list(out.slides)[0]) == "Basia B2"
+    assert warnings == []
+
+
+def test_participant_without_extra_warns_on_assessment_alias():
+    prs = _new_prs()
+    _add_slide(prs, ["{{a.o}}"], notes="repeat:participants")
+    warnings = []
+    data = {"participants": [{"full_name": "Basia"}]}  # no _extra
+    _render(prs, data, warnings)
+    assert any("a.o" in w for w in warnings)

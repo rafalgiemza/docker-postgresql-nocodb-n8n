@@ -6,7 +6,8 @@ Flow (POST /generate {"lead_id": N}):
   2. fetch the ACTIVE template (offer_templates.file attachment, newest active)
   3. render: replace {{placeholders}} in all text frames and tables;
      duplicate slides marked in speaker notes with `repeat:participants`
-     or `repeat:testimonials` (one copy per item, {{p.*}} / {{t.*}} context)
+     or `repeat:testimonials` (one copy per item, {{participant.*}} /
+     {{testimonial.*}} context)
   4. upload the result to NocoDB storage, create an `offers` record
      (status=draft, data_json snapshot for history/regeneration), link it
      to the lead, return {offer_id, warnings}
@@ -15,8 +16,12 @@ Template contract (editable by non-developers in PowerPoint):
   - {{lead.contact_name}}, {{lead.value}}, {{company.name}},
     {{offer.date}}, {{offer.variant}} ... on any slide
   - a slide with `repeat:participants` in its SPEAKER NOTES is duplicated
-    per participant; use {{p.full_name}}, {{p.cefr_overall}}, ...
-  - `repeat:testimonials` likewise with {{t.title}}, {{t.content}}, ...
+    per participant; use {{participant.full_name}}, {{participant.position}},
+    {{participant.needs_summary}}, and the linked assessment scores as
+    {{a.o}} {{a.r}} {{a.a}} {{a.f}} {{a.c}} (overall/range/accuracy/fluency/
+    communication - short aliases, see build_participant())
+  - `repeat:testimonials` likewise with {{testimonial.title}},
+    {{testimonial.content}}, {{testimonial.client_name}}
   - keep each {{placeholder}} inside ONE styling run (don't bold half of it),
     otherwise the paragraph's mixed formatting collapses to the first run's.
 
@@ -40,7 +45,7 @@ NOCODB_URL = os.environ["NOCODB_URL"].rstrip("/")
 TOKEN = os.environ["NOCODB_TOKEN"]
 BASE_ID = os.environ["NOCODB_BASE_ID"]
 TABLES = ["leads", "participants", "testimonials", "companies",
-          "offer_templates", "offers"]
+          "offer_templates", "offers", "assesments"]
 from renderer import render_pptx
 
 
@@ -112,9 +117,27 @@ def clean(rec):
             if isinstance(v, (str, int, float, bool)) or v is None}
 
 
+def build_participant(p, warnings):
+    pc = clean(p)
+    assessments = get_linked("participants", "assesments", p["Id"])
+    if assessments:
+        a = clean(assessments[0])
+        pc["_extra"] = {"a": {
+            "o": a.get("cefr_overall"),
+            "r": a.get("cefr_range"),
+            "a": a.get("cefr_accuracy"),
+            "f": a.get("cefr_fluency"),
+            "c": a.get("cefr_communication"),
+        }}
+    else:
+        warnings.append(f"participant {p.get('Id')} has no linked assessment")
+    return pc
+
+
 def build_data(lead_id, warnings):
     lead = get_record("leads", lead_id)
-    participants = [clean(p) for p in get_linked("leads", "participants", lead_id)]
+    participants = [build_participant(p, warnings)
+                    for p in get_linked("leads", "participants", lead_id)]
     testimonials = [clean(t) for t in
                     get_linked("leads", "selected_testimonials", lead_id)]
     companies = get_linked("leads", "company", lead_id)

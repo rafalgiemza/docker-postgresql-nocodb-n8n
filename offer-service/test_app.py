@@ -23,14 +23,17 @@ _TABLES_META = {"list": [
     {"title": "companies", "id": "tbl_companies"},
     {"title": "offer_templates", "id": "tbl_templates"},
     {"title": "offers", "id": "tbl_offers"},
+    {"title": "Assesments", "id": "tbl_assesments"},
 ]}
 _COLUMNS = {
     "tbl_leads": [{"title": "participants", "uidt": "Links", "id": "c_part"},
                   {"title": "selected_testimonials", "uidt": "Links", "id": "c_test"},
                   {"title": "company", "uidt": "Links", "id": "c_comp"}],
     "tbl_offers": [{"title": "lead", "uidt": "Links", "id": "c_lead"}],
-    "tbl_participants": [], "tbl_testimonials": [], "tbl_companies": [],
+    "tbl_participants": [{"title": "Assesments", "uidt": "Links", "id": "c_assess"}],
+    "tbl_testimonials": [], "tbl_companies": [],
     "tbl_templates": [],
+    "tbl_assesments": [{"title": "Participants", "uidt": "Links", "id": "c_p2"}],
 }
 
 
@@ -56,6 +59,12 @@ def _template_pptx_bytes():
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     box = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(5), Inches(1))
     box.text_frame.paragraphs[0].add_run().text = "{{lead.contact_name}}"
+
+    repeat = prs.slides.add_slide(prs.slide_layouts[6])
+    box2 = repeat.shapes.add_textbox(Inches(1), Inches(1), Inches(5), Inches(1))
+    box2.text_frame.paragraphs[0].add_run().text = "{{participant.full_name}} {{a.o}}"
+    repeat.notes_slide.notes_text_frame.text = "repeat:participants"
+
     buf = io.BytesIO()
     prs.save(buf)
     return buf.getvalue()
@@ -69,9 +78,13 @@ def test_generate_end_to_end_with_mocked_nocodb(monkeypatch):
         return {"Id": 1, "contact_name": "Ala", "value": 5000}
 
     def fake_get_linked(table, field, rid):
-        assert table == "leads" and rid == 1
-        if field == "participants":
+        if table == "leads" and rid == 1 and field == "participants":
             return [{"Id": 10, "full_name": "Basia"}]
+        if table == "participants" and field == "assesments":
+            assert rid == 10
+            return [{"Id": 77, "cefr_overall": "B2", "cefr_range": "B1-B2",
+                     "cefr_accuracy": "B2", "cefr_fluency": "B1",
+                     "cefr_communication": "B2"}]
         return []
 
     def fake_api(method, path, **kw):
@@ -112,7 +125,32 @@ def test_generate_end_to_end_with_mocked_nocodb(monkeypatch):
     assert calls["offer_link"][1] == [{"Id": 1}]
     # renderer actually ran against the mocked template bytes:
     rendered = Presentation(io.BytesIO(calls["uploaded"][1]))
-    assert rendered.slides[0].shapes[0].text_frame.text == "Ala"
+    slides = list(rendered.slides)
+    assert slides[0].shapes[0].text_frame.text == "Ala"
+    assert slides[1].shapes[0].text_frame.text == "Basia B2"
+
+
+def test_generate_warns_when_participant_has_no_assessment(monkeypatch):
+    monkeypatch.setattr(app, "get_record", lambda t, r: {"Id": 3, "contact_name": "Ola"})
+
+    def fake_get_linked(table, field, rid):
+        if table == "leads" and field == "participants":
+            return [{"Id": 20, "full_name": "Czesiek"}]
+        return []  # no assessment linked
+
+    monkeypatch.setattr(app, "get_linked", fake_get_linked)
+
+    def fake_api(method, path, **kw):
+        if method == "GET":
+            return {"list": [{"Id": 5, "name": "Template A", "file": [{"url": "/x"}]}]}
+        return {"Id": 101}
+
+    monkeypatch.setattr(app, "api", fake_api)
+    monkeypatch.setattr(app, "download_attachment", lambda att: _template_pptx_bytes())
+    monkeypatch.setattr(app, "upload_file", lambda name, content: [{"url": "/x"}])
+
+    result = app.generate(app.GenReq(lead_id=3))
+    assert "participant 20 has no linked assessment" in result["warnings"]
 
 
 def test_generate_warns_when_lead_has_no_participants(monkeypatch):

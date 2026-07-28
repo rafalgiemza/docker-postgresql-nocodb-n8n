@@ -113,7 +113,7 @@ def slide_repeat_marker(slide):
 
 def render_pptx(template_bytes, data, warnings):
     prs = Presentation(io.BytesIO(template_bytes))
-    key_map = {"participants": "p", "testimonials": "t"}
+    key_map = {"participants": "participant", "testimonials": "testimonial"}
     for slide in list(prs.slides):
         marker = slide_repeat_marker(slide)
         if not marker:
@@ -134,7 +134,14 @@ def render_pptx(template_bytes, data, warnings):
             anchor = dup
             targets.append(dup)
         for target, item in zip(targets, items):
-            render_shapes(target.shapes, {**data, key_map[marker]: item}, warnings)
+            # Some items (e.g. participants) carry an "_extra" dict of
+            # additional top-level context keys - short aliases for a
+            # related record (assessment scores as {{a.o}} etc), set by
+            # app.py's build_participant().
+            ctx = {**data, key_map[marker]: item}
+            if isinstance(item, dict) and "_extra" in item:
+                ctx.update(item["_extra"])
+            render_shapes(target.shapes, ctx, warnings)
     out = io.BytesIO()
     prs.save(out)
     return out.getvalue()
