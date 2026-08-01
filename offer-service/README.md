@@ -49,13 +49,25 @@ musi się zgadzać z tym, co n8n włoży do `data`.
 
 **Slajd powtarzalny** — wpisz w NOTATKACH slajdu (nie na slajdzie!)
 `repeat:<nazwa>`, np. `repeat:participant`. Slajd powiela się raz na każdy
-element listy `data["<nazwa>"]`, a wewnątrz tej kopii element jest dostępny
-pod tą samą `<nazwa>` — np. przy `repeat:participant` i
-`data = {"participant": [{"full_name": "Basia", "a": {"o": "B2"}}]}` masz
-na tym slajdzie `{{participant.full_name}}` i `{{participant.a.o}}`.
-`<nazwa>` jest całkowicie dowolna — `repeat:testimonial`,
-`repeat:goal`, cokolwiek — serwis nie ma zaszytej listy dozwolonych nazw.
-**Nazwa w notatce i prefiks placeholdera muszą być identyczne.**
+element listy `data["<nazwa>"]`. `<nazwa>` jest całkowicie dowolna —
+`repeat:testimonial`, `repeat:goal`, cokolwiek — serwis nie ma zaszytej
+listy dozwolonych nazw.
+
+Wewnątrz takiej kopii element jest dostępny **na dwa sposoby**:
+- z prefiksem: `{{participant.full_name}}`, `{{participant.a.o}}`
+- bez prefiksu (klucze elementu są podnoszone na wierzch):
+  `{{full_name}}`, `{{a.o}}`
+
+Dzięki temu skróty typu `{{a.o}}` działają bez pisania
+`{{participant.a.o}}`. Uwaga: podniesione klucze przesłaniają na tym jednym
+slajdzie klucze o tej samej nazwie z `data` (forma z prefiksem zawsze
+zostaje dostępna).
+
+**Częsta pułapka:** placeholder z jednym nawiasem zamykającym
+(`{{testimonial.name}` zamiast `{{testimonial.name}}`) **nie jest w ogóle
+rozpoznawany** — nie podstawi się i NIE pojawi się w `warnings`, tylko
+zostanie w ofercie jako goły tekst. Jeśli w wygenerowanym pliku widzisz
+`{{coś}`, to literówka w szablonie, nie błąd danych.
 
 Dziś w użyciu (ustalone z n8n, nie z serwisem):
 - `repeat:participant` → `{{participant.full_name}}`, `{{participant.position}}`,

@@ -137,3 +137,30 @@ def test_participant_without_nested_value_warns():
     data = {"participant": [{"full_name": "Basia"}]}  # no "a" key
     _render(prs, data, warnings)
     assert any("participant.a.o" in w for w in warnings)
+
+
+def test_repeat_item_keys_are_also_available_without_prefix():
+    """Inside a repeat slide the item's own keys are lifted to the top level,
+    so a template may write {{a.o}} instead of {{participant.a.o}}."""
+    prs = _new_prs()
+    _add_slide(prs, ["{{participant.full_name}} / {{full_name}} / {{a.o}} / {{assessment.position}}"],
+               notes="repeat:participant")
+    warnings = []
+    data = {"participant": [{
+        "full_name": "Basia",
+        "a": {"o": "B2"},
+        "assessment": {"position": "HR Manager"},
+    }]}
+    out = _render(prs, data, warnings)
+    assert _textbox_text(list(out.slides)[0]) == "Basia / Basia / B2 / HR Manager"
+    assert warnings == []
+
+
+def test_lifted_item_keys_shadow_top_level_data_on_that_slide():
+    prs = _new_prs()
+    _add_slide(prs, ["{{title}}|{{lead.title}}"], notes="repeat:row")
+    warnings = []
+    data = {"lead": {"title": "z leada"}, "title": "globalny",
+            "row": [{"title": "z elementu"}]}
+    out = _render(prs, data, warnings)
+    assert _textbox_text(list(out.slides)[0]) == "z elementu|z leada"

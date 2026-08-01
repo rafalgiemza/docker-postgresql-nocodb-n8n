@@ -105,9 +105,9 @@ def delete_slide(prs, slide):
 
 def slide_repeat_marker(slide):
     """`repeat:<name>` in a slide's SPEAKER NOTES - <name> is both the key
-    looked up in `data` (must be a list) and the placeholder prefix used on
-    that slide (`{{<name>.field}}`). Fully generic: any name works, nothing
-    hardcoded to a particular entity."""
+    looked up in `data` (must be a list) and the placeholder prefix usable on
+    that slide (`{{<name>.field}}`, or bare `{{field}}` - see render_pptx).
+    Fully generic: any name works, nothing hardcoded to a particular entity."""
     if not slide.has_notes_slide:
         return None
     txt = slide.notes_slide.notes_text_frame.text or ""
@@ -137,7 +137,17 @@ def render_pptx(template_bytes, data, warnings):
             anchor = dup
             targets.append(dup)
         for target, item in zip(targets, items):
-            render_shapes(target.shapes, {**data, marker: item}, warnings)
+            # The item is exposed BOTH under the marker name
+            # ({{participant.position}}) and with its own keys lifted to the
+            # top level ({{position}}, and thus {{a.o}} when the item carries
+            # an "a" object). Lifted keys shadow same-named keys in `data` for
+            # this slide only - documented tradeoff; the prefixed form always
+            # stays available and takes precedence for the marker name itself.
+            ctx = {**data}
+            if isinstance(item, dict):
+                ctx.update(item)
+            ctx[marker] = item
+            render_shapes(target.shapes, ctx, warnings)
     out = io.BytesIO()
     prs.save(out)
     return out.getvalue()
