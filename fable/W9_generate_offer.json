@@ -182,7 +182,7 @@
         }
       },
       "id": "6cb248cb-b29f-453f-811b-9deba28c7dc4",
-      "name": "Call offer-service",
+      "name": "Call file-renderer-service",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -269,7 +269,7 @@
             },
             {
               "fieldName": "payload",
-              "fieldValue": "={{ JSON.stringify($('Call offer-service').first().json).slice(0,800) }}"
+              "fieldValue": "={{ JSON.stringify($('Call file-renderer-service').first().json).slice(0,800) }}"
             }
           ]
         }
@@ -337,7 +337,7 @@
         "nodeCredentialType": "nocoDbApiToken",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ title: 'Oferta — ' + ($('Assemble render data').first().json.data.lead.contact_name ?? $('Assemble render data').first().json.lead_id), status: 'draft', price: $('Assemble render data').first().json.data.lead.value, template_name: $('Fetch active template').first().json.name, file: $json.body, data_json: JSON.stringify($('Assemble render data').first().json.data), warnings: ($('Call offer-service').first().json.headers['x-warnings'] ?? '[]') }) }}",
+        "jsonBody": "={{ JSON.stringify({ title: 'Oferta — ' + ($('Assemble render data').first().json.data.lead.contact_name ?? $('Assemble render data').first().json.lead_id), status: 'draft', price: $('Assemble render data').first().json.data.lead.value, template_name: $('Fetch active template').first().json.name, file: $json.body, data_json: JSON.stringify($('Assemble render data').first().json.data), warnings: ($('Call file-renderer-service').first().json.headers['x-warnings'] ?? '[]') }) }}",
         "options": {}
       },
       "id": "e5029b6e-7fbb-49a4-8f4e-7ff58c3942d0",
@@ -386,7 +386,7 @@
             },
             {
               "fieldName": "description",
-              "fieldValue": "=lead:{{ $('Assemble render data').first().json.lead_id }}\noffer_id:{{ $('Create offer record').first().json.Id ?? '?' }}\nwarnings: {{ $('Call offer-service').first().json.headers['x-warnings'] ?? '[]' }}"
+              "fieldValue": "=lead:{{ $('Assemble render data').first().json.lead_id }}\noffer_id:{{ $('Create offer record').first().json.Id ?? '?' }}\nwarnings: {{ $('Call file-renderer-service').first().json.headers['x-warnings'] ?? '[]' }}"
             }
           ]
         }
@@ -433,7 +433,7 @@
             },
             {
               "fieldName": "payload",
-              "fieldValue": "={{ JSON.stringify({ lead_id: $('Assemble render data').first().json.lead_id, offer_id: $('Create offer record').first().json.Id, template: $('Fetch active template').first().json.name, warnings: $('Call offer-service').first().json.headers['x-warnings'] }) }}"
+              "fieldValue": "={{ JSON.stringify({ lead_id: $('Assemble render data').first().json.lead_id, offer_id: $('Create offer record').first().json.Id, template: $('Fetch active template').first().json.name, warnings: $('Call file-renderer-service').first().json.headers['x-warnings'] }) }}"
             }
           ]
         }
@@ -1050,14 +1050,14 @@
       "main": [
         [
           {
-            "node": "Call offer-service",
+            "node": "Call file-renderer-service",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Call offer-service": {
+    "Call file-renderer-service": {
       "main": [
         [
           {

@@ -6,7 +6,7 @@ w rekordzie `offers`, podlinkowany do leada.
 
 Kluczowa własność: **szablony to pliki .pptx lub .docx w NocoDB**. Ktoś
 zmienia układ w PowerPoint/Word, podmienia załącznik w tabeli
-`offer_templates`, zaznacza `active` — i następne oferty używają nowego układu.
+`document_templates`, zaznacza `active` — i następne oferty używają nowego układu.
 Zero zmian w kodzie, zero deployu.
 
 ## Dlaczego osobny serwis, a nie node w n8n
@@ -29,7 +29,7 @@ szablon, jak złożyć dane, gdzie zapisać wynik, kiedy stworzyć rekord
 ### POST /render (PPTX)
 
 `multipart/form-data`:
-- pole `template` — plik `.pptx` (n8n pobiera go z `offer_templates.file`)
+- pole `template` — plik `.pptx` (n8n pobiera go z `document_templates.file`)
 - pole `data` — JSON string, kontekst renderu (patrz "Kontrakt szablonu" niżej)
 
 Odpowiedź: wygenerowany plik `.pptx` (binarnie, `Content-Type` PPTX).
@@ -122,15 +122,21 @@ poza opcjonalnym `PORT`.
 4. Na tabeli `leads` dodaj pole **Button** "Generuj ofertę" → webhook na
    workflow z kroku 3. Sensowny warunek widoczności:
    `offer_prep_status = draft_ready` (ustawiane przez W6b).
-5. Wgraj pierwszy szablon do `offer_templates` (`active=true`).
+5. Wgraj pierwszy szablon do `document_templates` (`active=true`, `kind=offer`).
 
-## Tabele `offer_templates`/`offers` (używane przez n8n, nie przez serwis)
+## Tabele `document_templates`/`offers` (używane przez n8n, nie przez serwis)
 
-Jak reszta modelu danych CRM (`.ai/PRD.md` §5) — tabele NIE powstają z pliku
-migracji, tylko ręcznie przez NocoDB Creator UI.
+Na pustej bazie tworzy je `fable/create_offer_tables.py` (cały schemat v3);
+na istniejącej — ręcznie w NocoDB Creator UI.
 
-**`offer_templates`**: `name` (text), `file` (Attachment — tu wgrywasz .pptx),
-`active` (checkbox), `notes` (text). n8n bierze najnowszy rekord z `active=true`.
+> **Nazwa:** w bazie testowej ta tabela nazywa się jeszcze `offer_templates`.
+> Model docelowy (`fable/nocodb_crm_schema_v3.md` §12) uogólnia ją do
+> `document_templates` z polem `kind`, bo ten serwis jest generyczny i
+> obsłuży też raport audytowy — nie tylko oferty.
+
+**`document_templates`**: `name` (text), `kind` (select: offer/audit_report/inne),
+`file` (Attachment — .pptx lub .docx), `active` (checkbox), `notes` (text).
+n8n bierze najnowszy rekord z `active=true` i pasującym `kind`.
 
 **`offers`**: `title` (text), `status` (select: draft/sent/accepted/rejected),
 `price` (currency), `template_name` (text), `file` (Attachment — tu ląduje

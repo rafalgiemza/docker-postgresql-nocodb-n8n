@@ -1,6 +1,7 @@
 # n8n workflows — CoAction CRM (NocoDB)
 
-8 importowalnych workflowów zgodnych ze schematem `nocodb_crm_schema_v2.md`:
+8 importowalnych workflowów zgodnych ze schematem `nocodb_crm_schema_v2.md`
+(model docelowy: `nocodb_crm_schema_v3.md`):
 
 | Plik | Trigger | Co robi |
 |---|---|---|
@@ -11,7 +12,7 @@
 | `W5_company_dedup.json` | webhook: leads insert | dopasowanie firmy po domenie, `pending_confirmation`, komentarz, mail |
 | `W6a_meeting_ai_pipeline.json` | webhook: meetings update | transkrypcja → OpenRouter → `ai_analysis` → task weryfikacji; akceptacja → task "cele" (routing B2B→Dorota / B2C→Aleksandra); odrzucenie / brak transkrypcji → task naprawczy |
 | `W6b_offer_pipeline.json` | webhook: leads update | `goals_provided` → task referencji; `testimonials_provided` → walidacja linków → task "złóż ofertę" + `draft_ready` |
-| `W9_generate_offer.json` | Button na leadzie | woła `offer-service` (renderuje PPTX z szablonu) → task review + activity, albo task błędu; patrz `offer-service/README.md` |
+| `W9_generate_offer.json` | Button na leadzie | woła `file-renderer-service` (renderuje PPTX/DOCX z szablonu) → task review + activity, albo task błędu; patrz `file-renderer-service/README.md` |
 
 Każdy workflow kończy się wpisem do `activities` (+ link do leada tam, gdzie lead jest znany).
 
@@ -65,16 +66,18 @@ Dla każdego workflow z triggerem webhook: tabela → *Details* → *Webhooks* �
 W4: URL `.../webhook/w4-tally-intake` wklej w Tally → Integrations → Webhooks.
 
 W9 nie jest webhookiem tabeli — to pole **Button** na `leads` (patrz
-`offer-service/README.md` krok 5), wywołujące bezpośrednio
+`file-renderer-service/README.md` krok 5), wywołujące bezpośrednio
 `.../webhook/w9-generate-offer`. Wymaga uruchomionego serwisu
-`offer-service` (`docker compose up -d --build offer-service`) i co
-najmniej jednego rekordu `offer_templates` z `active=true`.
+`file-renderer-service` (`docker compose up -d --build file-renderer-service`) i co
+najmniej jednego rekordu `document_templates` z `active=true`
+(w bazie testowej tabela nazywa się jeszcze `offer_templates` — patrz
+`nocodb_crm_schema_v3.md` §12).
 
 ## 4. Kolejność uruchamiania i test
 
 Włączaj po jednym: **W3 → W2 → W1 → W4 → W5 → W6a → W6b → W9** (powiadomienia najpierw). Po każdym: wykonaj akcję testową w NocoDB i sprawdź execution log w n8n + wpis w `activities`.
 
-Smoke test W6 (scenariusz "Piotr"): utwórz testowy lead + spotkanie z linkiem do leada → wklej transkrypcję → `processing_status = analysis_pending` → sprawdź `ai_analysis`, task weryfikacji i activity → `ai_accepted` → sprawdź task celów u właściwej metodyczki → na leadzie `goals_provided` → task referencji → podlinkuj testimonial → `testimonials_provided` → task dla Przemka + `draft_ready` → kliknij **Generuj ofertę** → sprawdź rekord w `offers` (patrz `offer-service/README.md`).
+Smoke test W6 (scenariusz "Piotr"): utwórz testowy lead + spotkanie z linkiem do leada → wklej transkrypcję → `processing_status = analysis_pending` → sprawdź `ai_analysis`, task weryfikacji i activity → `ai_accepted` → sprawdź task celów u właściwej metodyczki → na leadzie `goals_provided` → task referencji → podlinkuj testimonial → `testimonials_provided` → task dla Przemka + `draft_ready` → kliknij **Generuj ofertę** → sprawdź rekord w `offers` (patrz `file-renderer-service/README.md`).
 
 ## 5. Test Runner (pytest)
 

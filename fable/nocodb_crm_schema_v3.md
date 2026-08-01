@@ -399,9 +399,9 @@ Po tej migracji generator dostanie dane, których dziś nie ma:
 | `meeting.goals`, `meeting.challenges` | `meetings` | `{{meeting.goals}}` itd. |
 
 Kontrakt szablonu (markery `repeat:`, forma z prefiksem i bez) —
-patrz `offer-service/README.md`. Serwis renderujący **nie wymaga żadnych zmian**
+patrz `file-renderer-service/README.md`. Serwis renderujący **nie wymaga żadnych zmian**
 — zweryfikowane testami na docelowym kształcie danych
-(`offer-service/test_schema_v3_contract.py`).
+(`file-renderer-service/test_schema_v3_contract.py`).
 
 > **Jedno wiązanie dla n8n: moduły trzeba spłaszczyć.** Renderer nie obsługuje
 > zagnieżdżonego repeat (slajdy są płaskie), więc `participant[].module[]`
