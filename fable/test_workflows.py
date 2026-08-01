@@ -288,10 +288,10 @@ def test_W6b_04_unchanged_status_is_noop(nc, hook):
     nc.wait_quiet("activities", "(flow,eq,W6b)")
 
 
-# ================================================================ W9 (offer-service)
+# ================================================================ W9 (file-renderer-service)
 def make_template_pptx():
     """Two-slide .pptx: one plain slide + one repeat:participants slide,
-    exercising the same renderer path as offer-service/test_renderer.py."""
+    exercising the same renderer path as file-renderer-service/test_renderer.py."""
     prs = Presentation()
     plain = prs.slides.add_slide(prs.slide_layouts[6])
     box = plain.shapes.add_textbox(Inches(1), Inches(1), Inches(5), Inches(1))
