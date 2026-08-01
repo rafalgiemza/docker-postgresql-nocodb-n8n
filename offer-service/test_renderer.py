@@ -69,14 +69,16 @@ def test_placeholder_split_across_runs_collapses_to_first_run():
     assert [r.text for r in para.runs] == ["Ala", ""]
 
 
-def test_repeat_participants_duplicates_slide_per_item():
+def test_repeat_marker_name_is_generic_not_hardcoded():
+    """repeat:<anything> works - the name is just a data key + placeholder
+    prefix, nothing about "participant"/"testimonial" is special-cased."""
     prs = _new_prs()
     _add_slide(prs, ["{{lead.contact_name}}"])
-    _add_slide(prs, ["{{participant.full_name}}"], notes="repeat:participants")
+    _add_slide(prs, ["{{goal.title}}"], notes="repeat:goal")
     warnings = []
     data = {
         "lead": {"contact_name": "Ala"},
-        "participants": [{"full_name": "A"}, {"full_name": "B"}, {"full_name": "C"}],
+        "goal": [{"title": "A"}, {"title": "B"}, {"title": "C"}],
     }
     out = _render(prs, data, warnings)
     slides = list(out.slides)
@@ -89,40 +91,49 @@ def test_repeat_participants_duplicates_slide_per_item():
 def test_repeat_with_empty_list_drops_slide_and_warns():
     prs = _new_prs()
     _add_slide(prs, ["{{lead.contact_name}}"])
-    _add_slide(prs, ["{{participant.full_name}}"], notes="repeat:participants")
+    _add_slide(prs, ["{{participant.full_name}}"], notes="repeat:participant")
     warnings = []
-    data = {"lead": {"contact_name": "Ala"}, "participants": []}
+    data = {"lead": {"contact_name": "Ala"}, "participant": []}
     out = _render(prs, data, warnings)
     assert len(out.slides) == 1
     assert _textbox_text(out.slides[0]) == "Ala"
-    assert any("repeat:participants" in w and "dropped" in w for w in warnings)
+    assert any("repeat:participant" in w and "dropped" in w for w in warnings)
 
 
-def test_repeat_testimonials_uses_testimonial_prefix():
+def test_repeat_missing_key_in_data_drops_slide_and_warns():
     prs = _new_prs()
-    _add_slide(prs, ["{{testimonial.client_name}}"], notes="repeat:testimonials")
+    _add_slide(prs, ["{{testimonial.client_name}}"], notes="repeat:testimonial")
     warnings = []
-    data = {"testimonials": [{"client_name": "Firma X"}]}
+    out = _render(prs, {}, warnings)  # no "testimonial" key at all
+    assert len(out.slides) == 0
+    assert any("repeat:testimonial" in w and "dropped" in w for w in warnings)
+
+
+def test_repeat_testimonial_uses_matching_prefix():
+    prs = _new_prs()
+    _add_slide(prs, ["{{testimonial.client_name}}"], notes="repeat:testimonial")
+    warnings = []
+    data = {"testimonial": [{"client_name": "Firma X"}]}
     out = _render(prs, data, warnings)
     assert _textbox_text(list(out.slides)[0]) == "Firma X"
     assert warnings == []
 
 
-def test_participant_nested_assessment_scores_resolve():
+def test_nested_value_in_repeat_item_resolves():
     prs = _new_prs()
     _add_slide(prs, ["{{participant.full_name}} {{participant.a.o}}"],
-               notes="repeat:participants")
+               notes="repeat:participant")
     warnings = []
-    data = {"participants": [{"full_name": "Basia", "a": {"o": "B2"}}]}
+    data = {"participant": [{"full_name": "Basia", "a": {"o": "B2"}}]}
     out = _render(prs, data, warnings)
     assert _textbox_text(list(out.slides)[0]) == "Basia B2"
     assert warnings == []
 
 
-def test_participant_without_assessment_warns():
+def test_participant_without_nested_value_warns():
     prs = _new_prs()
-    _add_slide(prs, ["{{participant.a.o}}"], notes="repeat:participants")
+    _add_slide(prs, ["{{participant.a.o}}"], notes="repeat:participant")
     warnings = []
-    data = {"participants": [{"full_name": "Basia"}]}  # no "a" key
+    data = {"participant": [{"full_name": "Basia"}]}  # no "a" key
     _render(prs, data, warnings)
     assert any("participant.a.o" in w for w in warnings)

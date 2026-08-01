@@ -1,8 +1,8 @@
 # Generowanie ofert PPTX — offer-service + W9
 
-Feature: przycisk "Generuj ofertę" na leadzie → n8n woła mikroserwis →
-serwis renderuje PPTX z **szablonu trzymanego w bazie** + danych leada →
-wynik ląduje jako plik w rekordzie `offers`, podlinkowany do leada.
+Feature: przycisk "Generuj ofertę" na leadzie → n8n zbiera dane i szablon,
+woła mikroserwis, który tylko renderuje PPTX → n8n zapisuje wynik jako plik
+w rekordzie `offers`, podlinkowany do leada.
 
 Kluczowa własność (wymaganie CEO): **szablon to plik .pptx w NocoDB**. Ktoś
 zmienia układ slajdu w PowerPoincie, podmienia załącznik w tabeli
@@ -17,66 +17,93 @@ python-pptx) w tym samym compose: n8n woła go po HTTP (`http://offer-service:80
 Rdzeń renderujący (`renderer.py`) jest czysty i przetestowany offline — bez
 tej separacji nie dałoby się go sensownie testować.
 
-**Serwis nie czyta już `leads`/`participants`/`testimonials`/`companies`/`assesments`
-sam** — to robi workflow `W9` w n8n (NocoDB nody + Edit Fields), które składa
-gotowy obiekt `data` i wysyła go w ciele `/generate`. `offer-service` czyta z
-NocoDB wyłącznie `offer_templates` (szablon) i pisze do `offers` (wynik) —
-patrz „Kontrakt /generate" niżej.
+**`offer-service` nie ma żadnej wiedzy o NocoDB** — zero zmiennych
+`NOCODB_*`, zero odczytów/zapisów do bazy. To **czysty renderer**: dostaje
+plik szablonu + dane, zwraca gotowy plik. Wszystko inne — skąd wziąć
+szablon, jak złożyć dane, gdzie zapisać wynik, kiedy stworzyć rekord
+`offers` — robi workflow `W9` w n8n. Model danych CRM może się zmieniać
+(nowe pole, nowa tabela ocen) bez dotykania tego serwisu w ogóle.
 
-## Kontrakt /generate
+## Kontrakt /render
 
-`POST /generate` z ciałem:
-```json
-{
-  "lead_id": 123,
-  "data": {
-    "lead": {"contact_name": "...", "value": 5000, "...": "..."},
-    "company": {"name": "..."},
-    "participants": [
-      {"full_name": "...", "position": "...", "needs_summary": "...",
-       "a": {"o": "B2", "r": "B1-B2", "a": "B2", "f": "B1", "c": "B2"}}
-    ],
-    "testimonials": [{"title": "...", "content": "...", "client_name": "..."}],
-    "offer": {"date": "27.07.2026", "price": 5000, "variant": "",
-              "participants_count": 1}
-  }
-}
-```
-`data` idzie 1:1 do `renderer.py` jako kontekst placeholderów — kształt tego
-obiektu **jest** kontraktem szablonu (sekcja niżej). `lead_id` osobno, bo
-służy tylko do tytułu/linkowania rekordu `offers`, nie do renderu.
+`POST /render`, `multipart/form-data`:
+- pole `template` — plik `.pptx` (n8n pobiera go z `offer_templates.file`)
+- pole `data` — JSON string, kontekst renderu (patrz "Kontrakt szablonu" niżej)
+
+Odpowiedź: wygenerowany plik `.pptx` (binarnie, `Content-Type` PPTX).
+Ostrzeżenia z renderu (brakujące placeholdery, puste listy repeat) wracają
+w nagłówku `X-Warnings` jako JSON-owa tablica stringów — n8n czyta ten
+nagłówek i wrzuca go do `warnings` w rekordzie `offers`.
+
+Serwis nie wie nic o `lead_id`, `offers`, uploadzie do NocoDB ani o tym, co
+oznacza dowolne pole w `data` poza tym, że jakiś placeholder może je
+referencować — to wszystko po stronie n8n.
 
 ## Kontrakt szablonu (dla nietechnicznych — edycja w PowerPoincie)
 
-**Placeholdery** — wpisz `{{ścieżka}}` w dowolnym polu tekstowym lub komórce tabeli:
-- `{{lead.contact_name}}`, `{{lead.value}}`, `{{company.name}}`
-- `{{offer.date}}`, `{{offer.variant}}`, `{{offer.participants_count}}`
+**Placeholdery** — wpisz `{{ścieżka}}` w dowolnym polu tekstowym lub komórce
+tabeli. Ścieżka to zwykłe zagnieżdżenie kluczy w `data`, np. dla
+`data = {"lead": {"contact_name": "Ala"}}` → `{{lead.contact_name}}`.
+Żadne nazwy pól nie są wbudowane w serwis — to, co wpiszesz w szablonie,
+musi się zgadzać z tym, co n8n włoży do `data`.
 
-**Slajd powtarzalny** — wpisz w NOTATKACH slajdu (nie na slajdzie!):
-- `repeat:participants` → slajd powiela się raz na uczestnika; użyj
-  `{{participant.full_name}}`, `{{participant.position}}`,
-  `{{participant.needs_summary}}`, i oceny z tabeli `Assesments`
-  (zagnieżdżone pod `a`): `{{participant.a.o}}`, `{{participant.a.r}}`,
-  `{{participant.a.a}}`, `{{participant.a.f}}`, `{{participant.a.c}}`
+**Slajd powtarzalny** — wpisz w NOTATKACH slajdu (nie na slajdzie!)
+`repeat:<nazwa>`, np. `repeat:participant`. Slajd powiela się raz na każdy
+element listy `data["<nazwa>"]`, a wewnątrz tej kopii element jest dostępny
+pod tą samą `<nazwa>` — np. przy `repeat:participant` i
+`data = {"participant": [{"full_name": "Basia", "a": {"o": "B2"}}]}` masz
+na tym slajdzie `{{participant.full_name}}` i `{{participant.a.o}}`.
+`<nazwa>` jest całkowicie dowolna — `repeat:testimonial`,
+`repeat:goal`, cokolwiek — serwis nie ma zaszytej listy dozwolonych nazw.
+**Nazwa w notatce i prefiks placeholdera muszą być identyczne.**
+
+Dziś w użyciu (ustalone z n8n, nie z serwisem):
+- `repeat:participant` → `{{participant.full_name}}`, `{{participant.position}}`,
+  `{{participant.needs_summary}}`, oceny zagnieżdżone pod `a`:
+  `{{participant.a.o}}` / `.r` / `.a` / `.f` / `.c`
   (overall/range/accuracy/fluency/communication)
-- `repeat:testimonials` → raz na referencję; `{{testimonial.title}}`,
-  `{{testimonial.content}}`, `{{testimonial.client_name}}`
+- `repeat:testimonial` → `{{testimonial.title}}`, `{{testimonial.content}}`,
+  `{{testimonial.client_name}}`
+
+Pusta lista (albo brak klucza w `data`) → slajd jest usuwany z ostrzeżeniem
+w `warnings`, nie błędem.
 
 **Jedna zasada formatowania:** trzymaj cały `{{placeholder}}` w jednym stylu
 (nie pogrubiaj połowy). Serwis radzi sobie z rozbiciem na runy, ale wtedy cały
 tekst akapitu przyjmuje styl pierwszego fragmentu. W praktyce: zaznacz placeholder,
 nadaj styl całości.
 
-## Tabele do utworzenia
+## Deployment
+
+Serwis jest już wpięty w stack przez `fragments/offer-service.yml` (dołączony
+w `docker-compose.yml` → `include:`) — jedyny customowy (`build:`) obraz w
+tym compose, reszta serwisów to gotowe obrazy. Zero zmiennych środowiskowych
+poza opcjonalnym `PORT`.
+
+1. `docker compose up -d --build offer-service` (pierwszy raz i po każdej
+   zmianie w `app.py`/`renderer.py`/`requirements.txt` — `make up` sam z
+   siebie nie buduje obrazów).
+2. Sanity: `docker compose exec n8n wget -qO- http://offer-service:8000/health`
+   → `{"ok": true}`.
+3. Zaimportuj `fable/W9_generate_offer.json` (13 node'ów): payload przycisku →
+   `Assemble render data` (Edit Fields) → pobranie aktywnego szablonu +
+   binarki → POST multipart do `/render` → upload wyniku do NocoDB →
+   rekord w `offers` (`status=draft`, `file`, `data_json`, `warnings`
+   z nagłówka `X-Warnings`) → link do leada → task review / task błędu.
+   Podmień jedyny placeholder `__LNK_OFFER_LEAD__` (ID pola Link
+   `offers`→`leads`, patrz `fable/README.md` §1).
+4. Na tabeli `leads` dodaj pole **Button** "Generuj ofertę" → webhook na
+   workflow z kroku 3. Sensowny warunek widoczności:
+   `offer_prep_status = draft_ready` (ustawiane przez W6b).
+5. Wgraj pierwszy szablon do `offer_templates` (`active=true`).
+
+## Tabele `offer_templates`/`offers` (używane przez n8n, nie przez serwis)
 
 Jak reszta modelu danych CRM (`.ai/PRD.md` §5) — tabele NIE powstają z pliku
-migracji, tylko ręcznie przez NocoDB Creator UI, na tej samej bazie co
-`leads`/`participants`/`testimonials`. Zrób to PRZED pierwszym uruchomieniem
-serwisu — `/health` (krok 3 w Deployment) sprawdza ich obecność.
+migracji, tylko ręcznie przez NocoDB Creator UI.
 
 **`offer_templates`**: `name` (text), `file` (Attachment — tu wgrywasz .pptx),
-`active` (checkbox), `notes` (text). Reguła: serwis bierze najnowszy rekord
-z `active=true`.
+`active` (checkbox), `notes` (text). n8n bierze najnowszy rekord z `active=true`.
 
 **`offers`**: `title` (text), `status` (select: draft/sent/accepted/rejected),
 `price` (currency), `template_name` (text), `file` (Attachment — tu ląduje
@@ -86,40 +113,6 @@ i regenerację), `warnings` (LongText), `lead` (Links → leads).
 > `data_json` to Twój wymóg "historii ofert" z pierwotnego docx: każda oferta
 > zachowuje zamrożony stan danych, z których powstała — nawet jeśli lead
 > później się zmieni, wiadomo, co dokładnie wysłano.
-
-## Deployment
-
-Serwis jest już wpięty w stack przez `fragments/offer-service.yml` (dołączony
-w `docker-compose.yml` → `include:`) — jedyny customowy (`build:`) obraz w
-tym compose, reszta serwisów to gotowe obrazy. Wymaga `NC_API_TOKEN` i
-`NC_CRM_BASE_ID` w `.env` (patrz `.env.example`).
-
-1. Utwórz tabele `offer_templates`/`offers` (patrz sekcja wyżej).
-2. `docker compose up -d --build offer-service` (pierwszy raz i po każdej
-   zmianie w `app.py`/`renderer.py`/`requirements.txt` — `make up` sam z
-   siebie nie buduje obrazów).
-3. Sanity: `docker compose exec n8n wget -qO- http://offer-service:8000/health`
-   → powinno zwrócić `{"ok": true, ...}` z mapą tabel.
-4. Zaimportuj `fable/W9_generate_offer.json` w n8n, podmień placeholdery
-   (`__NOCODB_URL__`, `__TBL_TASKS__`, `__TBL_ACTIVITIES__`, `__EMAIL_PRZEMEK__`)
-   tak samo jak resztę workflowów (`fable/README.md` §1), podepnij credential
-   „NocoDB Token" pod node'y HTTP Request, aktywuj.
-5. Na tabeli `leads` dodaj pole **Button** "Generuj ofertę" → webhook POST na
-   `.../webhook/w9-generate-offer` (jak Twój przycisk "run ai"). Sensowny
-   warunek widoczności: `offer_prep_status = draft_ready` (ustawiane przez W6b).
-6. Wgraj pierwszy szablon do `offer_templates` (`active=true`).
-
-## Jak działa W9
-
-Button → parse lead_id → **n8n zbiera dane** (lead, participants + ich
-`Assesments`, testimonials, company — kilka node'ów NocoDB/HTTP Request +
-pętla po uczestnikach) → Edit Fields składa to w kształt z „Kontrakt
-/generate" → POST `{lead_id, data}` do offer-service (timeout 120s, bo render
-trwa) → **dwie gałęzie**: sukces → task "Sprawdź wygenerowaną ofertę" (z
-warnings w opisie) + activity; błąd → task "BŁĄD generowania" + activity
-`automation_error`. Serwis nigdy nie wysyła oferty sam — tworzy `draft` i
-zostawia człowiekowi decyzję (spójne z całą filozofią: automat przygotowuje,
-człowiek zatwierdza).
 
 ## Ograniczenia (świadome)
 
@@ -131,22 +124,37 @@ człowiek zatwierdza).
   trzeba było "N uczestników w jednej tabeli na jednym slajdzie" — to osobne
   rozszerzenie (repeat na wierszu `<a:tr>`), do zrobienia gdy zajdzie potrzeba.
 - Serwis zakłada, że `data` przysłane przez n8n jest poprawne — literówka
-  w nazwie pola w Edit Fields → pusty string + warning w rekordzie oferty,
-  nie błąd. Dlatego W9 wrzuca `warnings` do opisu taska review — przejrzyj
-  je przy pierwszych ofertach.
-- Skoro dane zbiera teraz n8n, a nie `app.py`, każda zmiana w modelu danych
-  (nowe pole uczestnika, inna tabela ocen) wymaga zmiany w workflow W9
-  (node Edit Fields), NIE w kodzie serwisu — to był cel tej zmiany.
+  w nazwie pola w Edit Fields → pusty string + warning, nie błąd. Dlatego
+  W9 wrzuca `warnings` do opisu taska review — przejrzyj je przy pierwszych
+  ofertach.
+- Nazwa w `repeat:<nazwa>` i prefiks placeholdera muszą być identyczne
+  (patrz kontrakt szablonu) — to jedyna reguła narzucona przez serwis,
+  wszystko inne w `data` jest w pełni dowolne.
+- **W9 czyta uczestników i referencje wprost z payloadu przycisku NocoDB**
+  (`_nc_m2m_Leads_Participants[].Participants`,
+  `_nc_m2m_Leads_Testimonials[].Testimonials`) zamiast dociągać je osobnymi
+  zapytaniami — dlatego workflow ma 13, a nie 21 node'ów. Cena: to dokładnie
+  ta zależność od kształtu payloadu, przed którą ostrzega `.ai/PRD.md` §11
+  pkt 3. Po każdym upgradzie NocoDB sprawdź na VPS-B, czy pola `_nc_m2m_*`
+  nadal przychodzą rozwinięte.
+- **Endpoint `/links/{fieldId}/records/{id}` zwraca tylko `Id` + wartość
+  wyświetlaną**, nie pełny rekord (zweryfikowane: `{{t.title}}` się
+  rozwiązywało, `{{t.content}}` nie). Dlatego oceny NIE są dociągane po
+  linku: W9 pobiera **całą tabelę `Assesments` jednym zapytaniem** i dopasowuje
+  je do uczestników po `Participant.Id`, biorąc rekord o najnowszym
+  `UpdatedAt`. Przy dużej liczbie ocen (setki+) to zacznie być kosztowne —
+  wtedy dołóż filtr `where` po stronie zapytania.
+- Uczestnik bez żadnego rekordu w `Assesments` → oceny puste (`{{participant.a.o}}`
+  itd. jako pusty string + warning), `needs_summary` spada z powrotem na pole
+  z tabeli `Participants`.
 
 ## Testy
 
-`renderer.py` przetestowany offline w `offer-service/test_renderer.py`
-(repetycja slajdów per uczestnik, split placeholdera między runy, pusta
-lista → drop slajdu z ostrzeżeniem, brakująca wartość → pusty string),
-`pytest offer-service/test_renderer.py -v`, bez zależności od NocoDB.
-
-Do Test Runnera (`fable/test_workflows.py`) dochodzi grupa `W9`: generowanie
-E2E przez webhook `w9-generate-offer` na leadzie testowym + asercja, że
-powstał rekord `offers` z niepustym `file` i że liczba slajdów repeat =
-liczba participants. Wzorzec jak w istniejących testach W6b w tym samym
-pliku.
+`pytest offer-service/ -v` — bez zależności od NocoDB, bez sieci:
+- `test_renderer.py` — repetycja slajdów per element (dowolna nazwa, nie
+  tylko "participant"/"testimonial"), split placeholdera między runy, pusta
+  lista / brak klucza → drop slajdu z ostrzeżeniem, brakująca/zagnieżdżona
+  wartość → pusty string + warning.
+- `test_app.py` — realne wywołanie endpointu `/render` (przez FastAPI
+  bezpośrednio + smoke test przez prawdziwy multipart request), sprawdza
+  wynikowy plik i nagłówek `X-Warnings`.

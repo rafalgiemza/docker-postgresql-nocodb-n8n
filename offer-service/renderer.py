@@ -104,16 +104,19 @@ def delete_slide(prs, slide):
 
 
 def slide_repeat_marker(slide):
+    """`repeat:<name>` in a slide's SPEAKER NOTES - <name> is both the key
+    looked up in `data` (must be a list) and the placeholder prefix used on
+    that slide (`{{<name>.field}}`). Fully generic: any name works, nothing
+    hardcoded to a particular entity."""
     if not slide.has_notes_slide:
         return None
     txt = slide.notes_slide.notes_text_frame.text or ""
-    m = re.search(r"repeat\s*:\s*(participants|testimonials)", txt, re.I)
-    return m.group(1).lower() if m else None
+    m = re.search(r"repeat\s*:\s*([a-zA-Z_][a-zA-Z0-9_]*)", txt, re.I)
+    return m.group(1) if m else None
 
 
 def render_pptx(template_bytes, data, warnings):
     prs = Presentation(io.BytesIO(template_bytes))
-    key_map = {"participants": "participant", "testimonials": "testimonial"}
     for slide in list(prs.slides):
         marker = slide_repeat_marker(slide)
         if not marker:
@@ -134,7 +137,7 @@ def render_pptx(template_bytes, data, warnings):
             anchor = dup
             targets.append(dup)
         for target, item in zip(targets, items):
-            render_shapes(target.shapes, {**data, key_map[marker]: item}, warnings)
+            render_shapes(target.shapes, {**data, marker: item}, warnings)
     out = io.BytesIO()
     prs.save(out)
     return out.getvalue()
