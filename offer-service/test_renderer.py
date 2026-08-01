@@ -108,20 +108,21 @@ def test_repeat_testimonials_uses_testimonial_prefix():
     assert warnings == []
 
 
-def test_participant_extra_dict_exposes_assessment_alias():
+def test_participant_nested_assessment_scores_resolve():
     prs = _new_prs()
-    _add_slide(prs, ["{{participant.full_name}} {{a.o}}"], notes="repeat:participants")
+    _add_slide(prs, ["{{participant.full_name}} {{participant.a.o}}"],
+               notes="repeat:participants")
     warnings = []
-    data = {"participants": [{"full_name": "Basia", "_extra": {"a": {"o": "B2"}}}]}
+    data = {"participants": [{"full_name": "Basia", "a": {"o": "B2"}}]}
     out = _render(prs, data, warnings)
     assert _textbox_text(list(out.slides)[0]) == "Basia B2"
     assert warnings == []
 
 
-def test_participant_without_extra_warns_on_assessment_alias():
+def test_participant_without_assessment_warns():
     prs = _new_prs()
-    _add_slide(prs, ["{{a.o}}"], notes="repeat:participants")
+    _add_slide(prs, ["{{participant.a.o}}"], notes="repeat:participants")
     warnings = []
-    data = {"participants": [{"full_name": "Basia"}]}  # no _extra
+    data = {"participants": [{"full_name": "Basia"}]}  # no "a" key
     _render(prs, data, warnings)
-    assert any("a.o" in w for w in warnings)
+    assert any("participant.a.o" in w for w in warnings)

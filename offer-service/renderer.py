@@ -134,14 +134,7 @@ def render_pptx(template_bytes, data, warnings):
             anchor = dup
             targets.append(dup)
         for target, item in zip(targets, items):
-            # Some items (e.g. participants) carry an "_extra" dict of
-            # additional top-level context keys - short aliases for a
-            # related record (assessment scores as {{a.o}} etc), set by
-            # app.py's build_participant().
-            ctx = {**data, key_map[marker]: item}
-            if isinstance(item, dict) and "_extra" in item:
-                ctx.update(item["_extra"])
-            render_shapes(target.shapes, ctx, warnings)
+            render_shapes(target.shapes, {**data, key_map[marker]: item}, warnings)
     out = io.BytesIO()
     prs.save(out)
     return out.getvalue()

@@ -13,9 +13,38 @@ Zero zmian w kodzie, zero deployu.
 
 Renderowanie .pptx to manipulacja binarna (rozpakuj ZIP, edytuj XML, spakuj) —
 w Code node n8n byłoby to kruche i nietestowalne. Mikroserwis (FastAPI +
-python-pptx) w tym samym compose: n8n woła go po HTTP (`http://offer-service:8000`),
-serwis gada z NocoDB po API. Rdzeń renderujący (`renderer.py`) jest czysty
-i przetestowany offline — bez tej separacji nie dałoby się go sensownie testować.
+python-pptx) w tym samym compose: n8n woła go po HTTP (`http://offer-service:8000`).
+Rdzeń renderujący (`renderer.py`) jest czysty i przetestowany offline — bez
+tej separacji nie dałoby się go sensownie testować.
+
+**Serwis nie czyta już `leads`/`participants`/`testimonials`/`companies`/`assesments`
+sam** — to robi workflow `W9` w n8n (NocoDB nody + Edit Fields), które składa
+gotowy obiekt `data` i wysyła go w ciele `/generate`. `offer-service` czyta z
+NocoDB wyłącznie `offer_templates` (szablon) i pisze do `offers` (wynik) —
+patrz „Kontrakt /generate" niżej.
+
+## Kontrakt /generate
+
+`POST /generate` z ciałem:
+```json
+{
+  "lead_id": 123,
+  "data": {
+    "lead": {"contact_name": "...", "value": 5000, "...": "..."},
+    "company": {"name": "..."},
+    "participants": [
+      {"full_name": "...", "position": "...", "needs_summary": "...",
+       "a": {"o": "B2", "r": "B1-B2", "a": "B2", "f": "B1", "c": "B2"}}
+    ],
+    "testimonials": [{"title": "...", "content": "...", "client_name": "..."}],
+    "offer": {"date": "27.07.2026", "price": 5000, "variant": "",
+              "participants_count": 1}
+  }
+}
+```
+`data` idzie 1:1 do `renderer.py` jako kontekst placeholderów — kształt tego
+obiektu **jest** kontraktem szablonu (sekcja niżej). `lead_id` osobno, bo
+służy tylko do tytułu/linkowania rekordu `offers`, nie do renderu.
 
 ## Kontrakt szablonu (dla nietechnicznych — edycja w PowerPoincie)
 
@@ -25,11 +54,13 @@ i przetestowany offline — bez tej separacji nie dałoby się go sensownie test
 
 **Slajd powtarzalny** — wpisz w NOTATKACH slajdu (nie na slajdzie!):
 - `repeat:participants` → slajd powiela się raz na uczestnika; użyj
-  `{{p.full_name}}`, `{{p.position}}`, `{{p.cefr_overall}}`, `{{p.cefr_range}}`,
-  `{{p.cefr_accuracy}}`, `{{p.cefr_fluency}}`, `{{p.cefr_communication}}`,
-  `{{p.needs_summary}}`
-- `repeat:testimonials` → raz na referencję; `{{t.title}}`, `{{t.content}}`,
-  `{{t.client_name}}`
+  `{{participant.full_name}}`, `{{participant.position}}`,
+  `{{participant.needs_summary}}`, i oceny z tabeli `Assesments`
+  (zagnieżdżone pod `a`): `{{participant.a.o}}`, `{{participant.a.r}}`,
+  `{{participant.a.a}}`, `{{participant.a.f}}`, `{{participant.a.c}}`
+  (overall/range/accuracy/fluency/communication)
+- `repeat:testimonials` → raz na referencję; `{{testimonial.title}}`,
+  `{{testimonial.content}}`, `{{testimonial.client_name}}`
 
 **Jedna zasada formatowania:** trzymaj cały `{{placeholder}}` w jednym stylu
 (nie pogrubiaj połowy). Serwis radzi sobie z rozbiciem na runy, ale wtedy cały
@@ -80,23 +111,32 @@ tym compose, reszta serwisów to gotowe obrazy. Wymaga `NC_API_TOKEN` i
 
 ## Jak działa W9
 
-Button → parse lead_id → POST do offer-service (timeout 120s, bo render trwa) →
-**dwie gałęzie**: sukces → task "Sprawdź wygenerowaną ofertę" (z warnings
-w opisie) + activity; błąd → task "BŁĄD generowania" + activity `automation_error`.
-Serwis nigdy nie wysyła oferty sam — tworzy `draft` i zostawia człowiekowi
-decyzję (spójne z całą filozofią: automat przygotowuje, człowiek zatwierdza).
+Button → parse lead_id → **n8n zbiera dane** (lead, participants + ich
+`Assesments`, testimonials, company — kilka node'ów NocoDB/HTTP Request +
+pętla po uczestnikach) → Edit Fields składa to w kształt z „Kontrakt
+/generate" → POST `{lead_id, data}` do offer-service (timeout 120s, bo render
+trwa) → **dwie gałęzie**: sukces → task "Sprawdź wygenerowaną ofertę" (z
+warnings w opisie) + activity; błąd → task "BŁĄD generowania" + activity
+`automation_error`. Serwis nigdy nie wysyła oferty sam — tworzy `draft` i
+zostawia człowiekowi decyzję (spójne z całą filozofią: automat przygotowuje,
+człowiek zatwierdza).
 
 ## Ograniczenia (świadome)
 
-- Rendering podmienia tekst; NIE przelicza układu — jeśli `{{p.needs_summary}}`
-  jest bardzo długie, może wyjść poza pole (jak w każdym szablonie). Projektuj
-  slajdy z zapasem; ewentualnie skracaj długie pola w danych.
+- Rendering podmienia tekst; NIE przelicza układu — jeśli
+  `{{participant.needs_summary}}` jest bardzo długie, może wyjść poza pole
+  (jak w każdym szablonie). Projektuj slajdy z zapasem; ewentualnie skracaj
+  długie pola w danych.
 - Repeat działa na całych slajdach, nie na wierszach tabeli. Gdyby kiedyś
   trzeba było "N uczestników w jednej tabeli na jednym slajdzie" — to osobne
   rozszerzenie (repeat na wierszu `<a:tr>`), do zrobienia gdy zajdzie potrzeba.
-- Serwis zakłada, że placeholdery i markery są poprawne. Literówka w `{{p.cerf_overall}}`
-  (zamiast cefr) → pusty string + warning w rekordzie oferty, nie błąd. Dlatego
-  W9 wrzuca `warnings` do opisu taska review — przejrzyj je przy pierwszych ofertach.
+- Serwis zakłada, że `data` przysłane przez n8n jest poprawne — literówka
+  w nazwie pola w Edit Fields → pusty string + warning w rekordzie oferty,
+  nie błąd. Dlatego W9 wrzuca `warnings` do opisu taska review — przejrzyj
+  je przy pierwszych ofertach.
+- Skoro dane zbiera teraz n8n, a nie `app.py`, każda zmiana w modelu danych
+  (nowe pole uczestnika, inna tabela ocen) wymaga zmiany w workflow W9
+  (node Edit Fields), NIE w kodzie serwisu — to był cel tej zmiany.
 
 ## Testy
 

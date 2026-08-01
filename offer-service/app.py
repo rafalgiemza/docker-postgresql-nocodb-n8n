@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""offer-service: renders PPTX offers from a NocoDB-stored template + lead data.
+"""offer-service: renders PPTX offers from a NocoDB-stored template + data
+assembled by the n8n workflow (W9) — this service does NOT talk to NocoDB
+for reads anymore, only for the active template lookup and writing the
+result back.
 
-Flow (POST /generate {"lead_id": N}):
-  1. fetch lead + linked participants + linked testimonials from NocoDB
+Flow (POST /generate {"lead_id": N, "data": {...}}):
+  1. n8n (W9) has already fetched lead + participants (+ their assessment
+     scores) + testimonials + company from NocoDB and shaped it into `data`
+     — see the Template contract below for the exact shape it must have.
   2. fetch the ACTIVE template (offer_templates.file attachment, newest active)
   3. render: replace {{placeholders}} in all text frames and tables;
      duplicate slides marked in speaker notes with `repeat:participants`
@@ -12,47 +17,47 @@ Flow (POST /generate {"lead_id": N}):
      (status=draft, data_json snapshot for history/regeneration), link it
      to the lead, return {offer_id, warnings}
 
-Template contract (editable by non-developers in PowerPoint):
+Template contract (editable by non-developers in PowerPoint) — placeholders
+resolve against whatever `data` n8n sends, e.g.:
   - {{lead.contact_name}}, {{lead.value}}, {{company.name}},
-    {{offer.date}}, {{offer.variant}} ... on any slide
+    {{offer.date}}, {{offer.variant}}, {{offer.participants_count}}
   - a slide with `repeat:participants` in its SPEAKER NOTES is duplicated
-    per participant; use {{participant.full_name}}, {{participant.position}},
-    {{participant.needs_summary}}, and the linked assessment scores as
-    {{a.o}} {{a.r}} {{a.a}} {{a.f}} {{a.c}} (overall/range/accuracy/fluency/
-    communication - short aliases, see build_participant())
-  - `repeat:testimonials` likewise with {{testimonial.title}},
-    {{testimonial.content}}, {{testimonial.client_name}}
+    once per entry in `data.participants`; use {{participant.full_name}},
+    {{participant.position}}, {{participant.needs_summary}}, and — if that
+    participant's dict has a nested "a" object (assessment scores) —
+    {{participant.a.o}} {{participant.a.r}} {{participant.a.a}}
+    {{participant.a.f}} {{participant.a.c}} (overall/range/accuracy/
+    fluency/communication)
+  - `repeat:testimonials` likewise, once per entry in `data.testimonials`;
+    use {{testimonial.title}}, {{testimonial.content}}, {{testimonial.client_name}}
   - keep each {{placeholder}} inside ONE styling run (don't bold half of it),
     otherwise the paragraph's mixed formatting collapses to the first run's.
 
 Env: NOCODB_URL, NOCODB_TOKEN, NOCODB_BASE_ID, PORT (default 8000)
 """
-import copy
-import io
 import json
 import os
-import re
 from datetime import date
+from typing import Any
 
 import requests
 import uvicorn
 from fastapi import FastAPI, HTTPException
-from pptx import Presentation
-from pptx.oxml.ns import qn
 from pydantic import BaseModel
 
 NOCODB_URL = os.environ["NOCODB_URL"].rstrip("/")
 TOKEN = os.environ["NOCODB_TOKEN"]
 BASE_ID = os.environ["NOCODB_BASE_ID"]
-TABLES = ["leads", "participants", "testimonials", "companies",
-          "offer_templates", "offers", "assesments"]
+TABLES = ["offer_templates", "offers"]
 from renderer import render_pptx
 
 
 # ------------------------------------------------------------- NocoDB client
 # Same shape as fable/nocodb.py's NocoDB class (table/column ids resolved
 # once, by title, against the live base) — kept inline here so this service
-# has no dependency on the fable/ test-runner package.
+# has no dependency on the fable/ test-runner package. Only two tables now:
+# reads (lead/participants/assessments/testimonials/company) all happen in
+# n8n before this service is even called.
 def api(method, path, **kw):
     r = requests.request(method, f"{NOCODB_URL}{path}",
                          headers={"xc-token": TOKEN}, timeout=30, **kw)
@@ -82,15 +87,6 @@ def _resolve():
 TBL, LNK = _resolve()
 
 
-def get_record(table, rid):
-    return api("GET", f"/api/v2/tables/{TBL[table]}/records/{rid}")
-
-
-def get_linked(table, field, rid):
-    fid = LNK[table][field]
-    return api("GET", f"/api/v2/tables/{TBL[table]}/links/{fid}/records/{rid}").get("list", [])
-
-
 def download_attachment(att):
     url = att.get("signedUrl") or att["url"]
     if url.startswith("/"):
@@ -109,47 +105,6 @@ def upload_file(filename, content):
                       timeout=60)
     r.raise_for_status()
     return r.json()
-
-
-# ------------------------------------------------------------- data assembly
-def clean(rec):
-    return {k: v for k, v in rec.items()
-            if isinstance(v, (str, int, float, bool)) or v is None}
-
-
-def build_participant(p, warnings):
-    pc = clean(p)
-    assessments = get_linked("participants", "assesments", p["Id"])
-    if assessments:
-        a = clean(assessments[0])
-        pc["_extra"] = {"a": {
-            "o": a.get("cefr_overall"),
-            "r": a.get("cefr_range"),
-            "a": a.get("cefr_accuracy"),
-            "f": a.get("cefr_fluency"),
-            "c": a.get("cefr_communication"),
-        }}
-    else:
-        warnings.append(f"participant {p.get('Id')} has no linked assessment")
-    return pc
-
-
-def build_data(lead_id, warnings):
-    lead = get_record("leads", lead_id)
-    participants = [build_participant(p, warnings)
-                    for p in get_linked("leads", "participants", lead_id)]
-    testimonials = [clean(t) for t in
-                    get_linked("leads", "selected_testimonials", lead_id)]
-    companies = get_linked("leads", "company", lead_id)
-    company = clean(companies[0]) if companies else {}
-    if not participants:
-        warnings.append("lead has no participants linked")
-    return {"lead": clean(lead), "company": company,
-            "participants": participants, "testimonials": testimonials,
-            "offer": {"date": date.today().strftime("%d.%m.%Y"),
-                      "price": lead.get("value") or "",
-                      "variant": lead.get("label") or "",
-                      "participants_count": len(participants)}}
 
 
 def active_template():
@@ -171,6 +126,7 @@ app = FastAPI(title="offer-service")
 
 class GenReq(BaseModel):
     lead_id: int
+    data: dict[str, Any]
 
 
 @app.get("/health")
@@ -181,16 +137,17 @@ def health():
 @app.post("/generate")
 def generate(req: GenReq):
     warnings = []
-    data = build_data(req.lead_id, warnings)
+    data = req.data
+    lead = data.get("lead") or {}
     tpl_row, tpl_bytes = active_template()
     pptx = render_pptx(tpl_bytes, data, warnings)
 
     name = f"oferta_{req.lead_id}_{date.today().isoformat()}.pptx"
     attachment = upload_file(name, pptx)
     offer = api("POST", f"/api/v2/tables/{TBL['offers']}/records", json={
-        "title": f"Oferta — {data['lead'].get('contact_name', req.lead_id)}",
+        "title": f"Oferta — {lead.get('contact_name', req.lead_id)}",
         "status": "draft",
-        "price": data["lead"].get("value"),
+        "price": lead.get("value"),
         "template_name": tpl_row.get("name"),
         "file": attachment,
         "data_json": json.dumps(data, ensure_ascii=False),
