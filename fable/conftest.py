@@ -75,6 +75,11 @@ def cf7(name, email, phone="", message=""):
             "your-phone": phone, "your-message": message}
 
 
+def button(lead_id):
+    """Synthetic NocoDB Button-field webhook payload (W9)."""
+    return {"row": {"Id": lead_id}}
+
+
 def booking(name, email, start="2026-08-01T10:00:00", notes=""):
     return {"customerName": name, "customerEmail": email, "customerPhone": "",
             "customerNotes": notes, "startTime": start, "endTime": None}

@@ -4,9 +4,13 @@ Each test posts a synthetic webhook payload to the TEST copy of a workflow
 and asserts the resulting records in the CRM-TEST base. IDs in test names
 map 1:1 to the catalog.
 """
+import io
 from datetime import date
 
-from .conftest import booking, cf7, nc_insert, nc_update, tally
+from pptx import Presentation
+from pptx.util import Inches
+
+from .conftest import booking, button, cf7, nc_insert, nc_update, tally
 
 TODAY = date.today().isoformat()
 OWNER = {"email": "przemek@example.com"}   # must be a member of the TEST base
@@ -282,3 +286,54 @@ def test_W6b_04_unchanged_status_is_noop(nc, hook):
     row = {"Id": lid, "offer_prep_status": "none", "notes": "e"}
     hook("w6b-offer-pipeline", nc_update(row, {**row, "notes": "o"}))
     nc.wait_quiet("activities", "(flow,eq,W6b)")
+
+
+# ================================================================ W9 (file-renderer-service)
+def make_template_pptx():
+    """Two-slide .pptx: one plain slide + one repeat:participants slide,
+    exercising the same renderer path as file-renderer-service/test_renderer.py."""
+    prs = Presentation()
+    plain = prs.slides.add_slide(prs.slide_layouts[6])
+    box = plain.shapes.add_textbox(Inches(1), Inches(1), Inches(5), Inches(1))
+    box.text_frame.paragraphs[0].add_run().text = "{{lead.contact_name}}"
+
+    repeat = prs.slides.add_slide(prs.slide_layouts[6])
+    box = repeat.shapes.add_textbox(Inches(1), Inches(1), Inches(5), Inches(1))
+    box.text_frame.paragraphs[0].add_run().text = "{{p.full_name}}"
+    repeat.notes_slide.notes_text_frame.text = "repeat:participants"
+
+    buf = io.BytesIO()
+    prs.save(buf)
+    return buf.getvalue()
+
+
+def make_active_template(nc, name="Test template"):
+    att = nc.upload_attachment(
+        make_template_pptx(), "template.pptx",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+    return nc.create("offer_templates", {"name": name, "file": att, "active": True})
+
+
+def test_W9_01_generates_offer_with_participants(nc, hook):
+    make_active_template(nc)
+    lid = make_lead(nc, contact_name="Klient W9", offer_prep_status="draft_ready")
+    p1 = nc.create("participants", {"full_name": "Basia"})
+    p2 = nc.create("participants", {"full_name": "Czesiek"})
+    nc.link("leads", "participants", lid, [p1, p2])
+
+    hook("w9-generate-offer", button(lid))
+
+    offers = nc.wait_for("offers", "(status,eq,draft)")
+    assert offers[0]["file"], "offer record has no generated file attached"
+    linked_leads = nc.get_links("offers", "lead", offers[0]["Id"])
+    assert linked_leads and linked_leads[0]["Id"] == lid
+    nc.wait_for("tasks", "(title,like,Sprawdź wygenerowaną ofertę%)")
+    nc.wait_for("activities", "(type,eq,offer_draft_ready)")
+
+
+def test_W9_02_missing_template_creates_error_task(nc, hook):
+    lid = make_lead(nc, contact_name="Bez szablonu", offer_prep_status="draft_ready")
+    hook("w9-generate-offer", button(lid))
+    nc.wait_for("tasks", "(title,like,BŁĄD generowania oferty%)")
+    nc.wait_for("activities", "(type,eq,automation_error)")
+    nc.wait_quiet("offers", "(status,eq,draft)")

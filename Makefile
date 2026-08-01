@@ -8,7 +8,7 @@ DC_CMD = docker compose -f docker-compose.yml
 LATEST_TS := $(shell ls -1t ./backups/appdata_*.sql 2>/dev/null | head -n 1 | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}')
 RESTORE_TS ?= $(LATEST_TS)
 
-.PHONY: help init init-env config up down restart pull ps versions logs migrate seed seed-demo backup backup-prune restore wire-apps add-rag-db
+.PHONY: help init init-env config up down restart pull ps versions logs migrate dump-appdata-schema seed seed-demo backup backup-prune restore wire-apps add-rag-db
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -45,6 +45,10 @@ logs: ## Tail logs for all services (Ctrl+C to stop)
 
 migrate: ## Apply appdata/appdata_schema.sql to appdata (see app_migrate.sh)
 	./scripts/app_migrate.sh
+
+dump-appdata-schema: ## Dump current schema of a running appdata DB into appdata/appdata_schema.sql
+	docker exec -i docker-postgres-1 pg_dump -U $(POSTGRES_USER) -d $(APP_DB) --schema-only > ./appdata/appdata_schema.sql
+	@echo "✅ Zapisano appdata/appdata_schema.sql"
 
 seed: ## Load reference data (pricing tiers, testimonials, users)
 	./scripts/app_seed.sh

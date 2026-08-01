@@ -1,16 +1,18 @@
 # Plan wdrożenia — stan obecny → faza 1 (CoAction CRM)
 
-Bazowane na `.ai/PRD.md` v2.0 (model NocoDB-native, `fable/` jako źródło szczegółów
+Bazowane na `.ai/PRD.md` v2.1 (model NocoDB-native, `fable/` jako źródło szczegółów
 schematu/workflowów/testów) — patrz tam sekcję "Historia wersji" na górze dokumentu
 dla kontekstu, dlaczego ten plan wygląda inaczej niż wcześniej.
 
 > **Zmiana kierunku (2026-07-17/18):** wcześniejsza wersja tego planu śledziła
 > budowę znormalizowanego schematu Postgresa (`crm.v_offer_builder` i pochodne)
 > pod serwis `crm-api` (renderer PPTX/PDF). Ten kierunek jest porzucony — NocoDB
-> zarządza tabelami bezpośrednio (Creator UI na Postgresie), a generowanie pliku
-> oferty jest dziś **otwartym pytaniem biznesowym**, nie potwierdzonym zakresem
-> (`.ai/PRD.md` §12, §14). Poniższy plan śledzi stan wdrożenia modelu z `.ai/PRD.md`
-> §5–§9 (9 tabel NocoDB, workflowy W1–W6b, Test Runner, import legacy).
+> zarządza tabelami bezpośrednio (Creator UI na Postgresie). Generowanie pliku
+> oferty było otwartym pytaniem biznesowym do 2026-07-26, kiedy zapadła decyzja
+> (`.ai/PRD.md` §14 pkt 1) — wdrożone jako nowy `file-renderer-service` (FAZA 8), NIE
+> jako wskrzeszenie `crm-api`. Poniższy plan śledzi stan wdrożenia modelu z
+> `.ai/PRD.md` §5–§9 (11 tabel NocoDB, workflowy W1–W6b+W9, Test Runner, import
+> legacy).
 
 ---
 
@@ -27,11 +29,12 @@ dla kontekstu, dlaczego ten plan wygląda inaczej niż wcześniej.
 | **Backup offsite (cron + target realny)** | ❌ mechanizm (`restic`+`rclone`) gotowy w skrypcie, ale cron na serwerach i wybór dostawcy nie dopięte — **priorytet #1** | `backup/backup.sh`, `.ai/PRD.md` §11/§14 |
 | Dostęp NocoDB → `appdata` (schemat `crm`, `nocodb_crm_user` z `CREATE`+`USAGE`, `REVOKE CREATE ON SCHEMA public`) | ✅ zrobione | `scripts/init-data.sh` |
 | LibreChat + MongoDB | ✅ gotowe, zero integracji z CRM | `docker-compose.yml`, `librechat.yaml` |
-| MinIO + buckety (offers/templates/recordings/transcripts/backups + budibase-*) | ✅ gotowe | `scripts/minio-init.sh`, `fragments/minio.yml` |
+| MinIO + buckety (offers/templates/recordings/transcripts/backups + budibase-*) | ✅ gotowe; **`offers`/`templates` pozostają nieużywane** — `file-renderer-service` trzyma pliki jako NocoDB Attachment (bucket `attachments`), świadomy dług, nie rozwiązywany teraz | `scripts/minio-init.sh`, `fragments/minio.yml` |
 | Uptime Kuma | ✅ monitoring wszystkich usług, interwał 30s od 2026-07-15 | `fragments/uptime-kuma.yml` |
 | Beszel | ✅ monitoring zasobów per-kontener | `fragments/beszel.yml` |
 | Budibase | ✅ dodany 2026-07-18, własny CouchDB+Redis, reużywa wspólne MinIO | `fragments/budibase.yml` |
-| Sieci Docker segmentowane (`edge`/`internal`/`data`) | ❌ brak — jedna płaska sieć (nieblokujące: bez `crm-api` nie ma dziś serwisu wymagającego izolacji `internal`) | — |
+| Sieci Docker segmentowane (`edge`/`internal`/`data`) | ❌ brak — jedna płaska sieć; `file-renderer-service` (pierwszy customowy `build:` w tym compose) dziś na niej, bez opublikowanego portu — wystarcza, izolacja `internal` nadal odłożona | — |
+| `file-renderer-service` (generyczny renderer PPTX/DOCX, FAZA 8) | ✅ kod + wpięcie w compose gotowe (`fragments/file-renderer-service.yml`); ❌ tabele `document_templates`/`offers`, `NC_CRM_BASE_ID`, pierwszy szablon i import W9 jeszcze do zrobienia na żywej bazie | `file-renderer-service/`, `fable/W9_generate_offer.json` |
 
 ## 2. Model danych CRM (NocoDB-native, `.ai/PRD.md` §5)
 
@@ -92,11 +95,25 @@ migracji/powtórzenia.
 2. Ustalenie daty twardego cięcia z Asany/Excela
 3. Szkolenie: NocoDB (codziennie), n8n (rozszerzanie), interpretacja `activities`
 
-### FAZA 8 (backlog, warunkowa) — Renderer ofert PPTX/PDF
-Wraca do zakresu tylko po decyzji klienta/CEO (`.ai/PRD.md` §14 pkt 1). Projekt
-`crm-api` z poprzedniej wersji PRD jest gotowy do wskrzeszenia — pułapki
-LibreOffice/`python-pptx`, kontrakt API i `job_queue` opisane w `.ai/PRD.md` §12
-i w git history starszej wersji tego pliku.
+### FAZA 8 (w toku) — Renderer szablonów PPTX/DOCX
+Decyzja podjęta 2026-07-26 (`.ai/PRD.md` §14 pkt 1) — **nie** jest to
+wskrzeszenie starego `crm-api`, tylko nowy, prostszy `file-renderer-service/`
+(generyczny renderer: szablon + dane → plik, bez Postgresa/LibreOffice/PDF/`job_queue`) — kontrakt,
+świadome ograniczenia i testy w `file-renderer-service/README.md`, szerszy kontekst
+w `.ai/PRD.md` §12.
+
+Zrobione: kod serwisu, `fragments/file-renderer-service.yml` wpięty w
+`docker-compose.yml`, workflow `fable/W9_generate_offer.json`, testy offline
+(`file-renderer-service/test_renderer.py`, `test_docx_renderer.py`, `test_app.py`,
+`test_schema_v3_contract.py`) + grupa `W9` w Test Runnerze.
+
+Zostaje na żywej bazie (patrz `file-renderer-service/README.md` Deployment):
+1. Tabele `document_templates`/`offers` — na pustej bazie przez
+   `fable/create_offer_tables.py` (cały schemat v3), inaczej ręcznie w Creator UI.
+2. `NC_CRM_BASE_ID` w `.env`.
+3. `docker compose up -d --build file-renderer-service` + sanity `/health`.
+4. Import `W9`, przycisk **Generuj ofertę** na `leads`, pierwszy szablon.
+5. Przebieg grupy testów `W9` na VPS-B.
 
 ---
 
