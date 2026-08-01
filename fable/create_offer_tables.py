@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tworzy CAŁY schemat CRM (16 tabel + relacje) w pustej bazie NocoDB przez
+r"""Tworzy CAŁY schemat CRM (16 tabel + relacje) w pustej bazie NocoDB przez
 Meta API v3 — pod wdrożenie produkcji od zera.
 
 Źródło prawdy: `fable/nocodb_crm_schema_v3.md` (decyzje projektowe i tabele
@@ -25,6 +25,21 @@ UWAGA (jak scripts/crm-wire-init.sh dla v2): to trafia w API, które NIE było
 odpalone na żywo przeciw Twojej instancji (NOCODB_VERSION=latest — kontrakt
 bywa zmieniany między wersjami). Kolejność: --dry-run -> baza testowa/VPS-B ->
 dopiero produkcja.
+
+GDZIE LĄDUJĄ TABELE (najważniejsze): baza NocoDB ma domyślne źródło = własna
+baza metadanych NocoDB (`NC_DB`, czyli `nocodb`). `appdata` jest podpięta jako
+OSOBNE źródło (`make wire-apps` / `scripts/crm-wire-init.sh`). Bez wskazania
+`source_id` tabele powstają w bazie `nocodb` — poza źródłem prawdy, poza
+`make backup` i poza zasięgiem `n8n_crm_user`. Skrypt wykrywa zewnętrzne
+źródło automatycznie (`resolve_source()`); override: `NC_CRM_SOURCE_ID`.
+WYMÓG: `make wire-apps` PRZED tym skryptem — inaczej nie ma czego wykryć.
+Po uruchomieniu zweryfikuj w Postgresie (`\dt crm.*`), nie tylko w UI.
+
+Alternatywa, której świadomie tu nie wybrano: napisać te 16 tabel jako SQL
+w `appdata/appdata_schema.sql` i puścić `make migrate` + `meta-diff/apply`.
+Byłoby deterministyczne i wersjonowane w gicie, ale kolumny `Links` to nie
+czysty SQL — NocoDB trzyma dla nich własne metadane (i tabele `_nc_m2m_*`),
+więc po samym SQL-u relacje trzeba by i tak odtwarzać w NocoDB. Stąd API.
 
 CZEGO TEN SKRYPT NIE ROBI (do wyklikania ręcznie po uruchomieniu):
   1. Pól typu Button ("generuj ofertę" na `offers`, "generuj analizę" na
@@ -55,6 +70,8 @@ import requests
 URL = os.environ.get("NC_LOCAL_URL", "http://localhost:8081").rstrip("/")
 TOKEN = os.environ.get("NC_API_TOKEN")
 BASE_ID = os.environ.get("NC_CRM_BASE_ID")
+# Opcjonalny override - normalnie wykrywany automatycznie, patrz resolve_source().
+SOURCE_ID = os.environ.get("NC_CRM_SOURCE_ID")
 
 if not TOKEN or not BASE_ID:
     sys.exit("Brak NC_API_TOKEN / NC_CRM_BASE_ID w środowisku - patrz .env.example.")
@@ -63,15 +80,55 @@ S = requests.Session()
 S.headers.update({"xc-token": TOKEN, "Content-Type": "application/json"})
 
 
-def api(method, path, **kw):
+def api(method, path, raise_on_error=False, **kw):
     try:
         r = S.request(method, f"{URL}{path}", timeout=30, **kw)
     except requests.RequestException as e:
         sys.exit(f"Nie moge sie polaczyc z NocoDB ({URL}): {type(e).__name__}. "
                  f"Sprawdz NC_LOCAL_URL / czy kontener stoi.")
     if not r.ok:
+        if raise_on_error:
+            raise RuntimeError(f"{r.status_code}: {r.text[:200]}")
         sys.exit(f"NocoDB API error {r.status_code} on {method} {path}: {r.text[:500]}")
     return r.json() if r.text else {}
+
+
+def resolve_source():
+    """Zwraca id ZEWNĘTRZNEGO źródła (appdata/crm), nie wewnętrznej bazy NocoDB.
+
+    KRYTYCZNE: baza NocoDB ma domyślne źródło = własna baza metadanych NocoDB
+    (`NC_DB`, czyli `nocodb`). `appdata` jest podpięta jako OSOBNE źródło
+    (`scripts/crm-wire-init.sh`: alias "appdata (crm)", type pg,
+    searchPath ["crm"]). Tworzenie tabel bez wskazania source_id ląduje
+    w bazie `nocodb` zamiast w `appdata` - czyli poza źródłem prawdy,
+    poza `make backup` i poza zasięgiem `n8n_crm_user`.
+    """
+    if SOURCE_ID:
+        print(f"źródło: {SOURCE_ID} (z NC_CRM_SOURCE_ID)")
+        return SOURCE_ID
+    for ver in ("v3", "v2"):          # v3 nie ma udokumentowanego /sources
+        try:
+            rows = api("GET", f"/api/{ver}/meta/bases/{BASE_ID}/sources",
+                       raise_on_error=True).get("list", [])
+        except RuntimeError:
+            continue
+        external = [s for s in rows
+                    if not s.get("is_meta") and s.get("type") not in (None, "nocodb")]
+        if len(external) == 1:
+            s = external[0]
+            print(f"źródło: {s['id']} (alias={s.get('alias')!r}, type={s.get('type')})")
+            return s["id"]
+        if not external:
+            sys.exit(f"Baza {BASE_ID} nie ma zewnętrznego źródła - tabele "
+                     f"trafiłyby do wewnętrznej bazy NocoDB zamiast do appdata. "
+                     f"Najpierw podepnij appdata/crm: `make wire-apps` "
+                     f"(scripts/crm-wire-init.sh).")
+        sys.exit(f"Baza {BASE_ID} ma {len(external)} zewnętrznych źródeł "
+                 f"({[s.get('alias') for s in external]}) - wskaż jednoznacznie "
+                 f"przez NC_CRM_SOURCE_ID.")
+    sys.exit("Nie moge odczytac listy zrodel bazy (ani v3, ani v2). "
+             "Podaj NC_CRM_SOURCE_ID recznie - id znajdziesz w UI: "
+             "Base → Data Sources.")
 
 
 def select(*titles):
@@ -468,7 +525,7 @@ def existing_fields(table_id):
                         .get("fields", [])}
 
 
-def create_tables(dry_run):
+def create_tables(dry_run, source_id):
     # --dry-run ma dzialac takze bez dzialajacej instancji (na produkcji to
     # pierwsza rzecz, ktora odpalasz - zanim cokolwiek stoi). Gdy instancja
     # JEST osiagalna, i tak sprawdzamy, co juz istnieje.
@@ -490,7 +547,10 @@ def create_tables(dry_run):
         if dry_run:
             ids[key] = f"<{t['title']}>"
             continue
-        ids[key] = api("POST", f"/api/v3/meta/bases/{BASE_ID}/tables", json=t)["id"]
+        # source_id kieruje tabele do appdata/crm zamiast do wewnetrznej
+        # bazy NocoDB - patrz resolve_source().
+        ids[key] = api("POST", f"/api/v3/meta/bases/{BASE_ID}/tables",
+                       json={**t, "source_id": source_id})["id"]
     return ids
 
 
@@ -521,12 +581,23 @@ if __name__ == "__main__":
     args = ap.parse_args()
 
     print(f"NocoDB: {URL}, base: {BASE_ID}"
-          f"{' [DRY RUN]' if args.dry_run else ''}\n")
+          f"{' [DRY RUN]' if args.dry_run else ''}")
+    if args.dry_run and not SOURCE_ID:
+        source_id = "<zrodlo-appdata>"
+        print("źródło: wykryję przy realnym uruchomieniu (GET .../sources)\n")
+    else:
+        source_id = resolve_source()
+        print()
     print(f"--- tabele ({len(TABLES)}) ---")
-    ids = create_tables(args.dry_run)
+    ids = create_tables(args.dry_run, source_id)
     print(f"\n--- relacje ({len(RELATIONS)}) ---")
     create_relations(ids, args.dry_run)
-    print("\nGotowe. Do wyklikania recznie (patrz naglowek skryptu):")
+    print("\nSPRAWDŹ NAJPIERW: czy tabele powstały w appdata, a nie w bazie NocoDB:")
+    print("  docker exec docker-postgres-1 psql -U postgres -d appdata \\")
+    print("    -c \"\\dt crm.*\"")
+    print("Jeśli ich tam nie ma, a są widoczne w UI - poszły do wewnętrznej bazy")
+    print("NocoDB (patrz resolve_source() w tym pliku); usuń je i popraw source_id.")
+    print("\nDo wyklikania recznie (patrz naglowek skryptu):")
     print("  1. Pola Button: offers 'generuj oferte', meetings 'generuj analize',")
     print("     assessments 'generuj needs summary' - po imporcie workflowow.")
     print("  2. Widoki: Kanban po leads.stage, Calendar po tasks.due_date,")
