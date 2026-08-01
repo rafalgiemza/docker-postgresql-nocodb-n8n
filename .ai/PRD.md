@@ -77,9 +77,7 @@ Zastąpiły Mikr.us 4.1 (powtarzające się stalle dysku I/O, `post-mortem/logs.
   powstanie integracja S3 SDK (np. renderer ofert, patrz §12).
 - Stack (docker compose, `include:` z `fragments/*.yml`): `postgres`, `nocodb`,
   `n8n` + `n8n-runner`, `minio` + `minio-init`, `mongodb` (tylko dla LibreChat),
-  `librechat`, `uptime-kuma`, `beszel` + `beszel-agent`, `budibase` (low-code
-  internal-tools builder, dodany 2026-07-18 — własny CouchDB+Redis, ale reużywa
-  wspólne MinIO na storage), `autoheal`, `caddy` (80/443, TLS) — kontenery
+  `librechat`, `uptime-kuma`, `beszel` + `beszel-agent`, `autoheal`, `caddy` (80/443, TLS) — kontenery
   aplikacyjne bez publikowanych portów, ruch tylko przez Caddy.
 - Ruch wewnętrzny po nazwach serwisów: n8n→NocoDB `http://nocodb:8080`,
   NocoDB→n8n `http://n8n:5678/webhook/...` (nie przez publiczny internet).

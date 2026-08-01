@@ -22,17 +22,16 @@ dla kontekstu, dlaczego ten plan wygląda inaczej niż wcześniej.
 |---|---|---|
 | Hosting: 2× Sfera Host VPS PRO (VPS-A prod / VPS-B staging) | ✅ oba wykupione, pełny stack, 100% uptime — patrz `.ai/PRD.md` §4, `post-mortem/vps-migration-decision.md` | — |
 | VPS hardening (ufw, fail2ban, ssh key-only, unattended-upgrades) | ✅ gotowe | `cloud-init.yaml` |
-| Docker Compose: postgres, n8n(+runner), nocodb, MinIO(+init), MongoDB, LibreChat, Uptime Kuma, Beszel, Budibase, autoheal, caddy | ✅ działa, jeden `docker-compose.yml` dla obu VPS-ów, różnice tylko przez `.env` | `docker-compose.yml`, `fragments/*.yml` |
+| Docker Compose: postgres, n8n(+runner), nocodb, MinIO(+init), MongoDB, LibreChat, Uptime Kuma, Beszel, autoheal, caddy | ✅ działa, jeden `docker-compose.yml` dla obu VPS-ów, różnice tylko przez `.env` | `docker-compose.yml`, `fragments/*.yml` |
 | 3 bazy w jednym Postgresie: `n8n`, `nocodb`, `appdata` | ✅ zgodne z `.ai/backups.md` | `scripts/init-data.sh`, `.env.example` |
 | Caddy + TLS | ✅ gotowe, UAT na `giemza.dev`, prod (`coaction.pl`) czeka na DNS klienta | `Caddyfile` |
 | Backup lokalny (`make backup`) | ✅ dumpuje role + `n8n`/`nocodb`/`appdata` + attachmenty NocoDB + mongodump do `./backups/` | `backup/backup.sh` |
 | **Backup offsite (cron + target realny)** | ❌ mechanizm (`restic`+`rclone`) gotowy w skrypcie, ale cron na serwerach i wybór dostawcy nie dopięte — **priorytet #1** | `backup/backup.sh`, `.ai/PRD.md` §11/§14 |
 | Dostęp NocoDB → `appdata` (schemat `crm`, `nocodb_crm_user` z `CREATE`+`USAGE`, `REVOKE CREATE ON SCHEMA public`) | ✅ zrobione | `scripts/init-data.sh` |
 | LibreChat + MongoDB | ✅ gotowe, zero integracji z CRM | `docker-compose.yml`, `librechat.yaml` |
-| MinIO + buckety (offers/templates/recordings/transcripts/backups + budibase-*) | ✅ gotowe; **`offers`/`templates` pozostają nieużywane** — `file-renderer-service` trzyma pliki jako NocoDB Attachment (bucket `attachments`), świadomy dług, nie rozwiązywany teraz | `scripts/minio-init.sh`, `fragments/minio.yml` |
+| MinIO + buckety (offers/templates/recordings/transcripts/backups) | ✅ gotowe; **`offers`/`templates` pozostają nieużywane** — `file-renderer-service` trzyma pliki jako NocoDB Attachment (bucket `attachments`), świadomy dług, nie rozwiązywany teraz | `scripts/minio-init.sh`, `fragments/minio.yml` |
 | Uptime Kuma | ✅ monitoring wszystkich usług, interwał 30s od 2026-07-15 | `fragments/uptime-kuma.yml` |
 | Beszel | ✅ monitoring zasobów per-kontener | `fragments/beszel.yml` |
-| Budibase | ✅ dodany 2026-07-18, własny CouchDB+Redis, reużywa wspólne MinIO | `fragments/budibase.yml` |
 | Sieci Docker segmentowane (`edge`/`internal`/`data`) | ❌ brak — jedna płaska sieć; `file-renderer-service` (pierwszy customowy `build:` w tym compose) dziś na niej, bez opublikowanego portu — wystarcza, izolacja `internal` nadal odłożona | — |
 | `file-renderer-service` (generyczny renderer PPTX/DOCX, FAZA 8) | ✅ kod + wpięcie w compose gotowe (`fragments/file-renderer-service.yml`); ❌ tabele `document_templates`/`offers`, `NC_CRM_BASE_ID`, pierwszy szablon i import W9 jeszcze do zrobienia na żywej bazie | `file-renderer-service/`, `fable/W9_generate_offer.json` |
 
