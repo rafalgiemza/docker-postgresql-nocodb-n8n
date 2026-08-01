@@ -1,0 +1,18 @@
+# Jedyny customowy (build:) obraz w tym compose — reszta serwisów w
+# fragments/ to gotowe obrazy. Renderer szablonów (PPTX/DOCX): n8n przysyła
+# szablon i dane, serwis zwraca gotowy plik. Bezstanowy, ZERO integracji
+# z NocoDB (stąd brak jakichkolwiek zmiennych NOCODB_*) — patrz file-renderer-service/README.md.
+services:
+  file-renderer-service:
+    build: ../file-renderer-service
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          # Szablony bywają duże (branding = grafiki; obecny ma 10 MB), a
+          # python-pptx trzyma rozpakowaną prezentację w pamięci i robi
+          # deepcopy XML przy powielaniu slajdów. 512M dawało OOM-kill w
+          # trakcie uploadu (n8n widział `write ECONNRESET`).
+          cpus: '1'
+          memory: 2G
+    # brak portów na zewnątrz — woła go tylko n8n z sieci wewnętrznej

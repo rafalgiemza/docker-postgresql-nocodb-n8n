@@ -1,6 +1,6 @@
 # PRD — CoAction CRM (NocoDB + n8n + PostgreSQL)
 
-Wersja: 2.1 · Data: 2026-07-26 · Status: faza 1 w trakcie wdrożenia
+Wersja: 2.2 · Data: 2026-08-01 · Status: faza 1 w trakcie wdrożenia
 
 > **Historia wersji:** Wersja 1.x tego dokumentu (do 12.07) opisywała inną architekturę —
 > znormalizowany schemat Postgresa (`organizations/people/clients/opportunities/offers/
@@ -13,7 +13,7 @@ Wersja: 2.1 · Data: 2026-07-26 · Status: faza 1 w trakcie wdrożenia
 > stanu. Kontrakt `crm-api`/renderer PPTX z tamtej wersji był zachowany jako gotowy
 > projekt w backlogu (§12) na wypadek decyzji o powrocie generowania plików do
 > zakresu — **decyzja zapadła 2026-07-26 (§14 pkt 1)**, ale zaimplementowana jako
-> nowy, prostszy `offer-service/` (NocoDB-native, bez Postgresa/LibreOffice/kolejki),
+> nowy, prostszy `file-renderer-service/` (NocoDB-native, bez Postgresa/LibreOffice/kolejki),
 > nie jako wskrzeszenie tamtego `crm-api`. Patrz §12.
 
 ## 1. Kontekst i cel
@@ -44,7 +44,7 @@ lead ma czytelny timeline, nikt nie przepisuje danych między systemami.
 
 **Faza 1 (ten dokument):** model danych, widoki, workflowy W1–W6b, intake
 z 3 źródeł z kaskadą dopasowań, import legacy, Test Runner, lustro xlsx dla CEO
-(okres przejściowy). Generowanie pliku oferty (W9 + `offer-service`) doszło
+(okres przejściowy). Generowanie pliku oferty (W9 + `file-renderer-service`) doszło
 2026-07-26 jako naturalna kontynuacja po `draft_ready` — patrz §12, §14 pkt 1.
 
 **Poza zakresem fazy 1 (ustalone):** formularze przed-audytowe, dashboardy SQL,
@@ -97,9 +97,12 @@ Zastąpiły Mikr.us 4.1 (powtarzające się stalle dysku I/O, `post-mortem/logs.
 
 Pełna tabela usług + dostęp: `README.md`.
 
-## 5. Model danych (baza NocoDB, 11 tabel)
+## 5. Model danych (baza NocoDB)
 
-Szczegóły: `fable/nocodb_crm_schema_v2.md`. Skrót relacji:
+Stan bieżący (żywa baza testowa): `fable/nocodb_crm_schema_v2.md`.
+**Docelowy model — `fable/nocodb_crm_schema_v3.md`** (warstwa rekomendacji,
+historia ocen, pola strukturalne z discovery); bootstrap pustej bazy:
+`fable/create_offer_tables.py`. Skrót relacji stanu bieżącego:
 
 ```
 companies ──< leads ──< meetings / participants / tasks / activities
@@ -134,11 +137,13 @@ projects ──< tasks >── task_templates
   (`flow`, `payload` JSON, typ `automation_error`).
 - `task_templates` (RRULE dla W1), `projects`, `testimonials` (biblioteka
   referencji, many-to-many z leads).
-- `offer_templates` — szablony `.pptx` jako Attachment, `active` (jeden na
-  raz); `offers` — wygenerowane oferty (`file` Attachment, `status`,
+- `offer_templates` — szablony `.pptx`/`.docx` jako Attachment, `active` (jeden
+  na raz); `offers` — wygenerowane oferty (`file` Attachment, `status`,
   `data_json` snapshot, `warnings`, link do `leads`). Dodane wraz z
-  `offer-service` (§12, §14) — jedyne dwie tabele spoza pierwotnego modelu
+  `file-renderer-service` (§12, §14) — jedyne dwie tabele spoza pierwotnego modelu
   z `fable/nocodb_crm_schema_v2.md`, tworzone tak samo ręcznie w Creator UI.
+  W modelu docelowym `offer_templates` uogólnia się do `document_templates`
+  z polem `kind` (`nocodb_crm_schema_v3.md` §12).
 
 **Zasady projektowe:** ludzie zmieniają statusy tam, gdzie pracują — n8n
 wykonuje robotę i pisze historię; automat NIGDY nie scala po cichu (auto-akcja
@@ -171,7 +176,7 @@ stara/nowa wartość w każdym workflow na update (triggery per-pole są płatne
 | W5 | leads insert | dedup firmy po domenie e-mail (lista domen publicznych!), pending_confirmation + komentarz; guard: pomija leady z już podlinkowaną firmą |
 | W6a | meetings update | transkrypcja → OpenRouter → `ai_analysis` → weryfikacja; akceptacja → cele (routing B2B→Dorota / B2C→Aleksandra); braki/odrzuty → taski naprawcze |
 | W6b | leads update | cele → referencje → walidacja linków → task "złóż ofertę" + `draft_ready` |
-| W9 | leads (przycisk „Generuj ofertę") | woła `offer-service` → renderuje PPTX z aktywnego szablonu + danych leada → `offers` (`status=draft`) → task review (+`warnings`) albo task błędu |
+| W9 | leads (przycisk „Generuj ofertę") | woła `file-renderer-service` → renderuje PPTX/DOCX z aktywnego szablonu + danych leada → `offers` (`status=draft`) → task review (+`warnings`) albo task błędu |
 
 > Te workflowy **zastępują** `n8n-workflows/wf1-wf6*.json` (stary pipeline
 > lead→discovery→audit→recommendation→offer z generowaniem PPTX) — te pliki
@@ -241,11 +246,13 @@ zastępuje szczegółów w źródłowych plikach.
 | `fable/test_runner_coaction.zip` (`fable/test_cases.md`, `fable/conftest.py`, `fable/test_workflows.py`, `fable/nocodb.py`) | katalog przypadków + harness pytest, grupa `W9` dodana 2026-07-26 |
 | `fable/meta.json` | eksport żywej struktury "CoAction TEST Base" z NocoDB (2026-07-17) — dowód, że model jest wdrożony, nie tylko zaprojektowany |
 | `fable/W9_generate_offer.json` | workflow „Generuj ofertę" — dodany 2026-07-26, patrz §7/§12 |
+| `fable/nocodb_crm_schema_v3.md` + `fable/create_offer_tables.py` | docelowy model danych (faza 2) + skrypt tworzący cały schemat w pustej bazie |
 
-Wyjątek od "wszystko w `fable/`": **`offer-service/`** (poza `fable/`, dodany
-2026-07-26) — mikroserwis FastAPI + `python-pptx` renderujący `offer_templates`
-+ dane leada w PPTX; kontrakt/ograniczenia w `offer-service/README.md`, wpięcie
-w stack w `fragments/offer-service.yml`. Traktowany jak reszta top-level
+Wyjątek od "wszystko w `fable/`": **`file-renderer-service/`** (poza `fable/`, dodany
+2026-07-26) — generyczny mikroserwis FastAPI (`python-pptx`/`python-docx`):
+dostaje szablon + dane, zwraca gotowy plik, zero wiedzy o NocoDB i o ofertach
+(obsłuży też raport audytowy); kontrakt/ograniczenia w `file-renderer-service/README.md`, wpięcie
+w stack w `fragments/file-renderer-service.yml`. Traktowany jak reszta top-level
 komponentów (`scripts/`, `wordpress/`), nie jako artefakt sesji Fable.
 
 ## 11. Znane ograniczenia i ryzyka
@@ -278,7 +285,7 @@ parsera RRULE (YEARLY/INTERVAL); wyszukiwanie po zamkniętej historii (Postgres
 FTS); sunset lustra xlsx.
 
 **Generowanie oferty jako plik (PPTX) — zrealizowane 2026-07-26** (decyzja
-podjęta, patrz §14 pkt 1) jako `offer-service/` + workflow `W9`. Świadomie
+podjęta, patrz §14 pkt 1) jako `file-renderer-service/` + workflow `W9`. Świadomie
 **nie** jest to wskrzeszenie starego `crm-api` z poprzedniej wersji PRD —
 NocoDB-native, prostsze:
 - Kontrakt: FastAPI + `python-pptx`, bezstanowy, `POST /generate {lead_id}`,
@@ -289,12 +296,12 @@ NocoDB-native, prostsze:
   niepotrzebna złożoność na obecną skalę (kilka ofert/tydzień): tylko PPTX,
   render synchroniczny w ramach jednego requestu n8n (timeout 120s).
 - Znane pułapki z poprzedniego projektu potwierdzone i rozwiązane w
-  `offer-service/renderer.py`: podmiana tekstu w `runs` PowerPoint (merge
+  `file-renderer-service/renderer.py`: podmiana tekstu w `runs` PowerPoint (merge
   przed replace — patrz test `test_placeholder_split_across_runs_...`),
   klonowanie slajdów uczestników/referencji (`python-pptx` bez natywnego API,
   `copy.deepcopy` XML + realokacja relacji obrazów).
 - Szczegóły, kontrakt szablonu, świadome ograniczenia i testy:
-  `offer-service/README.md`.
+  `file-renderer-service/README.md`.
 
 ## 13. Status / najbliższe kroki
 
@@ -310,15 +317,15 @@ NocoDB-native, prostsze:
 - [ ] przebieg Test Runnera na VPS-B → poprawka builderów payloadów pod realną wersję NocoDB
 - [ ] rollout zespołowy: pokaz `fable/crm_flow.mermaid`, widoki per osoba, data twardego cięcia
 - [ ] rozstrzygnięcie otwartych pytań biznesowych, patrz §14
-- [ ] `offer-service` na żywej bazie: utworzyć tabele `offer_templates`/`offers`,
-      `NC_CRM_BASE_ID` w `.env`, `docker compose up -d --build offer-service`,
+- [ ] `file-renderer-service` na żywej bazie: utworzyć tabele `document_templates`/`offers`,
+      `NC_CRM_BASE_ID` w `.env`, `docker compose up -d --build file-renderer-service`,
       import W9, pierwszy szablon `.pptx`, przebieg grupy testów `W9` na VPS-B
-      — patrz `offer-service/README.md`
+      — patrz `file-renderer-service/README.md`
 
 ## 14. Otwarte pytania (do potwierdzenia z klientem/CEO)
 
 1. ~~**Generowanie oferty jako plik (PPTX/PDF)**~~ — **rozstrzygnięte
-   2026-07-26: tak, MVP obejmuje realny plik.** Wdrożone jako `offer-service`
+   2026-07-26: tak, MVP obejmuje realny plik.** Wdrożone jako `file-renderer-service`
    + `W9` (§7, §12) — NocoDB-native, PPTX-only (bez PDF/LibreOffice/kolejki,
    patrz §12 dlaczego). Pozostaje do potwierdzenia z Przemkiem operacyjnie:
    akceptacja, że NIE edytuje PPTX ręcznie po wygenerowaniu (poprawki → nowy

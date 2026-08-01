@@ -2,22 +2,7 @@ import copy, io, re
 from pptx import Presentation
 from pptx.oxml.ns import qn
 
-PLACEHOLDER = re.compile(r"\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}")
-
-
-def resolve(path, ctx, warnings):
-    cur = ctx
-    for part in path.split("."):
-        if isinstance(cur, dict) and part in cur:
-            cur = cur[part]
-        else:
-            warnings.append(f"missing placeholder value: {path}")
-            return ""
-    if cur is None:
-        return ""
-    if isinstance(cur, float) and cur == int(cur):
-        cur = int(cur)
-    return str(cur)
+from placeholders import PLACEHOLDER, resolve
 
 
 def render_paragraph(para, ctx, warnings):
@@ -104,16 +89,19 @@ def delete_slide(prs, slide):
 
 
 def slide_repeat_marker(slide):
+    """`repeat:<name>` in a slide's SPEAKER NOTES - <name> is both the key
+    looked up in `data` (must be a list) and the placeholder prefix usable on
+    that slide (`{{<name>.field}}`, or bare `{{field}}` - see render_pptx).
+    Fully generic: any name works, nothing hardcoded to a particular entity."""
     if not slide.has_notes_slide:
         return None
     txt = slide.notes_slide.notes_text_frame.text or ""
-    m = re.search(r"repeat\s*:\s*(participants|testimonials)", txt, re.I)
-    return m.group(1).lower() if m else None
+    m = re.search(r"repeat\s*:\s*([a-zA-Z_][a-zA-Z0-9_]*)", txt, re.I)
+    return m.group(1) if m else None
 
 
 def render_pptx(template_bytes, data, warnings):
     prs = Presentation(io.BytesIO(template_bytes))
-    key_map = {"participants": "participant", "testimonials": "testimonial"}
     for slide in list(prs.slides):
         marker = slide_repeat_marker(slide)
         if not marker:
@@ -134,13 +122,16 @@ def render_pptx(template_bytes, data, warnings):
             anchor = dup
             targets.append(dup)
         for target, item in zip(targets, items):
-            # Some items (e.g. participants) carry an "_extra" dict of
-            # additional top-level context keys - short aliases for a
-            # related record (assessment scores as {{a.o}} etc), set by
-            # app.py's build_participant().
-            ctx = {**data, key_map[marker]: item}
-            if isinstance(item, dict) and "_extra" in item:
-                ctx.update(item["_extra"])
+            # The item is exposed BOTH under the marker name
+            # ({{participant.position}}) and with its own keys lifted to the
+            # top level ({{position}}, and thus {{a.o}} when the item carries
+            # an "a" object). Lifted keys shadow same-named keys in `data` for
+            # this slide only - documented tradeoff; the prefixed form always
+            # stays available and takes precedence for the marker name itself.
+            ctx = {**data}
+            if isinstance(item, dict):
+                ctx.update(item)
+            ctx[marker] = item
             render_shapes(target.shapes, ctx, warnings)
     out = io.BytesIO()
     prs.save(out)

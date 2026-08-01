@@ -26,7 +26,7 @@ include:
   - fragments/n8n.yml
   - fragments/n8n-runner.yml
   - fragments/nocodb.yml
-  - fragments/offer-service.yml
+  - fragments/file-renderer-service.yml
   - fragments/minio.yml
   - fragments/minio-init.yml
   - fragments/mongodb.yml

@@ -1,6 +1,6 @@
 """Offline unit tests for renderer.py — no NocoDB, no network.
 
-Run:  pytest offer-service/test_renderer.py -v
+Run:  pytest file-renderer-service/test_renderer.py -v
 """
 import io
 
@@ -69,14 +69,16 @@ def test_placeholder_split_across_runs_collapses_to_first_run():
     assert [r.text for r in para.runs] == ["Ala", ""]
 
 
-def test_repeat_participants_duplicates_slide_per_item():
+def test_repeat_marker_name_is_generic_not_hardcoded():
+    """repeat:<anything> works - the name is just a data key + placeholder
+    prefix, nothing about "participant"/"testimonial" is special-cased."""
     prs = _new_prs()
     _add_slide(prs, ["{{lead.contact_name}}"])
-    _add_slide(prs, ["{{participant.full_name}}"], notes="repeat:participants")
+    _add_slide(prs, ["{{goal.title}}"], notes="repeat:goal")
     warnings = []
     data = {
         "lead": {"contact_name": "Ala"},
-        "participants": [{"full_name": "A"}, {"full_name": "B"}, {"full_name": "C"}],
+        "goal": [{"title": "A"}, {"title": "B"}, {"title": "C"}],
     }
     out = _render(prs, data, warnings)
     slides = list(out.slides)
@@ -89,39 +91,76 @@ def test_repeat_participants_duplicates_slide_per_item():
 def test_repeat_with_empty_list_drops_slide_and_warns():
     prs = _new_prs()
     _add_slide(prs, ["{{lead.contact_name}}"])
-    _add_slide(prs, ["{{participant.full_name}}"], notes="repeat:participants")
+    _add_slide(prs, ["{{participant.full_name}}"], notes="repeat:participant")
     warnings = []
-    data = {"lead": {"contact_name": "Ala"}, "participants": []}
+    data = {"lead": {"contact_name": "Ala"}, "participant": []}
     out = _render(prs, data, warnings)
     assert len(out.slides) == 1
     assert _textbox_text(out.slides[0]) == "Ala"
-    assert any("repeat:participants" in w and "dropped" in w for w in warnings)
+    assert any("repeat:participant" in w and "dropped" in w for w in warnings)
 
 
-def test_repeat_testimonials_uses_testimonial_prefix():
+def test_repeat_missing_key_in_data_drops_slide_and_warns():
     prs = _new_prs()
-    _add_slide(prs, ["{{testimonial.client_name}}"], notes="repeat:testimonials")
+    _add_slide(prs, ["{{testimonial.client_name}}"], notes="repeat:testimonial")
     warnings = []
-    data = {"testimonials": [{"client_name": "Firma X"}]}
+    out = _render(prs, {}, warnings)  # no "testimonial" key at all
+    assert len(out.slides) == 0
+    assert any("repeat:testimonial" in w and "dropped" in w for w in warnings)
+
+
+def test_repeat_testimonial_uses_matching_prefix():
+    prs = _new_prs()
+    _add_slide(prs, ["{{testimonial.client_name}}"], notes="repeat:testimonial")
+    warnings = []
+    data = {"testimonial": [{"client_name": "Firma X"}]}
     out = _render(prs, data, warnings)
     assert _textbox_text(list(out.slides)[0]) == "Firma X"
     assert warnings == []
 
 
-def test_participant_extra_dict_exposes_assessment_alias():
+def test_nested_value_in_repeat_item_resolves():
     prs = _new_prs()
-    _add_slide(prs, ["{{participant.full_name}} {{a.o}}"], notes="repeat:participants")
+    _add_slide(prs, ["{{participant.full_name}} {{participant.a.o}}"],
+               notes="repeat:participant")
     warnings = []
-    data = {"participants": [{"full_name": "Basia", "_extra": {"a": {"o": "B2"}}}]}
+    data = {"participant": [{"full_name": "Basia", "a": {"o": "B2"}}]}
     out = _render(prs, data, warnings)
     assert _textbox_text(list(out.slides)[0]) == "Basia B2"
     assert warnings == []
 
 
-def test_participant_without_extra_warns_on_assessment_alias():
+def test_participant_without_nested_value_warns():
     prs = _new_prs()
-    _add_slide(prs, ["{{a.o}}"], notes="repeat:participants")
+    _add_slide(prs, ["{{participant.a.o}}"], notes="repeat:participant")
     warnings = []
-    data = {"participants": [{"full_name": "Basia"}]}  # no _extra
+    data = {"participant": [{"full_name": "Basia"}]}  # no "a" key
     _render(prs, data, warnings)
-    assert any("a.o" in w for w in warnings)
+    assert any("participant.a.o" in w for w in warnings)
+
+
+def test_repeat_item_keys_are_also_available_without_prefix():
+    """Inside a repeat slide the item's own keys are lifted to the top level,
+    so a template may write {{a.o}} instead of {{participant.a.o}}."""
+    prs = _new_prs()
+    _add_slide(prs, ["{{participant.full_name}} / {{full_name}} / {{a.o}} / {{assessment.position}}"],
+               notes="repeat:participant")
+    warnings = []
+    data = {"participant": [{
+        "full_name": "Basia",
+        "a": {"o": "B2"},
+        "assessment": {"position": "HR Manager"},
+    }]}
+    out = _render(prs, data, warnings)
+    assert _textbox_text(list(out.slides)[0]) == "Basia / Basia / B2 / HR Manager"
+    assert warnings == []
+
+
+def test_lifted_item_keys_shadow_top_level_data_on_that_slide():
+    prs = _new_prs()
+    _add_slide(prs, ["{{title}}|{{lead.title}}"], notes="repeat:row")
+    warnings = []
+    data = {"lead": {"title": "z leada"}, "title": "globalny",
+            "row": [{"title": "z elementu"}]}
+    out = _render(prs, data, warnings)
+    assert _textbox_text(list(out.slides)[0]) == "z elementu|z leada"

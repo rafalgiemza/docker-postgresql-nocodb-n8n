@@ -7,7 +7,7 @@
 > (`.ai/PRD.md` §5). `schema.sql`, na który ten runbook się powołuje, już nie
 > istnieje w repo. Generowanie pliku oferty — o którym mowa niżej jako
 > "poza zakresem MVP" — zostało zaimplementowane 2026-07-26 jako
-> `offer-service/` + workflow `W9`, patrz `offer-service/README.md` i
+> `file-renderer-service/` + workflow `W9`, patrz `file-renderer-service/README.md` i
 > `.ai/PRD.md` §12/§14 pkt 1. Zostawione jako materiał historyczny, nie do
 > wykonywania.
 

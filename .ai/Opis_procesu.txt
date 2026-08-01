@@ -1,0 +1,136 @@
+﻿Opis procesu
+Workflow: od zapytania / discovery call do rekomendacji i oferty
+Kontekst: ten dokument ma pomóc zmapować workflow do wdrożenia w narzędziach: baza danych + automatyzacje + taski dla osób odpowiedzialnych za kolejne kroki.
+	
+
+1. 1. Założenia wynikające ze spotkania z Rafałem
+* Jednym źródłem prawdy ma być baza danych, a nie kilka rozproszonych plików i ręczne kopiowanie danych.
+* Formularze, Bookings, transkrypcje spotkań i inne źródła mogą zasilać bazę danych automatycznie.
+* Każdy etap procesu powinien tworzyć task dla konkretnej osoby, z polami potrzebnymi tylko na tym etapie.
+* Pola, które da się uzupełnić automatycznie, powinny być wstępnie wypełniane. Pola wymagające oceny człowieka zostają puste do ręcznego uzupełnienia.
+* Proces musi rozróżniać flow B2B i B2C oraz pozwalać na dodawanie kolejnych wariantów bez przebudowy całego systemu.
+* Output ma żyć: szablony, pola i kryteria mogą się zmieniać, więc workflow powinien być elastyczny.
+2. 2. Zakres procesu do zmapowania
+* Od zapytania / formularza / leada do zapisania danych w bazie.
+* Od discovery call do taska z transkrypcją i podstawowymi danymi klienta.
+* Od analizy transkrypcji do tasków dla osób odpowiedzialnych za kolejne części procesu.
+* Od audytu do raportu, rekomendacji i danych do oferty.
+* Od zatwierdzenia danych do wygenerowania oferty w szablonie.
+* Od ręcznej korekty oferty do wersji gotowej do wysłania klientowi.
+3. 3. Mapa workflow — wersja robocza
+Etap
+	Odpowiedzialny
+	Dane wejściowe
+	Automatycznie
+	Ręcznie
+	Efekt / następny krok
+	1. Zapytanie / formularz
+	System + Przemek
+	Formularz, Bookings, mail, telefon, dane kontaktowe
+	Zapis danych leada w bazie; utworzenie rekordu klienta / szansy; przypisanie typu B2B/B2C jeśli da się go ustalić
+	Weryfikacja poprawności danych; dopisanie braków; kwalifikacja, jeśli nie da się jej zrobić automatycznie
+	Rekord w bazie i task dla osoby odpowiedzialnej za pierwszy kontakt / discovery
+	2. Discovery call
+	Przemek
+	Dane leada, kontekst firmy, wcześniejsze notatki, formularz
+	Po zakończonym spotkaniu flow tworzy task: „Wklej / zatwierdź transkrypcję”; transkrypcja zostaje powiązana z klientem
+	Dodanie transkrypcji, korekta notatki, dopisanie informacji, których nie ma w nagraniu
+	Task dla osoby analizującej potrzeby / metodyka
+	3. Analiza transkrypcji
+	AI + Przemek / metodyk
+	Transkrypcja discovery call, dane klienta, typ klienta
+	Wyciągnięcie z transkrypcji: celów klienta, wyzwań, typów uczestników, kontekstu biznesowego, potencjalnych sytuacji komunikacyjnych
+	Ocena, czy dane są wystarczające; dopisanie braków; decyzja, czy potrzebny jest dodatkowy formularz lub dopytanie klienta
+	Uzupełniony rekord procesu i task przygotowania audytu / rekomendacji
+	4. Przygotowanie audytu
+	Metodyk
+	Kontekst firmy, cele, role uczestników, sytuacje komunikacyjne, dane od managera / HR / uczestnika
+	Wstępne uporządkowanie informacji do audytu; podpowiedź możliwych obszarów badania
+	Dobór zadania audytowego; decyzja, jakie sytuacje komunikacyjne sprawdzić; oznaczenie brakujących danych
+	Gotowy zakres audytu i task do przeprowadzenia audytu
+	5. Audyt uczestnika
+	Metodyk / audytor
+	Zakres audytu, dane uczestnika, kontekst roli, formularz przed audytem
+	Zapis danych uczestnika i powiązanie z klientem; ewentualne wstępne podsumowanie z transkrypcji, jeśli audyt jest nagrywany
+	Ocena poziomu językowego, mocnych stron, luk, komunikatywności i potrzeb skillowych
+	Dane do raportu audytowego oraz rekomendacji
+	6. Raport audytowy
+	Metodyk
+	Wyniki audytu, notatki, oceny, kontekst biznesowy
+	Draft raportu / podsumowania na podstawie danych z audytu i szablonu raportu
+	Weryfikacja merytoryczna; dopisanie obserwacji; korekta języka i tonu; zatwierdzenie poziomu
+	Gotowy raport i dane do rekomendacji szkoleniowej
+	7. Rekomendacja
+	Metodyk + Przemek
+	Raport audytowy, cele klienta, rola uczestnika, priorytety biznesowe
+	Draft rekomendacji: Business English / English+Skills / Skills only / ścieżka mieszana; wstępne uzasadnienie
+	Decyzja, co faktycznie rekomendujemy; priorytetyzacja; dopasowanie do budżetu i realiów klienta
+	Zatwierdzona rekomendacja do oferty
+	8. Przygotowanie oferty
+	Przemek
+	Rekomendacja, dane klienta, liczba osób, wariant szkolenia, liczba godzin, cena
+	Wypełnienie szablonu oferty danymi z bazy; wygenerowanie prezentacji / dokumentu ofertowego
+	Zmiana niestandardowych elementów; korekta argumentacji; wybór testimoniali / case studies / dopasowanych przykładów
+	Wersja robocza oferty gotowa do podglądu
+	9. Weryfikacja i korekta oferty
+	Przemek / Kasia / 
+	Wygenerowana oferta, podgląd, dane w bazie
+	Odświeżenie oferty po zmianie danych w bazie; aktualizacja pól w szablonie
+	Ręczna korekta treści, jeśli szablon nie oddaje niuansu; sprawdzenie kompletności i spójności
+	Oferta zaakceptowana do wysłania
+	10. Wysłanie / zapis historii
+	Przemek / system
+	Finalna oferta, dane klienta, status szansy
+	Zapis finalnej wersji / danych oferty w bazie; możliwość powrotu do historii ofert; zmiana statusu procesu
+	Decyzja, co wysyłamy klientowi i w jakiej formie; ewentualne dopisanie wiadomości mailowej
+	Oferta wysłana klientowi; dalszy follow-up w osobnym flow
+	4. 4. Pola do bazy danych / tasków
+Poniżej lista pól, które warto zaplanować w bazie danych lub jako pola w taskach. To jest wersja robocza do potwierdzenia przez osoby realizujące proces.
+Obszar
+	Przykładowe pola
+	Źródło / sposób uzupełnienia
+	Lead / klient
+	nazwa firmy, osoba kontaktowa, e-mail, telefon, typ klienta, źródło leada, status
+	formularz / CRM / ręcznie
+	Discovery
+	data spotkania, uczestnicy, transkrypcja, cele klienta, wyzwania, typy uczestników, decyzje po rozmowie
+	transkrypcja + korekta handlowca
+	Kontekst biznesowy
+	branża, wielkość firmy, procesy komunikacyjne, kluczowe role, odbiorcy komunikacji, wpływ biznesowy
+	AI z transkrypcji + ręczne doprecyzowanie
+	Uczestnik
+	imię i nazwisko, stanowisko, poziom, sytuacje komunikacyjne, częstotliwość, samoocena, potrzeby managera
+	formularz / audyt / manager / metodyk
+	Audyt
+	poziom językowy, słownictwo, poprawność, płynność, komunikatywność, obserwacje audytora
+	metodyk ręcznie, ewentualnie draft AI
+	Rekomendacja
+	typ rekomendacji, uzasadnienie, priorytet, proponowana ścieżka, liczba godzin, wariant szkolenia
+	metodyk + Przemek / handlowiec
+	Oferta
+	szablon, liczba godzin, cena, wariant, sekcje do włączenia, case studies, opinie, status oferty
+	baza + korekta osoby odpowiedzialnej
+	5. 6. 5. Co jest automatyczne, a co wymaga decyzji człowieka
+Może być automatyczne
+	Powinno zostać ręczne / do decyzji
+	zapis danych z formularza do bazy
+	kwalifikacja wyjątkowych lub niejasnych leadów
+	utworzenie taska po spotkaniu
+	ocena, czy transkrypcja dobrze oddaje ustalenia
+	wyciągnięcie z transkrypcji celów i wyzwań
+	interpretacja priorytetów biznesowych klienta
+	wstępny draft notatki, raportu lub rekomendacji
+	finalna ocena metodyczna i językowa
+	uzupełnienie szablonu oferty danymi z bazy
+	dobór argumentacji, testimoniali i niestandardowych elementów oferty
+	odświeżenie oferty po zmianie danych
+	ostateczna akceptacja wersji dla klienta
+	7. 6. Najważniejsze rzeczy do doprecyzowania dla Rafała
+* Dokładne warianty flow: B2B przed discovery, B2B po discovery, kontynuacja B2B, B2C oraz oferty specjalne.
+* Lista osób, które mają dostawać taski, oraz zakres ich odpowiedzialności.
+* Które pola mają być obowiązkowe na każdym etapie, a które opcjonalne.
+* Które informacje mają trafiać do oferty, a które zostają tylko wewnętrznie w bazie.
+* Jakie statusy powinny istnieć dla tasków i dla całego procesu.
+* Jak zapisujemy finalną wersję oferty, żeby można było do niej wrócić po czasie.
+* Które elementy rekomendacji są oparte na kryteriach metodycznych, które trzeba spisać, bo obecnie funkcjonują głównie „w głowie”.
+CoAction — opis roboczy procesu do mapowania workflow
