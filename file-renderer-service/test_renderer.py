@@ -1,6 +1,6 @@
 """Offline unit tests for renderer.py — no NocoDB, no network.
 
-Run:  pytest offer-service/test_renderer.py -v
+Run:  pytest file-renderer-service/test_renderer.py -v
 """
 import io
 

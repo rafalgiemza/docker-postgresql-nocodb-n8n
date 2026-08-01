@@ -1,11 +1,11 @@
-# Generowanie ofert PPTX — offer-service + W9
+# Generowanie ofert PPTX/DOCX — file-renderer-service + W9
 
 Feature: przycisk "Generuj ofertę" na leadzie → n8n zbiera dane i szablon,
-woła mikroserwis, który tylko renderuje PPTX → n8n zapisuje wynik jako plik
+woła mikroserwis, który renderuje PPTX lub DOCX → n8n zapisuje wynik jako plik
 w rekordzie `offers`, podlinkowany do leada.
 
-Kluczowa własność (wymaganie CEO): **szablon to plik .pptx w NocoDB**. Ktoś
-zmienia układ slajdu w PowerPoincie, podmienia załącznik w tabeli
+Kluczowa własność: **szablony to pliki .pptx lub .docx w NocoDB**. Ktoś
+zmienia układ w PowerPoint/Word, podmienia załącznik w tabeli
 `offer_templates`, zaznacza `active` — i następne oferty używają nowego układu.
 Zero zmian w kodzie, zero deployu.
 
@@ -13,20 +13,22 @@ Zero zmian w kodzie, zero deployu.
 
 Renderowanie .pptx to manipulacja binarna (rozpakuj ZIP, edytuj XML, spakuj) —
 w Code node n8n byłoby to kruche i nietestowalne. Mikroserwis (FastAPI +
-python-pptx) w tym samym compose: n8n woła go po HTTP (`http://offer-service:8000`).
+python-pptx) w tym samym compose: n8n woła go po HTTP (`http://file-renderer-service:8000`).
 Rdzeń renderujący (`renderer.py`) jest czysty i przetestowany offline — bez
 tej separacji nie dałoby się go sensownie testować.
 
-**`offer-service` nie ma żadnej wiedzy o NocoDB** — zero zmiennych
+**`file-renderer-service` nie ma żadnej wiedzy o NocoDB** — zero zmiennych
 `NOCODB_*`, zero odczytów/zapisów do bazy. To **czysty renderer**: dostaje
 plik szablonu + dane, zwraca gotowy plik. Wszystko inne — skąd wziąć
 szablon, jak złożyć dane, gdzie zapisać wynik, kiedy stworzyć rekord
 `offers` — robi workflow `W9` w n8n. Model danych CRM może się zmieniać
 (nowe pole, nowa tabela ocen) bez dotykania tego serwisu w ogóle.
 
-## Kontrakt /render
+## Kontrakty endpointów
 
-`POST /render`, `multipart/form-data`:
+### POST /render (PPTX)
+
+`multipart/form-data`:
 - pole `template` — plik `.pptx` (n8n pobiera go z `offer_templates.file`)
 - pole `data` — JSON string, kontekst renderu (patrz "Kontrakt szablonu" niżej)
 
@@ -34,6 +36,19 @@ Odpowiedź: wygenerowany plik `.pptx` (binarnie, `Content-Type` PPTX).
 Ostrzeżenia z renderu (brakujące placeholdery, puste listy repeat) wracają
 w nagłówku `X-Warnings` jako JSON-owa tablica stringów — n8n czyta ten
 nagłówek i wrzuca go do `warnings` w rekordzie `offers`.
+
+### POST /render-docx (DOCX)
+
+`multipart/form-data`:
+- pole `template` — plik `.docx`
+- pole `data` — JSON string, kontekst renderu (same placeholdery, brak repeat)
+
+Odpowiedź: wygenerowany plik `.docx` (binarnie, `Content-Type` DOCX).
+Ostrzeżenia w nagłówku `X-Warnings`.
+
+**Różnice od PPTX:**
+- Brak obsługi `repeat:<name>` — renderuje tylko `{{placeholder}}` w paragrafach i tabelach
+- Działa w: paragrafach, tabelach, headerach, footerach
 
 Serwis nie wie nic o `lead_id`, `offers`, uploadzie do NocoDB ani o tym, co
 oznacza dowolne pole w `data` poza tym, że jakiś placeholder może je
@@ -87,15 +102,15 @@ nadaj styl całości.
 
 ## Deployment
 
-Serwis jest już wpięty w stack przez `fragments/offer-service.yml` (dołączony
+Serwis jest już wpięty w stack przez `fragments/file-renderer-service.yml` (dołączony
 w `docker-compose.yml` → `include:`) — jedyny customowy (`build:`) obraz w
 tym compose, reszta serwisów to gotowe obrazy. Zero zmiennych środowiskowych
 poza opcjonalnym `PORT`.
 
-1. `docker compose up -d --build offer-service` (pierwszy raz i po każdej
+1. `docker compose up -d --build file-renderer-service` (pierwszy raz i po każdej
    zmianie w `app.py`/`renderer.py`/`requirements.txt` — `make up` sam z
    siebie nie buduje obrazów).
-2. Sanity: `docker compose exec n8n wget -qO- http://offer-service:8000/health`
+2. Sanity: `docker compose exec n8n wget -qO- http://file-renderer-service:8000/health`
    → `{"ok": true}`.
 3. Zaimportuj `fable/W9_generate_offer.json` (13 node'ów): payload przycisku →
    `Assemble render data` (Edit Fields) → pobranie aktywnego szablonu +
@@ -128,13 +143,32 @@ i regenerację), `warnings` (LongText), `lead` (Links → leads).
 
 ## Ograniczenia (świadome)
 
+### PPTX i DOCX (wspólne)
 - Rendering podmienia tekst; NIE przelicza układu — jeśli
   `{{participant.needs_summary}}` jest bardzo długie, może wyjść poza pole
-  (jak w każdym szablonie). Projektuj slajdy z zapasem; ewentualnie skracaj
+  (jak w każdym szablonie). Projektuj szablony z zapasem; ewentualnie skracaj
   długie pola w danych.
+- Trzymaj cały `{{placeholder}}` w jednym stylu (nie pogrubiaj połowy).
+  Serwis radzi sobie z rozbiciem na runy, ale wtedy cały tekst akapitu
+  przyjmuje styl pierwszego fragmentu.
+
+### PPTX (specyficzne)
 - Repeat działa na całych slajdach, nie na wierszach tabeli. Gdyby kiedyś
   trzeba było "N uczestników w jednej tabeli na jednym slajdzie" — to osobne
   rozszerzenie (repeat na wierszu `<a:tr>`), do zrobienia gdy zajdzie potrzeba.
+- **Brak zagnieżdżonego repeat.** Slajdy są płaskie, więc lista schowana
+  WEWNĄTRZ elementu repeat nie może napędzić własnego powielania — np. moduły
+  zagnieżdżone pod uczestnikiem (`participant[].module[]`) nie zadziałają.
+  n8n musi je **spłaszczyć**: jeden wiersz `data.module[]` na parę
+  (uczestnik, moduł), z nazwą osoby przepisaną do elementu
+  (`module.participant_name`). Uwaga na pułapkę: na slajdzie `repeat:module`
+  `{{participant.full_name}}` celuje w globalną *listę* uczestników, nie
+  w osobę — stąd potrzeba spłaszczonego pola. Oba zachowania są zapięte
+  testami w `test_schema_v3_contract.py`.
+
+### DOCX (v1)
+- Brak obsługi repeat — renderuje tylko placeholdery. Repeat na demandę
+  (gdyby zespół potrzebował tabeli z wierszami generowanymi z listy w danych).
 - Serwis zakłada, że `data` przysłane przez n8n jest poprawne — literówka
   w nazwie pola w Edit Fields → pusty string + warning, nie błąd. Dlatego
   W9 wrzuca `warnings` do opisu taska review — przejrzyj je przy pierwszych
@@ -162,11 +196,11 @@ i regenerację), `warnings` (LongText), `lead` (Links → leads).
 
 ## Testy
 
-`pytest offer-service/ -v` — bez zależności od NocoDB, bez sieci:
-- `test_renderer.py` — repetycja slajdów per element (dowolna nazwa, nie
-  tylko "participant"/"testimonial"), split placeholdera między runy, pusta
-  lista / brak klucza → drop slajdu z ostrzeżeniem, brakująca/zagnieżdżona
-  wartość → pusty string + warning.
-- `test_app.py` — realne wywołanie endpointu `/render` (przez FastAPI
-  bezpośrednio + smoke test przez prawdziwy multipart request), sprawdza
-  wynikowy plik i nagłówek `X-Warnings`.
+`pytest file-renderer-service/ -v` — bez zależności od NocoDB, bez sieci:
+- `test_renderer.py` — PPTX: repetycja slajdów per element (dowolna nazwa), split
+  placeholdera między runy, pusta lista / brak klucza → drop slajdu z ostrzeżeniem,
+  brakująca/zagnieżdżona wartość → pusty string + warning.
+- `test_docx_renderer.py` — DOCX: placeholdery w paragrafach i tabelach, brakujące
+  wartości → pusty string + warning, obsługa float/int, headers/footers.
+- `test_app.py` — integracja: realne wywołanie endpointów `/render` i `/render-docx`
+  (przez FastAPI bezpośrednio), sprawdza wynikowe pliki i nagłówek `X-Warnings`.
