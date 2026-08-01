@@ -18,7 +18,6 @@ services:
       - LIBRECHAT_HOST=${LIBRECHAT_HOST}
       - STATUS_HOST=${STATUS_HOST}
       - BESZEL_HOST=${BESZEL_HOST}
-      - BUDIBASE_HOST=${BUDIBASE_HOST}
     networks:
       default:
         aliases:
@@ -34,7 +33,6 @@ services:
       - librechat
       - uptime-kuma
       - beszel
-      - budibase-proxy
     healthcheck:
       # Caddy's admin API listens on 127.0.0.1:2019 by default (not disabled
       # in Caddyfile). 127.0.0.1, not localhost: this image resolves

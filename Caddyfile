@@ -22,7 +22,3 @@
 	reverse_proxy beszel:8090
 }
 
-{$BUDIBASE_HOST} {
-	reverse_proxy budibase-proxy:10000
-}
-
