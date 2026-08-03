@@ -10,7 +10,8 @@ services:
     ports:
       - "127.0.0.1:8001:8000"
     environment:
-      NC_LOCAL_URL: http://nocodb:8081
+      # Wewnątrz Dockera NocoDB mówi na 8080 (8081 to mapowanie na localhost)
+      NC_LOCAL_URL: http://nocodb:8080
       NC_API_TOKEN: ${NC_API_TOKEN}
       NC_CRM_BASE_ID: ${NC_CRM_BASE_ID}
     volumes:
