@@ -166,6 +166,72 @@ def read_excel():
     return records
 
 
+def create_or_find_company(table_id, name, industry=None):
+    """Szuka lub tworzy firmę (B2B)."""
+    if not name or not name.strip():
+        return None
+
+    name = name.strip()
+    # Szukaj istniejącej
+    res = api("GET", f"/api/v2/tables/{table_id}/records",
+              params={"where": f"(name,like,%{name}%)"})
+    existing = res.get("list", [])
+    if existing:
+        return existing[0].get("Id")
+
+    # Utwórz nową
+    record = {"name": name}
+    if industry:
+        industry_map = {
+            "IT": "IT", "Logistyka": "logistyka", "Edukacja": "edukacja",
+            "Usługi finansowe": "finanse", "Medyczna": "medyczna",
+            "Produkcja": "produkcja", "Handel": "handel",
+        }
+        record["industry"] = map_value(industry, industry_map) or "inne"
+
+    res = api("POST", f"/api/v2/tables/{table_id}/records", json=record)
+    return res.get("Id") or (res[0].get("Id") if isinstance(res, list) else None)
+
+
+def create_lead(table_id, excel_data):
+    """Tworzy lead z danych Excela."""
+    lead_data = {
+        "contact_name": (excel_data.get("Nazwa klienta") or "").strip(),
+        "contact_email": (excel_data.get("E.mail") or "").strip() or None,
+        "contact_phone": (excel_data.get("Nr telefonu") or "").strip() or None,
+        "type": excel_data.get("B2B / B2C", "B2C"),
+        "source": map_value(excel_data.get("Źródło"), SOURCE_MAP),
+        "contact_channel": map_value(excel_data.get("Forma kontaktu"), CHANNEL_MAP),
+        "qualification": map_value(excel_data.get("Kwalifikacja lead'a"),
+                                   {"MQL": "MQL", "SQL": "SQL"}),
+        "stage": map_value(excel_data.get("Etap"), STAGE_MAP) or "new",
+        "state": map_value(excel_data.get("Stan"), STATE_MAP) or "open",
+        "value": excel_data.get("Szansa sprzedaży Wartość") or None,
+        "notes": (excel_data.get("Notatki") or "").strip() or None,
+        "legacy_id": str(excel_data.get("Spr. ID") or "").strip() or None,
+        "industry": map_value(excel_data.get("Branża"), {
+            "IT": "IT", "Logistyka": "logistyka", "Edukacja": "edukacja",
+            "Usługi finansowe": "finanse", "Medyczna": "medyczna",
+            "Produkcja": "produkcja", "Handel": "handel",
+        }) or "inne",
+    }
+    lead_data = {k: v for k, v in lead_data.items() if v is not None and v != ""}
+
+    res = api("POST", f"/api/v2/tables/{table_id}/records", json=lead_data)
+    return res.get("Id") or (res[0].get("Id") if isinstance(res, list) else None)
+
+
+def link_records(table_id, field_id, record_id, target_ids):
+    """Linkuje rekordy."""
+    if not target_ids or not record_id:
+        return
+    if not isinstance(target_ids, list):
+        target_ids = [target_ids]
+
+    api("POST", f"/api/v2/tables/{table_id}/links/{field_id}/records/{record_id}",
+        json=[{"Id": i} for i in target_ids if i])
+
+
 @app.get("/health")
 async def health():
     """Health check."""
@@ -202,7 +268,7 @@ async def preview(limit: int = Query(5, ge=1, le=100)):
 
 @app.post("/seed")
 async def seed(dry_run: bool = Query(True)):
-    """Uruchamia seeding."""
+    """Uruchamia seeding - czyta Excel i zasilaj NocoDB."""
     try:
         if not NC_TOKEN or not NC_BASE_ID:
             return JSONResponse(
@@ -225,11 +291,76 @@ async def seed(dry_run: bool = Query(True)):
 
         if dry_run:
             result["message"] = "DRY RUN - brak zmian w bazie"
-        else:
-            result["message"] = "Seeding w toku..."
-            # TODO: implementuj pełny seeding (jak w seed_nocodb_from_excel.py)
+            return result
 
+        # --- PEŁNY SEEDING ---
+        for idx, rec in enumerate(records, 1):
+            try:
+                contact_name = (rec.get("Nazwa klienta") or "").strip()
+                legacy_id = str(rec.get("Spr. ID") or "").strip()
+
+                # Sprawdź dedup
+                if legacy_id:
+                    existing = api("GET", f"/api/v2/tables/{tables.get('leads')}/records",
+                                 params={"where": f"(legacy_id,eq,{legacy_id})"})
+                    if existing.get("list"):
+                        result["skipped"] += 1
+                        continue
+
+                # Utwórz lead
+                lead_id = create_lead(tables["leads"], rec)
+                if not lead_id:
+                    result["errors"].append(f"Lead {contact_name}: nie utworzono")
+                    result["skipped"] += 1
+                    continue
+                result["created_leads"] += 1
+
+                # Dla B2B: utwórz/link firmę
+                if rec.get("B2B / B2C") == "B2B":
+                    org_name = rec.get("Organizacja")
+                    if org_name and org_name.strip():
+                        company_id = create_or_find_company(
+                            tables["companies"], org_name, rec.get("Branża"))
+                        if company_id:
+                            result["created_companies"] += 1
+                            # Linkuj lead -> company
+                            company_field_id = links.get("leads", {}).get("company")
+                            if company_field_id:
+                                link_records(tables["leads"], company_field_id,
+                                           lead_id, company_id)
+
+                # Utwórz participant
+                participant_data = {
+                    "full_name": contact_name,
+                    "email": (rec.get("E.mail") or "").strip() or None,
+                }
+                participant_data = {k: v for k, v in participant_data.items() if v}
+
+                p_res = api("POST", f"/api/v2/tables/{tables['participants']}/records",
+                           json=participant_data)
+                participant_id = p_res.get("Id") or (p_res[0].get("Id")
+                                                      if isinstance(p_res, list) else None)
+                if participant_id:
+                    result["created_participants"] += 1
+                    # Linkuj lead -> participant
+                    participant_field_id = links.get("leads", {}).get("participants")
+                    if participant_field_id:
+                        link_records(tables["leads"], participant_field_id,
+                                   lead_id, participant_id)
+
+                if idx % 100 == 0:
+                    print(f"  {idx}/{len(records)} ...")
+
+            except Exception as e:
+                result["errors"].append(f"{idx}. {str(e)[:100]}")
+                result["skipped"] += 1
+                continue
+
+        result["message"] = f"Seeding ukończony: {result['created_leads']} leads, " \
+                           f"{result['created_companies']} companies, " \
+                           f"{result['created_participants']} participants"
         return result
+
     except Exception as e:
         return JSONResponse(
             {"error": str(e), "type": type(e).__name__},
