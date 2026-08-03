@@ -1,0 +1,24 @@
+# Seeder: migracja danych z Excel → NocoDB CRM
+# FastAPI serwis do zasilania nowej bazy danymi z historycznego CRM.
+# Port 8001 (localhost tylko) — do testów / ręcznego uruchamiania.
+# Patrz seed-service/README.md.
+services:
+  seed-service:
+    build: ../seed-service
+    container_name: coaction-seed-service
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8001:8000"
+    environment:
+      NC_LOCAL_URL: http://nocodb:8081
+      NC_API_TOKEN: ${NC_API_TOKEN}
+      NC_CRM_BASE_ID: ${NC_CRM_BASE_ID}
+    volumes:
+      - ../old-crm-based-seed/seed-fake:/data:ro
+    depends_on:
+      - nocodb
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
