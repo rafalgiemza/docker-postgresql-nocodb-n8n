@@ -43,7 +43,8 @@ apt-get install -y -qq \
     tmux \
     vim \
     rsync \
-    zsh
+    zsh \
+    jq
 
 echo "==> Installing Docker Engine + Compose plugin"
 if ! command -v docker &>/dev/null; then

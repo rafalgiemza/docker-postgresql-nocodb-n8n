@@ -27,6 +27,17 @@ set -e
 # (zwykle pod /api/v2 lub linkowany z poziomu UI) i zweryfikuj/skoryguj
 # ścieżki + pola JSON poniżej.
 
+# jq jest twardą zależnością (15 wywołań niżej). Bez tego checku skrypt biegnie
+# dalej mimo "jq: command not found" i tworzy byty, których potem nie umie
+# odczytać — np. zakłada bazę, gubi jej id i przy ponownym uruchomieniu
+# zakłada drugą. Dodany do scripts/bootstrap-debian.sh, ale istniejące VPS-y
+# bootstrapowane wcześniej go nie mają.
+command -v jq >/dev/null 2>&1 || {
+  echo "❌ Brak 'jq' — ten skrypt bez niego nie zadziała (i po cichu narobi bałaganu)."
+  echo "   Debian/Ubuntu: apt-get update && apt-get install -y jq"
+  exit 1
+}
+
 : "${NC_API_TOKEN:?NC_API_TOKEN nie ustawiony w .env — wykonaj Krok 0 (docs/init-nocodb.md)}"
 : "${N8N_API_KEY:?N8N_API_KEY nie ustawiony w .env — wykonaj Krok 0 (docs/init-n8n.md)}"
 
