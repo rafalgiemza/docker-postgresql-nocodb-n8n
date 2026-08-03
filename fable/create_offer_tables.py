@@ -21,10 +21,26 @@ i pól wprost, w tym Links jako `{"type": "Links", "options":
 względem oficjalnego OpenAPI (github.com/nocodb/noco-apis-doc,
 meta-apis-v3/swagger-v3.json), 2026-07-28.
 
-UWAGA (jak scripts/crm-wire-init.sh dla v2): to trafia w API, które NIE było
-odpalone na żywo przeciw Twojej instancji (NOCODB_VERSION=latest — kontrakt
-bywa zmieniany między wersjami). Kolejność: --dry-run -> baza testowa/VPS-B ->
-dopiero produkcja.
+ZWERYFIKOWANE NA ŻYWO 2026-08-03 (NocoDB `latest`, VPS-B) — ustalenia, których
+NIE da się wyczytać z dokumentacji:
+
+  1. `POST /api/v3/meta/bases/{base}/tables` z `source_id` W CIELE żądania
+     zwraca 200, ale źródło jest IGNOROWANE — tabele lądują w wewnętrznej
+     bazie NocoDB (`nocodb`), w schemacie o nazwie <base_id>.
+  2. Ścieżkowy wariant v3 (`.../bases/{base}/{source}/tables`) → 404.
+  3. DZIAŁA: `POST /api/v2/meta/bases/{base}/{source}/tables` — źródło jako
+     segment ŚCIEŻKI, kontrakt v2 (`columns`/`uidt`, selecty w `dtxp`).
+  4. Źródła NIE da się rozpoznać po `type`/`is_meta` — baza metadanych NocoDB
+     sama stoi na Postgresie, więc jej wewnętrzne źródło też raportuje
+     `type: pg, is_meta: false`. Rozróżnia je `alias` (wewnętrzne ma null).
+
+WYMAGA RĘCZNEGO DOKOŃCZENIA: relacje `hm` powstają jako kolumny klucza obcego
+(stary typ pola link), a nie jako tabele łączące. W UI NocoDB pokazuje przy
+nich "Upgrade Link Field" — trzeba to kliknąć, bo webhooki NocoDB wystawiają
+pełne rekordy powiązane tylko przez `_nc_m2m_*` (od tego zależy W9, patrz
+`fable/W9_generate_offer.json`, node "Assemble render data"). Relacje `mm`
+dostają tabelę łączącą od razu. TODO: znaleźć parametr API wymuszający nowy
+typ od razu — inaczej ten sam klikany krok wraca przy każdym odtworzeniu.
 
 GDZIE LĄDUJĄ TABELE (najważniejsze): baza NocoDB ma domyślne źródło = własna
 baza metadanych NocoDB (`NC_DB`, czyli `nocodb`). `appdata` jest podpięta jako

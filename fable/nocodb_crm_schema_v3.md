@@ -360,6 +360,14 @@ niech mieszka na `assessments`:
 Relacje `leads`↔`offers`, `leads`↔`participants`, `leads`↔`testimonials`,
 `participants`↔`meetings` — już istnieją, bez zmian.
 
+> **Typ pola: `Links`, nie `LinkToAnotherRecord`.** To są w NocoDB dwie różne
+> rzeczy i widać to gołym okiem: `Links` pokazuje **licznik** powiązanych
+> wierszy, a starszy `LinkToAnotherRecord` wypisuje wartość wyświetlaną
+> każdego rekordu — przy leadzie z 20 taskami komórka robi się nieczytelna.
+> `fable/create_offer_tables.py` tworzy wszystkie relacje jako `Links`.
+> Dodając relację ręcznie w UI, wybierz ten sam typ, żeby schemat został
+> spójny.
+
 ---
 
 ## Kolejność wdrożenia w NocoDB
