@@ -30,6 +30,9 @@ Migracja 1600 rekordów z **Statusy_z_CRM_filled.xlsx** do nowej bazy NocoDB.
 ```bash
 cd old-crm-based-seed/seed-fake
 
+# Instalacja dependencies (tylko za pierwszym razem)
+pip install -r requirements.txt
+
 # Załaduj env (z poziomu seed-fake)
 set -a; source ../../.env; set +a
 
