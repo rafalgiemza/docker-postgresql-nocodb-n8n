@@ -1,50 +1,50 @@
 #!/usr/bin/env python3
 """Seed NocoDB CRM z Excel - FastAPI service.
 
-Migruje 1600 rekordów ze starego CRM do nowej bazy NocoDB.
+Migruje rekordy ze starego CRM (Excel) do NocoDB.
+Obsługuje: fixed file lub upload, fixed base_id lub query param.
 """
 import os
 import sys
+import tempfile
 from pathlib import Path
 from datetime import datetime
 
 import openpyxl
 import requests
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, UploadFile, File
 from fastapi.responses import JSONResponse
 
 app = FastAPI(title="NocoDB CRM Seed Service", version="1.0.0")
 
-# Config
-NC_URL = os.environ.get("NC_LOCAL_URL", "http://localhost:8081").rstrip("/")
-NC_TOKEN = os.environ.get("NC_API_TOKEN", "")
-NC_BASE_ID = os.environ.get("NC_CRM_BASE_ID", "")
-EXCEL_PATH = Path("/data/Statusy_z_CRM_filled.xlsx")
-
-# HTTP Session
-S = requests.Session()
-S.headers.update({"xc-token": NC_TOKEN, "Content-Type": "application/json"})
+# Config (ENV fallback)
+DEFAULT_NC_URL = os.environ.get("NC_LOCAL_URL", "http://localhost:8081").rstrip("/")
+DEFAULT_NC_TOKEN = os.environ.get("NC_API_TOKEN", "")
+DEFAULT_NC_BASE_ID = os.environ.get("NC_CRM_BASE_ID", "")
+DEFAULT_EXCEL_PATH = Path("/data/Statusy_z_CRM_filled.xlsx")
 
 
-def api(method, path, **kw):
-    """NocoDB API call."""
-    r = S.request(method, f"{NC_URL}{path}", timeout=30, **kw)
+def api(method, path, token, url, **kw):
+    """NocoDB API call - z parametrami token/url."""
+    s = requests.Session()
+    s.headers.update({"xc-token": token, "Content-Type": "application/json"})
+    r = s.request(method, f"{url}{path}", timeout=30, **kw)
     if not r.ok:
         raise RuntimeError(f"API error {r.status_code}: {r.text[:500]}")
     return r.json() if r.text else {}
 
 
-def resolve_meta():
+def resolve_meta(token, url, base_id):
     """Pobierz metadane tabel i pola relacji."""
     tables = {}
     links = {}
 
-    for t in api("GET", f"/api/v2/meta/bases/{NC_BASE_ID}/tables").get("list", []):
+    for t in api("GET", f"/api/v2/meta/bases/{base_id}/tables", token, url).get("list", []):
         title = t["title"].strip().lower()
         tables[title] = t["id"]
         links[title] = {}
 
-        for col in api("GET", f"/api/v2/meta/tables/{t['id']}").get("columns", []):
+        for col in api("GET", f"/api/v2/meta/tables/{t['id']}", token, url).get("columns", []):
             if col.get("uidt") in ("Links", "LinkToAnotherRecord"):
                 field_title = col["title"].strip().lower()
                 links[title][field_title] = col["id"]
@@ -237,8 +237,8 @@ async def health():
     """Health check."""
     return {
         "status": "ok",
-        "excel_exists": EXCEL_PATH.exists(),
-        "nc_configured": bool(NC_TOKEN and NC_BASE_ID),
+        "excel_exists": DEFAULT_EXCEL_PATH.exists(),
+        "nc_configured": bool(DEFAULT_NC_TOKEN and DEFAULT_NC_BASE_ID),
     }
 
 
@@ -270,14 +270,14 @@ async def preview(limit: int = Query(5, ge=1, le=100)):
 async def seed(dry_run: bool = Query(True)):
     """Uruchamia seeding - czyta Excel i zasilaj NocoDB."""
     try:
-        if not NC_TOKEN or not NC_BASE_ID:
+        if not DEFAULT_NC_TOKEN or not DEFAULT_NC_BASE_ID:
             return JSONResponse(
                 {"error": "NC_API_TOKEN lub NC_CRM_BASE_ID nie ustawiony"},
                 status_code=400
             )
 
         records = read_excel()
-        tables, links = resolve_meta() if not dry_run else ({}, {})
+        tables, links = resolve_meta(DEFAULT_NC_TOKEN, DEFAULT_NC_URL, DEFAULT_NC_BASE_ID) if not dry_run else ({}, {})
 
         result = {
             "dry_run": dry_run,
@@ -302,13 +302,38 @@ async def seed(dry_run: bool = Query(True)):
                 # Sprawdź dedup
                 if legacy_id:
                     existing = api("GET", f"/api/v2/tables/{tables.get('leads')}/records",
+                                 DEFAULT_NC_TOKEN, DEFAULT_NC_URL,
                                  params={"where": f"(legacy_id,eq,{legacy_id})"})
                     if existing.get("list"):
                         result["skipped"] += 1
                         continue
 
-                # Utwórz lead
-                lead_id = create_lead(tables["leads"], rec)
+                # Utwórz lead (inline, nie funkcja)
+                lead_data = {
+                    "contact_name": (rec.get("Nazwa klienta") or "").strip(),
+                    "contact_email": (rec.get("E.mail") or "").strip() or None,
+                    "contact_phone": (rec.get("Nr telefonu") or "").strip() or None,
+                    "type": rec.get("B2B / B2C", "B2C"),
+                    "source": map_value(rec.get("Źródło"), SOURCE_MAP),
+                    "contact_channel": map_value(rec.get("Forma kontaktu"), CHANNEL_MAP),
+                    "qualification": map_value(rec.get("Kwalifikacja lead'a"),
+                                               {"MQL": "MQL", "SQL": "SQL"}),
+                    "stage": map_value(rec.get("Etap"), STAGE_MAP) or "new",
+                    "state": map_value(rec.get("Stan"), STATE_MAP) or "open",
+                    "value": rec.get("Szansa sprzedaży Wartość") or None,
+                    "notes": (rec.get("Notatki") or "").strip() or None,
+                    "legacy_id": str(rec.get("Spr. ID") or "").strip() or None,
+                    "industry": map_value(rec.get("Branża"), {
+                        "IT": "IT", "Logistyka": "logistyka", "Edukacja": "edukacja",
+                        "Usługi finansowe": "finanse", "Medyczna": "medyczna",
+                        "Produkcja": "produkcja", "Handel": "handel",
+                    }) or "inne",
+                }
+                lead_data = {k: v for k, v in lead_data.items() if v is not None and v != ""}
+
+                res = api("POST", f"/api/v2/tables/{tables['leads']}/records",
+                         DEFAULT_NC_TOKEN, DEFAULT_NC_URL, json=lead_data)
+                lead_id = res.get("Id") or (res[0].get("Id") if isinstance(res, list) else None)
                 if not lead_id:
                     result["errors"].append(f"Lead {contact_name}: nie utworzono")
                     result["skipped"] += 1
@@ -319,15 +344,31 @@ async def seed(dry_run: bool = Query(True)):
                 if rec.get("B2B / B2C") == "B2B":
                     org_name = rec.get("Organizacja")
                     if org_name and org_name.strip():
-                        company_id = create_or_find_company(
-                            tables["companies"], org_name, rec.get("Branża"))
+                        res = api("GET", f"/api/v2/tables/{tables['companies']}/records",
+                                 DEFAULT_NC_TOKEN, DEFAULT_NC_URL,
+                                 params={"where": f"(name,like,%{org_name}%)"})
+                        existing = res.get("list", [])
+                        if existing:
+                            company_id = existing[0].get("Id")
+                        else:
+                            company_data = {"name": org_name.strip()}
+                            industry_map = {
+                                "IT": "IT", "Logistyka": "logistyka", "Edukacja": "edukacja",
+                                "Usługi finansowe": "finanse", "Medyczna": "medyczna",
+                                "Produkcja": "produkcja", "Handel": "handel",
+                            }
+                            company_data["industry"] = map_value(rec.get("Branża"), industry_map) or "inne"
+                            res = api("POST", f"/api/v2/tables/{tables['companies']}/records",
+                                     DEFAULT_NC_TOKEN, DEFAULT_NC_URL, json=company_data)
+                            company_id = res.get("Id") or (res[0].get("Id") if isinstance(res, list) else None)
+
                         if company_id:
                             result["created_companies"] += 1
-                            # Linkuj lead -> company
                             company_field_id = links.get("leads", {}).get("company")
                             if company_field_id:
-                                link_records(tables["leads"], company_field_id,
-                                           lead_id, company_id)
+                                api("POST", f"/api/v2/tables/{tables['leads']}/links/{company_field_id}/records/{lead_id}",
+                                   DEFAULT_NC_TOKEN, DEFAULT_NC_URL,
+                                   json=[{"Id": company_id}])
 
                 # Utwórz participant
                 participant_data = {
@@ -337,16 +378,16 @@ async def seed(dry_run: bool = Query(True)):
                 participant_data = {k: v for k, v in participant_data.items() if v}
 
                 p_res = api("POST", f"/api/v2/tables/{tables['participants']}/records",
-                           json=participant_data)
+                           DEFAULT_NC_TOKEN, DEFAULT_NC_URL, json=participant_data)
                 participant_id = p_res.get("Id") or (p_res[0].get("Id")
                                                       if isinstance(p_res, list) else None)
                 if participant_id:
                     result["created_participants"] += 1
-                    # Linkuj lead -> participant
                     participant_field_id = links.get("leads", {}).get("participants")
                     if participant_field_id:
-                        link_records(tables["leads"], participant_field_id,
-                                   lead_id, participant_id)
+                        api("POST", f"/api/v2/tables/{tables['leads']}/links/{participant_field_id}/records/{lead_id}",
+                           DEFAULT_NC_TOKEN, DEFAULT_NC_URL,
+                           json=[{"Id": participant_id}])
 
                 if idx % 100 == 0:
                     print(f"  {idx}/{len(records)} ...")
@@ -368,6 +409,193 @@ async def seed(dry_run: bool = Query(True)):
         )
 
 
+@app.post("/seed-upload")
+async def seed_upload(
+    file: UploadFile = File(...),
+    nc_url: str = Query(DEFAULT_NC_URL),
+    nc_token: str = Query(DEFAULT_NC_TOKEN),
+    nc_base_id: str = Query(DEFAULT_NC_BASE_ID),
+    dry_run: bool = Query(True),
+):
+    """Upload + Seeding - dla formularza n8n/klienta."""
+    try:
+        if not nc_token or not nc_base_id:
+            return JSONResponse(
+                {"error": "nc_token lub nc_base_id brak"},
+                status_code=400
+            )
+
+        # Zapisz uploaded file tymczasowo
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+            content = await file.read()
+            tmp.write(content)
+            tmp_path = tmp.name
+
+        try:
+            # Czytaj z temp pliku
+            wb = openpyxl.load_workbook(tmp_path)
+            ws = wb.active
+
+            records = []
+            for row in ws.iter_rows(min_row=2, values_only=False):
+                data = {}
+                for col_idx, field_key in EXCEL_COLS:
+                    if col_idx < len(row):
+                        data[field_key] = row[col_idx].value
+
+                if not data.get("Nazwa klienta"):
+                    continue
+
+                records.append(data)
+
+            result = {
+                "dry_run": dry_run,
+                "file_name": file.filename,
+                "total_records": len(records),
+                "created_leads": 0,
+                "created_companies": 0,
+                "created_participants": 0,
+                "skipped": 0,
+                "errors": [],
+            }
+
+            if dry_run:
+                result["message"] = "DRY RUN - brak zmian w bazie"
+                # Pokaż preview
+                result["preview"] = []
+                for rec in records[:5]:
+                    result["preview"].append({
+                        "nazwa": rec.get("Nazwa klienta"),
+                        "email": rec.get("E.mail"),
+                        "typ": rec.get("B2B / B2C"),
+                    })
+                return result
+
+            # --- PEŁNY SEEDING Z UPLOADEM ---
+            tables, links = resolve_meta(nc_token, nc_url, nc_base_id)
+
+            for idx, rec in enumerate(records, 1):
+                try:
+                    contact_name = (rec.get("Nazwa klienta") or "").strip()
+                    legacy_id = str(rec.get("Spr. ID") or "").strip()
+
+                    # Sprawdź dedup
+                    if legacy_id:
+                        existing = api("GET", f"/api/v2/tables/{tables.get('leads')}/records",
+                                     nc_token, nc_url,
+                                     params={"where": f"(legacy_id,eq,{legacy_id})"})
+                        if existing.get("list"):
+                            result["skipped"] += 1
+                            continue
+
+                    # Utwórz lead (bez api() - trzeba refaktorować)
+                    lead_data = {
+                        "contact_name": (rec.get("Nazwa klienta") or "").strip(),
+                        "contact_email": (rec.get("E.mail") or "").strip() or None,
+                        "contact_phone": (rec.get("Nr telefonu") or "").strip() or None,
+                        "type": rec.get("B2B / B2C", "B2C"),
+                        "source": map_value(rec.get("Źródło"), SOURCE_MAP),
+                        "contact_channel": map_value(rec.get("Forma kontaktu"), CHANNEL_MAP),
+                        "qualification": map_value(rec.get("Kwalifikacja lead'a"),
+                                                   {"MQL": "MQL", "SQL": "SQL"}),
+                        "stage": map_value(rec.get("Etap"), STAGE_MAP) or "new",
+                        "state": map_value(rec.get("Stan"), STATE_MAP) or "open",
+                        "value": rec.get("Szansa sprzedaży Wartość") or None,
+                        "notes": (rec.get("Notatki") or "").strip() or None,
+                        "legacy_id": str(rec.get("Spr. ID") or "").strip() or None,
+                        "industry": map_value(rec.get("Branża"), {
+                            "IT": "IT", "Logistyka": "logistyka", "Edukacja": "edukacja",
+                            "Usługi finansowe": "finanse", "Medyczna": "medyczna",
+                            "Produkcja": "produkcja", "Handel": "handel",
+                        }) or "inne",
+                    }
+                    lead_data = {k: v for k, v in lead_data.items() if v is not None and v != ""}
+
+                    res = api("POST", f"/api/v2/tables/{tables['leads']}/records",
+                             nc_token, nc_url, json=lead_data)
+                    lead_id = res.get("Id") or (res[0].get("Id") if isinstance(res, list) else None)
+
+                    if not lead_id:
+                        result["errors"].append(f"Lead {contact_name}: nie utworzono")
+                        result["skipped"] += 1
+                        continue
+
+                    result["created_leads"] += 1
+
+                    # Dla B2B: utwórz/link firmę
+                    if rec.get("B2B / B2C") == "B2B":
+                        org_name = rec.get("Organizacja")
+                        if org_name and org_name.strip():
+                            # Szukaj istniejącej firmy
+                            res = api("GET", f"/api/v2/tables/{tables['companies']}/records",
+                                     nc_token, nc_url,
+                                     params={"where": f"(name,like,%{org_name}%)"})
+                            existing = res.get("list", [])
+                            if existing:
+                                company_id = existing[0].get("Id")
+                            else:
+                                # Utwórz nową
+                                company_data = {"name": org_name.strip()}
+                                industry_map = {
+                                    "IT": "IT", "Logistyka": "logistyka", "Edukacja": "edukacja",
+                                    "Usługi finansowe": "finanse", "Medyczna": "medyczna",
+                                    "Produkcja": "produkcja", "Handel": "handel",
+                                }
+                                company_data["industry"] = map_value(rec.get("Branża"), industry_map) or "inne"
+
+                                res = api("POST", f"/api/v2/tables/{tables['companies']}/records",
+                                         nc_token, nc_url, json=company_data)
+                                company_id = res.get("Id") or (res[0].get("Id") if isinstance(res, list) else None)
+
+                            if company_id:
+                                result["created_companies"] += 1
+                                # Link
+                                company_field_id = links.get("leads", {}).get("company")
+                                if company_field_id:
+                                    api("POST", f"/api/v2/tables/{tables['leads']}/links/{company_field_id}/records/{lead_id}",
+                                       nc_token, nc_url,
+                                       json=[{"Id": company_id}])
+
+                    # Utwórz participant
+                    participant_data = {
+                        "full_name": contact_name,
+                        "email": (rec.get("E.mail") or "").strip() or None,
+                    }
+                    participant_data = {k: v for k, v in participant_data.items() if v}
+
+                    res = api("POST", f"/api/v2/tables/{tables['participants']}/records",
+                             nc_token, nc_url, json=participant_data)
+                    participant_id = res.get("Id") or (res[0].get("Id") if isinstance(res, list) else None)
+
+                    if participant_id:
+                        result["created_participants"] += 1
+                        # Link
+                        participant_field_id = links.get("leads", {}).get("participants")
+                        if participant_field_id:
+                            api("POST", f"/api/v2/tables/{tables['leads']}/links/{participant_field_id}/records/{lead_id}",
+                               nc_token, nc_url,
+                               json=[{"Id": participant_id}])
+
+                except Exception as e:
+                    result["errors"].append(f"{idx}. {str(e)[:100]}")
+                    result["skipped"] += 1
+
+            result["message"] = f"Seeding ukończony: {result['created_leads']} leads, " \
+                               f"{result['created_companies']} companies, " \
+                               f"{result['created_participants']} participants"
+            return result
+
+        finally:
+            # Cleanup
+            Path(tmp_path).unlink(missing_ok=True)
+
+    except Exception as e:
+        return JSONResponse(
+            {"error": str(e), "type": type(e).__name__},
+            status_code=500
+        )
+
+
 @app.get("/")
 async def root():
     """API info."""
@@ -375,9 +603,10 @@ async def root():
         "service": "NocoDB CRM Seed Service",
         "endpoints": {
             "GET /health": "Health check",
-            "GET /preview": "Podgląd danych z Excela",
-            "POST /seed?dry_run=true": "Uruchom seeding (preview)",
-            "POST /seed?dry_run=false": "Uruchom seeding (pełna migracja)",
+            "GET /preview": "Podgląd danych z Excela (fixed file)",
+            "POST /seed?dry_run=true": "Seeding fixed file (preview)",
+            "POST /seed?dry_run=false": "Seeding fixed file (pełna migracja)",
+            "POST /seed-upload": "Upload file + seeding (dla n8n formularza)",
         },
         "docs": "/docs",
     }
