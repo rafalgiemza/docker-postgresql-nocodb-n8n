@@ -60,6 +60,39 @@ Pełna migracja - tworzy leads, companies, participants w NocoDB.
 curl -X POST http://localhost:8001/seed?dry_run=false
 ```
 
+### `POST /seed-upload` ⭐ (dla n8n form)
+Upload file + seeding z dowolnym serwerem NocoDB.
+
+```bash
+curl -X POST \
+  -F "file=@Statusy_z_CRM_filled.xlsx" \
+  -F "nc_url=http://nocodb:8080" \
+  -F "nc_token=YOUR_TOKEN" \
+  -F "nc_base_id=YOUR_BASE_ID" \
+  "http://localhost:8001/seed-upload?dry_run=false"
+```
+
+**Query params:**
+- `nc_url` - URL NocoDB (default: env NC_LOCAL_URL)
+- `nc_token` - API token (default: env NC_API_TOKEN)
+- `nc_base_id` - Base ID (default: env NC_CRM_BASE_ID)
+- `dry_run` - true/false (default: true)
+
+**Response (success):**
+```json
+{
+  "dry_run": false,
+  "file_name": "data.xlsx",
+  "total_records": 1600,
+  "created_leads": 1600,
+  "created_companies": 600,
+  "created_participants": 1600,
+  "skipped": 0,
+  "errors": [],
+  "message": "Seeding ukończony..."
+}
+```
+
 ## Docker Compose
 
 Dodaj do `docker-compose.yml`:
@@ -136,6 +169,47 @@ Dostępne na: `http://localhost:8001/docs` (Swagger UI)
 | `NC_LOCAL_URL` | URL NocoDB | `http://localhost:8081` |
 | `NC_API_TOKEN` | Token API | - (wymagany) |
 | `NC_CRM_BASE_ID` | ID bazy CRM | - (wymagany) |
+
+## n8n Integration
+
+### Workflow: Upload + Seed
+
+1. **Form node** (HTTP Request / Form)
+   - File input (multipart)
+   - Text inputs: `nc_url`, `nc_token`, `nc_base_id`
+   - Button: "Seed CRM"
+
+2. **POST to /seed-upload**
+   ```
+   POST http://seed-service:8000/seed-upload
+   ?nc_url={{$node.Form.data.nc_url}}
+   &nc_token={{$node.Form.data.nc_token}}
+   &nc_base_id={{$node.Form.data.nc_base_id}}
+   &dry_run=false
+   
+   Body: file={{$node.Form.data.file}}
+   ```
+
+3. **Response node** (show results)
+   - `created_leads`, `created_companies`, `created_participants`
+   -Errors (jeśli są)
+
+### Klient Flow
+
+```
+[Form Upload] → [HTTP POST /seed-upload] → [Show Results]
+     ↓
+  File + params
+     ↓
+  Seed-service
+     ↓
+  NocoDB (klientowska baza)
+```
+
+Klient może:
+- Uploadować Excel z tym samym schema
+- Podać swój NocoDB server + token + base_id
+- Seed-service zarobi całą robotę (dry-run / full)
 
 ## Data Volume
 
