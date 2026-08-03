@@ -35,7 +35,7 @@ pull: ## Pull the latest images for all services
 	$(DC_CMD) pull
 
 ps: ## Show container status
-	$(DC_CMD) ps
+	$(DC_CMD) ps --format "table {{.ID}}\t{{.Name}}\t{{.Status}}"
 
 versions: ## Print actual running versions of all services (not just .env tags)
 	./scripts/versions.sh
