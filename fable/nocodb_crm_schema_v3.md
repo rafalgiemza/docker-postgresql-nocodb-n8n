@@ -370,26 +370,66 @@ Relacje `leads`↔`offers`, `leads`↔`participants`, `leads`↔`testimonials`,
 
 ---
 
-## Kolejność wdrożenia w NocoDB
+## Wdrożenie na pustej bazie — procedura zweryfikowana
 
-Rób w tej kolejności — późniejsze kroki zależą od wcześniejszych:
+Przeszła na żywo na VPS-B 2026-08-03. Efekt: 36 tabel w `appdata`, schemat
+`crm` (16 modelowych + 20 łączących). Ta droga zastępuje wcześniejszy plan
+"klikaj po kolei w Creator UI" — jest szybsza i powtarzalna.
 
-1. **Zrzuć aktualny schemat** (`make dump-appdata-schema`) — obecny
-   `appdata/appdata_schema.sql` jest nieaktualny (brakuje `Assesments.needs_summary`,
-   `Leads.training_hours`, `Testimonials.position`).
-2. Przemianuj `Assesments` → `assessments`, usuń `Level`, dodaj brakujące pola (§4).
-3. Utwórz `training_modules` (§7) — niezależna, nic od niej nie zależy.
-4. Utwórz `recommendations` (§5) + relację do `participants`.
-5. Utwórz `recommendation_items` (§6) + relacje do `recommendations` i `training_modules`.
-6. Utwórz `pricing` (§11).
-7. Dodaj pola strukturalne na `meetings` (§2), przemianuj `ai_analysis` i `processing_status`.
-8. Dodaj pola na `participants` (§3), potem **dopiero** usuń `cefr_*` — najpierw
-   sprawdź, czy nic ich nie czyta (W9 już nie czyta).
-9. Dodaj pola na `offers` (§8), przenieś przycisk z `leads`.
-10. Drobiazgi: `testimonials.position`, `companies.*`, `leads.industry`.
+1. **Backup**, jeśli w bazie cokolwiek jest: `make backup`.
+2. **Wyczyść schemat** (tylko przy przebudowie; na czystej produkcji pomiń):
+   ```sql
+   DROP SCHEMA IF EXISTS crm CASCADE;
+   CREATE SCHEMA crm AUTHORIZATION postgres;
+   GRANT CREATE, USAGE ON SCHEMA crm TO nocodb_crm_user;
+   GRANT USAGE ON SCHEMA crm TO n8n_crm_user;
+   ALTER DEFAULT PRIVILEGES FOR ROLE nocodb_crm_user IN SCHEMA crm
+     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO n8n_crm_user;
+   ALTER DEFAULT PRIVILEGES FOR ROLE nocodb_crm_user IN SCHEMA crm
+     GRANT USAGE, SELECT ON SEQUENCES TO n8n_crm_user;
+   ```
+   **Nie używaj `make migrate`** — odtworzyłby `appdata_schema.sql`, czyli dump
+   starego modelu v2.
+3. **Baza + źródło w NocoDB UI.** Base → Data Sources → New:
+   `Host=postgres`, `Port=5432`, **`Database=appdata`**, **`Schema=crm`**,
+   user/hasło z `NOCODB_CRM_USER`/`NOCODB_CRM_PASSWORD`. Nadaj źródłu **nazwę** —
+   po niej skrypt je rozpoznaje.
+   > `crm` idzie w pole **Schema**, nie Database. Wpisanie `crm` jako Database
+   > kończy się próbą `CREATE DATABASE` i błędem uprawnień (rola celowo nie ma
+   > `CREATEDB`).
+   >
+   > Tworzenie bazy przez API (`make wire-apps`) bywa niewidoczne w UI —
+   > ten krok rób ręcznie.
+4. **ID do `.env`:** `NC_CRM_BASE_ID` i `NC_CRM_SOURCE_ID` (źródło z niepustym
+   `alias`; to z `alias: null` jest wewnętrzne).
+5. **Bootstrap:** `python3 fable/create_offer_tables.py --dry-run`, potem bez flagi.
+6. **Weryfikacja w Postgresie, nie w UI** — w UI tabele wyglądają tak samo
+   niezależnie od tego, w której bazie fizycznie siedzą:
+   ```
+   docker exec docker-postgres-1 psql -U postgres -d appdata -c "\dt crm.*"
+   ```
+   Po kroku 5 oczekuj 19 tabel (16 + 3 łączące dla relacji `mm`).
+7. **Upgrade relacji w UI** — 17 relacji `hm` powstaje jako kolumny klucza
+   obcego; NocoDB pokazuje przy nich „Upgrade Link Field". Kliknij wszystkie.
+   Po tym `\dt crm.*` daje 36 tabel.
+   > To nie jest kosmetyka: webhooki NocoDB wystawiają pełne rekordy powiązane
+   > wyłącznie przez `_nc_m2m_*`, a od tego zależy W9 (node „Assemble render
+   > data" czyta `_nc_m2m_Leads_Participants[].Participants`). Krytyczne
+   > minimum to `leads.participants`.
+8. **Pola Button** (`offers` „generuj ofertę", `meetings` „generuj analizę",
+   `assessments` „generuj needs summary") — dopiero po imporcie workflowów,
+   bo potrzebują ID istniejącego webhooka.
+9. **Widoki** (Kanban po `leads.stage`, Calendar po `tasks.due_date`, „moje
+   taski" per osoba) — patrz `nocodb_crm_schema_v2.md`, sekcja Widoki.
 
-**Po każdym kroku dotykającym pól używanych przez workflowy** — przebieg
-Test Runnera na VPS-B przed powtórzeniem na produkcji.
+**Uwaga o workflowach:** odtworzenie bazy zmienia wszystkie ID tabel i pól —
+W1–W6b i W9 wymagają podmiany (`fable/README.md` §1). Przy przejściu na v3 i tak
+wymagają przeróbki pod nowe pola, więc to nie jest strata dodatkowa.
+
+**Drobiazg:** dwie tabele łączące mają nazwy ucięte do limitu identyfikatora
+Postgresa (`_nc_m2m_recommendations_recommendation_`,
+`_nc_m2m_training_module_recommendation_`). Działa, ale przy dodawaniu kolejnych
+relacji o długich nazwach warto sprawdzić, czy nie kolidują.
 
 ---
 
