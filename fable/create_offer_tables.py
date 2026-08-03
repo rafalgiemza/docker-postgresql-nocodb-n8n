@@ -112,17 +112,28 @@ def resolve_source():
                        raise_on_error=True).get("list", [])
         except RuntimeError:
             continue
-        external = [s for s in rows
-                    if not s.get("is_meta") and s.get("type") not in (None, "nocodb")]
+        # Rozroznik: ZEWNETRZNE zrodlo ma nazwe (alias), domyslne/wewnetrzne ma
+        # alias=null. NIE filtruj po `type`/`is_meta` - baza metadanych NocoDB
+        # sama stoi na Postgresie, wiec jej wewnetrzne zrodlo tez raportuje
+        # `type: pg, is_meta: false` i jest nieodroznialne od appdata.
+        # (Zweryfikowane na zywo 2026-08-03: tabele utworzone przez takie
+        # "wykryte" zrodlo wyladowaly w bazie `nocodb`, schemat <base_id>.)
+        external = [s for s in rows if (s.get("alias") or "").strip()]
         if len(external) == 1:
             s = external[0]
             print(f"źródło: {s['id']} (alias={s.get('alias')!r}, type={s.get('type')})")
             return s["id"]
         if not external:
-            sys.exit(f"Baza {BASE_ID} nie ma zewnętrznego źródła - tabele "
-                     f"trafiłyby do wewnętrznej bazy NocoDB zamiast do appdata. "
-                     f"Najpierw podepnij appdata/crm: `make wire-apps` "
-                     f"(scripts/crm-wire-init.sh).")
+            sys.exit(
+                f"Baza {BASE_ID} nie ma zewnętrznego źródła (żadne nie ma "
+                f"aliasu) - tabele trafiłyby do wewnętrznej bazy NocoDB, "
+                f"do schematu o nazwie <base_id>, a NIE do appdata.\n"
+                f"Podepnij appdata w NocoDB UI: Base → Data Sources → New:\n"
+                f"  Host=postgres  Port=5432  Database=appdata  Schema=crm\n"
+                f"  User/Password = NOCODB_CRM_USER / NOCODB_CRM_PASSWORD\n"
+                f"Database MUSI byc `appdata`, a `crm` idzie w pole Schema - "
+                f"wpisanie `crm` jako Database konczy sie proba CREATE DATABASE "
+                f"i bledem uprawnien.")
         sys.exit(f"Baza {BASE_ID} ma {len(external)} zewnętrznych źródeł "
                  f"({[s.get('alias') for s in external]}) - wskaż jednoznacznie "
                  f"przez NC_CRM_SOURCE_ID.")
@@ -514,15 +525,44 @@ RELATIONS = [
 ]
 
 
+# --------------------------------------------------------- v3 -> v2 translacja
+# Definicje TABLES wyzej sa pisane w czytelnym stylu v3 (type/options), bo
+# stanowia dokumentacje modelu. API v2 chce czego innego - stad ta warstwa.
+_UIDT = {"SingleLineText", "LongText", "Email", "PhoneNumber", "URL", "Number",
+         "Date", "DateTime", "Checkbox", "SingleSelect", "MultiSelect",
+         "Currency", "User", "Attachment"}
+
+
+def to_v2_column(f):
+    """Pole w stylu v3 -> kolumna w kontrakcie v2."""
+    t = f["type"]
+    assert t in _UIDT, f"nieznany typ pola: {t}"
+    col = {"title": f["title"], "column_name": f["title"], "uidt": t}
+    opts = f.get("options") or {}
+    if t in ("SingleSelect", "MultiSelect"):
+        # v2 trzyma opcje jako 'a','b','c' w jednym polu dtxp, nie jako liste
+        col["dtxp"] = ",".join("'%s'" % c["title"] for c in opts["choices"])
+    elif t == "Currency":
+        col["meta"] = {"currency_locale": opts.get("locale", "en-US"),
+                       "currency_code": opts.get("code", "USD")}
+    elif t == "Checkbox" and f.get("default_value"):
+        col["cdf"] = "true"
+    return col
+
+
+def to_v2_table(t):
+    return {"title": t["title"], "table_name": t["title"],
+            "columns": [to_v2_column(f) for f in t["fields"]]}
+
+
 def existing_tables():
     return {t["title"].strip().lower(): t["id"]
-            for t in api("GET", f"/api/v3/meta/bases/{BASE_ID}/tables").get("list", [])}
+            for t in api("GET", f"/api/v2/meta/bases/{BASE_ID}/tables").get("list", [])}
 
 
 def existing_fields(table_id):
-    return {f["title"].strip().lower()
-            for f in api("GET", f"/api/v3/meta/bases/{BASE_ID}/tables/{table_id}")
-                        .get("fields", [])}
+    return {c["title"].strip().lower()
+            for c in api("GET", f"/api/v2/meta/tables/{table_id}").get("columns", [])}
 
 
 def create_tables(dry_run, source_id):
@@ -547,10 +587,11 @@ def create_tables(dry_run, source_id):
         if dry_run:
             ids[key] = f"<{t['title']}>"
             continue
-        # source_id kieruje tabele do appdata/crm zamiast do wewnetrznej
-        # bazy NocoDB - patrz resolve_source().
-        ids[key] = api("POST", f"/api/v3/meta/bases/{BASE_ID}/tables",
-                       json={**t, "source_id": source_id})["id"]
+        # Zrodlo jako segment SCIEZKI - jedyna forma, ktora dziala.
+        # Zweryfikowane na zywo 2026-08-03: `source_id` w ciele zadania (v3)
+        # jest po cichu IGNOROWANE i tabele ladowaly w bazie `nocodb`.
+        ids[key] = api("POST", f"/api/v2/meta/bases/{BASE_ID}/{source_id}/tables",
+                       json=to_v2_table(t))["id"]
     return ids
 
 
@@ -567,10 +608,15 @@ def create_relations(ids, dry_run):
         print(f"+  {owner}.{field_title} --{rel_type}--> {target}")
         if dry_run:
             continue
-        api("POST", f"/api/v3/meta/bases/{BASE_ID}/tables/{owner_id}/fields", json={
+        # v2: kolumna Links tworzona na tabeli-wlascicielu; relacja opisana
+        # przez parentId/childId/type, nie przez options.related_table_id.
+        api("POST", f"/api/v2/meta/tables/{owner_id}/columns", json={
+            "uidt": "Links",
             "title": field_title,
-            "type": "Links",
-            "options": {"relation_type": rel_type, "related_table_id": target_id},
+            "column_name": field_title,
+            "type": rel_type,
+            "parentId": owner_id,
+            "childId": target_id,
         })
 
 
