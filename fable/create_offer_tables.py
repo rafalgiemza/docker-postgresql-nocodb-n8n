@@ -11,15 +11,21 @@ Trzy poziomy merytoryczne, patrz v3 "Architektura tabel":
     recommendation = CO PROPONUJEMY (ścieżka)       per uczestnik
     offer          = ZA ILE         (cena, plik)    per lead
 
-Why v3, not v2 API (jak seed_nocodb.py/nocodb.py dla rekordów): tworzenie
-*tabeli* i kolumny *Links* nie jest udokumentowane dla v2 — kształt payloadu
-(fk_related_model_id/fk_child_column_id/...) był odtwarzany z ruchu sieciowego,
-a maintainerzy NocoDB odsyłają do devtools zamiast do stabilnego kontraktu
-(github.com/nocodb/nocodb/discussions/3610). v3 dokumentuje tworzenie tabel
-i pól wprost, w tym Links jako `{"type": "Links", "options":
-{"relation_type": "hm"|"mm"|"oo", "related_table_id": "..."}}` — zweryfikowane
-względem oficjalnego OpenAPI (github.com/nocodb/noco-apis-doc,
-meta-apis-v3/swagger-v3.json), 2026-07-28.
+DLACZEGO v2, SKORO v3 JEST NOWSZE (i v2 kiedyś zniknie):
+v3 **nie potrafi** utworzyć tabeli w zewnętrznym źródle danych. Sprawdzone
+2026-08-03 w oficjalnym OpenAPI (github.com/nocodb/noco-apis-doc,
+meta-apis-v3/swagger-v3.json): `POST /api/v3/meta/bases/{base_id}/tables`
+nie przyjmuje id źródła ani w ścieżce, ani w body — `source_id` jest tylko
+w ODPOWIEDZI, nadawane automatycznie. Nie ma też endpointu listującego
+źródła (tylko `sources` w `GET /bases/{id}`). Skutek praktyczny: v3 zawsze
+tworzy w źródle domyślnym, czyli w wewnętrznej bazie NocoDB — a nasze tabele
+mają żyć w `appdata` (źródło prawdy, objęte `make backup`).
+
+v2 ma źródło jako segment ścieżki i to działa (zweryfikowane na żywo, niżej).
+KIEDY WRÓCIĆ DO v3: gdy w spec pojawi się sposób wskazania źródła przy
+tworzeniu tabeli. Do tego czasu v2 jest jedyną opcją, niezależnie od jego
+statusu. Kontekst: nieudokumentowany kontrakt kolumn Links w v2 był powodem,
+dla którego pierwotnie celowaliśmy w v3 (nocodb/nocodb#3610).
 
 ZWERYFIKOWANE NA ŻYWO 2026-08-03 (NocoDB `latest`, VPS-B) — ustalenia, których
 NIE da się wyczytać z dokumentacji:
