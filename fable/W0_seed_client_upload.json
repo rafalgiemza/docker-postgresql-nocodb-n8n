@@ -1,25 +1,11 @@
 {
-  "name": "W0 - Client seed upload (form)",
-  "description": "Forma: klient uploaduje Excel, podaje NocoDB server/token/base - seed-service zarobi całą robotę",
+  "name": "W0 - Seed CRM via upload form",
+  "description": "Forma dla klienta: uploaduj Excel + podaj NocoDB server → seed-service zasilaj bazę",
   "nodes": [
     {
       "parameters": {
-        "path": "w0-seed-form",
-        "options": {}
-      },
-      "id": "form_trigger",
-      "name": "Form: Upload + Config",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "position": [0, 0],
-      "webhookId": "wh-w0-seed-form"
-    },
-    {
-      "parameters": {
         "method": "POST",
-        "url": "http://seed-service:8000/seed-upload",
-        "authentication": "generic",
-        "genericAuthType": "httpBasicAuth",
+        "url": "=http://seed-service:8000/seed-upload?nc_url={{ encodeURIComponent($json.body.nc_url) }}&nc_token={{ encodeURIComponent($json.body.nc_token) }}&nc_base_id={{ encodeURIComponent($json.body.nc_base_id) }}&dry_run={{ $json.body.dry_run === 'true' }}",
         "sendBody": true,
         "contentType": "multipart-form-data",
         "bodyParameters": {
@@ -31,34 +17,16 @@
             }
           ]
         },
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "nc_url",
-              "value": "={{ $json.body.nc_url }}"
-            },
-            {
-              "name": "nc_token",
-              "value": "={{ $json.body.nc_token }}"
-            },
-            {
-              "name": "nc_base_id",
-              "value": "={{ $json.body.nc_base_id }}"
-            },
-            {
-              "name": "dry_run",
-              "value": "={{ $json.body.dry_run ?? 'true' }}"
-            }
-          ]
-        },
         "options": {}
       },
-      "id": "call_seed_service",
+      "id": "0a5a6cde-908e-470d-8e3d-c41d31f0a8c6",
       "name": "Call seed-service /seed-upload",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [220, 0],
+      "position": [
+        1792,
+        336
+      ],
       "onError": "continueErrorOutput"
     },
     {
@@ -66,24 +34,106 @@
         "assignments": {
           "assignments": [
             {
-              "id": "summary",
-              "name": "summary",
+              "id": "result",
+              "name": "result",
               "type": "object",
-              "value": "={{ { file: $json.body.file?.name ?? '?', dry_run: $json.body.dry_run, total_records: $json.json?.total_records, created_leads: $json.json?.created_leads, created_companies: $json.json?.created_companies, created_participants: $json.json?.created_participants, errors: $json.json?.errors?.length ?? 0, message: $json.json?.message } }}"
+              "value": "={{ (() => { const resp = $json.json ?? {}; return { success: !resp.error, file_name: $json.body.file?.name ?? '?', dry_run: $json.body.dry_run === 'true', status: resp.error ? '❌ ERROR' : resp.message ?? '✓ Done', total_records: resp.total_records ?? 0, created_leads: resp.created_leads ?? 0, created_companies: resp.created_companies ?? 0, created_participants: resp.created_participants ?? 0, skipped: resp.skipped ?? 0, errors_count: (resp.errors ?? []).length, first_errors: (resp.errors ?? []).slice(0, 3), }; })() }}"
             }
           ]
         },
         "options": {}
       },
-      "id": "format_response",
+      "id": "8137d8ab-523b-4e00-a34c-e2e344b9ec2e",
       "name": "Format response",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [440, 0]
+      "position": [
+        2016,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "formTitle": "Seed NocoDB CRM z Excela",
+        "formDescription": "Uploaduj Excel i podaj dane do swojej bazy NocoDB",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Excel file (Statusy_z_CRM_filled.xlsx)",
+              "fieldType": "file",
+              "fieldRequired": true
+            },
+            {
+              "fieldLabel": "NocoDB URL",
+              "fieldType": "text",
+              "fieldRequired": true,
+              "fieldDescription": "np. https://back-office.example.com",
+              "fieldPlaceholder": "https://nocodb.example.com"
+            },
+            {
+              "fieldLabel": "NocoDB API Token",
+              "fieldType": "text",
+              "fieldRequired": true,
+              "fieldDescription": "Z Account Settings → Tokens",
+              "fieldPlaceholder": "nc_pat_..."
+            },
+            {
+              "fieldLabel": "Base ID",
+              "fieldType": "text",
+              "fieldRequired": true,
+              "fieldDescription": "Z URL bazy: .../#/ws.../p<BASE_ID>/...",
+              "fieldPlaceholder": "p0faehtfzhvzfh2"
+            },
+            {
+              "fieldLabel": "Dry-run (preview bez zmian)?",
+              "fieldType": "select",
+              "fieldRequired": false,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "name": "Dry-run (preview)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "Full seed (tworzy dane!)",
+                    "value": "false"
+                  }
+                ]
+              },
+              "fieldDefault": "true"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        1568,
+        336
+      ],
+      "id": "1390121c-2cf2-4a05-a3af-41ac57b2ed6d",
+      "name": "On form submission",
+      "webhookId": "3ce421d3-0af6-43c4-aa04-0e985c9ccf55"
+    },
+    {
+      "parameters": {
+        "respondWithOptions": {
+          "respond": "usingResponseNode"
+        }
+      },
+      "id": "response_node",
+      "name": "HTTP Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 3.2,
+      "position": [
+        2240,
+        336
+      ]
     }
   ],
   "connections": {
-    "Form: Upload + Config": {
+    "On form submission": {
       "main": [
         [
           {
@@ -104,10 +154,26 @@
           }
         ]
       ]
+    },
+    "Format response": {
+      "main": [
+        [
+          {
+            "node": "HTTP Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
+  "pinData": {},
   "settings": {
     "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1443a7a60bef01212a78b66184585703b5548cecbd2b0eb76384f07b7e397f1f"
   },
   "active": false
 }
