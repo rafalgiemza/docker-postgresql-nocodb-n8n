@@ -1,11 +1,13 @@
 {
   "name": "W0 - Seed CRM via upload form",
-  "description": "Forma dla klienta: uploaduj Excel + podaj NocoDB server → seed-service zasilaj bazę",
+  "description": "Forma dla klienta: uploaduj Excel + nc_url/base_id (token z n8n credentials) → seed-service zasilaj bazę. Setup: dodaj NocoDB credential!",
   "nodes": [
     {
       "parameters": {
         "method": "POST",
-        "url": "=http://seed-service:8000/seed-upload?nc_url={{ encodeURIComponent($json.body.nc_url) }}&nc_token={{ encodeURIComponent($json.body.nc_token) }}&nc_base_id={{ encodeURIComponent($json.body.nc_base_id) }}&dry_run={{ $json.body.dry_run === 'true' }}",
+        "url": "=http://seed-service:8000/seed-upload?nc_url={{ encodeURIComponent($json.body.nc_url) }}&nc_token={{ encodeURIComponent($credentials.nocoDbApiToken.apiToken ?? '') }}&nc_base_id={{ encodeURIComponent($json.body.nc_base_id) }}&dry_run={{ $json.body.dry_run === 'true' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
         "sendBody": true,
         "contentType": "multipart-form-data",
         "bodyParameters": {
@@ -27,6 +29,12 @@
         1792,
         336
       ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "NocoDB Credentials"
+        }
+      },
       "onError": "continueErrorOutput"
     },
     {
@@ -69,13 +77,6 @@
               "fieldRequired": true,
               "fieldDescription": "np. https://back-office.example.com",
               "fieldPlaceholder": "https://nocodb.example.com"
-            },
-            {
-              "fieldLabel": "NocoDB API Token",
-              "fieldType": "text",
-              "fieldRequired": true,
-              "fieldDescription": "Z Account Settings → Tokens",
-              "fieldPlaceholder": "nc_pat_..."
             },
             {
               "fieldLabel": "Base ID",
