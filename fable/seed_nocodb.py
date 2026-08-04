@@ -22,7 +22,7 @@ import requests
 CONFIG = {
     "url": "https://back-office-coaction-test.giemza.dev",      # no trailing slash
     "token": "nc_pat_GhrICdSDdIorjyw3EKiEu0fNXenf3BtUOQmqDCC2",
-    "base_id": "p5a5pocv2qgyeye",             # p... id, visible in the base URL
+    "base_id": "p0faehtfzhvzfh2",             # p... id, visible in the base URL
     "emails": {
         "przemek": "rafalgiemza@gmail.com",
         "dorota": "rafalgiemza@gmail.com",
@@ -114,7 +114,7 @@ c_techflow = create("companies", {
     "notes": "Software house, ~120 devs. Async-first communication, English used with US clients."})
 c_baltic = create("companies", {
     "name": "Baltic Logistics S.A.", "domains": "balticlogistics.pl",
-    "industry": "Logistyka", "size": "250+",
+    "industry": "logistyka", "size": "250+",
     "notes": "Freight forwarding. Formal tone, decisions go through the board."})
 
 # ----------------------------------------------------------------- testimonials
@@ -129,7 +129,7 @@ t_b2c = create("testimonials", {
     "content": "After a year I finally lead client calls without stress. The audit nailed my real gaps."})
 t_log = create("testimonials", {
     "title": "Case study: dział operacji w logistyce", "client_name": "Firma TSL",
-    "industry": "Logistyka", "type": "case_study", "variant": "english_business_skills", "active": True,
+    "industry": "logistyka", "type": "case_study", "variant": "english_business_skills", "active": True,
     "content": "18 participants across 3 groups, focus on negotiations and email correspondence."})
 
 # ----------------------------------------------------------------- LEAD 1: B2C, full pipeline done (the 'Piotr' scenario)
