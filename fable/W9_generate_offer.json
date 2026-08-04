@@ -154,7 +154,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://file-renderer-service:8000/render",
+        "url": "http://offer-service:8000/render",
         "sendBody": true,
         "contentType": "multipart-form-data",
         "bodyParameters": {
@@ -182,7 +182,7 @@
         }
       },
       "id": "6cb248cb-b29f-453f-811b-9deba28c7dc4",
-      "name": "Call file-renderer-service",
+      "name": "Call offer-service",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -269,7 +269,7 @@
             },
             {
               "fieldName": "payload",
-              "fieldValue": "={{ JSON.stringify($('Call file-renderer-service').first().json).slice(0,800) }}"
+              "fieldValue": "={{ JSON.stringify($('Call offer-service').first().json).slice(0,800) }}"
             }
           ]
         }
@@ -337,7 +337,7 @@
         "nodeCredentialType": "nocoDbApiToken",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ title: 'Oferta — ' + ($('Assemble render data').first().json.data.lead.contact_name ?? $('Assemble render data').first().json.lead_id), status: 'draft', price: $('Assemble render data').first().json.data.lead.value, template_name: $('Fetch active template').first().json.name, file: $json.body, data_json: JSON.stringify($('Assemble render data').first().json.data), warnings: ($('Call file-renderer-service').first().json.headers['x-warnings'] ?? '[]') }) }}",
+        "jsonBody": "={{ JSON.stringify({ title: 'Oferta — ' + ($('Assemble render data').first().json.data.lead.contact_name ?? $('Assemble render data').first().json.lead_id), status: 'draft', price: $('Assemble render data').first().json.data.lead.value, template_name: $('Fetch active template').first().json.name, file: $json.body, data_json: JSON.stringify($('Assemble render data').first().json.data), warnings: ($('Call offer-service').first().json.headers['x-warnings'] ?? '[]') }) }}",
         "options": {}
       },
       "id": "e5029b6e-7fbb-49a4-8f4e-7ff58c3942d0",
@@ -386,7 +386,7 @@
             },
             {
               "fieldName": "description",
-              "fieldValue": "=lead:{{ $('Assemble render data').first().json.lead_id }}\noffer_id:{{ $('Create offer record').first().json.Id ?? '?' }}\nwarnings: {{ $('Call file-renderer-service').first().json.headers['x-warnings'] ?? '[]' }}"
+              "fieldValue": "=lead:{{ $('Assemble render data').first().json.lead_id }}\noffer_id:{{ $('Create offer record').first().json.Id ?? '?' }}\nwarnings: {{ $('Call offer-service').first().json.headers['x-warnings'] ?? '[]' }}"
             }
           ]
         }
@@ -433,7 +433,7 @@
             },
             {
               "fieldName": "payload",
-              "fieldValue": "={{ JSON.stringify({ lead_id: $('Assemble render data').first().json.lead_id, offer_id: $('Create offer record').first().json.Id, template: $('Fetch active template').first().json.name, warnings: $('Call file-renderer-service').first().json.headers['x-warnings'] }) }}"
+              "fieldValue": "={{ JSON.stringify({ lead_id: $('Assemble render data').first().json.lead_id, offer_id: $('Create offer record').first().json.Id, template: $('Fetch active template').first().json.name, warnings: $('Call offer-service').first().json.headers['x-warnings'] }) }}"
             }
           ]
         }
@@ -999,6 +999,47 @@
           "name": "NocoDB Token account"
         }
       }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": {
+          "__rl": true,
+          "value": "ws8amqq9",
+          "mode": "list",
+          "cachedResultName": "CoAction TEST Workspace",
+          "cachedResultUrl": "https://back-office-coaction-test.giemza.dev/#/ws8amqq9"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "p0faehtfzhvzfh2",
+          "mode": "list",
+          "cachedResultName": "Coaction TEST Base",
+          "cachedResultUrl": "https://back-office-coaction-test.giemza.dev/#/ws8amqq9/p0faehtfzhvzfh2"
+        },
+        "table": {
+          "__rl": true,
+          "value": "mplmv9nh4ro4k8e",
+          "mode": "list",
+          "cachedResultName": "companies",
+          "cachedResultUrl": "https://back-office-coaction-test.giemza.dev/#/ws8amqq9/p0faehtfzhvzfh2/mplmv9nh4ro4k8e"
+        },
+        "id": "1"
+      },
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        336,
+        336
+      ],
+      "id": "752a0643-d854-4c16-9d18-77017af0b766",
+      "name": "Get a row",
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "fuKl7juoVU9L7ZqE",
+          "name": "NocoDB Token account"
+        }
+      }
     }
   ],
   "connections": {
@@ -1050,14 +1091,14 @@
       "main": [
         [
           {
-            "node": "Call file-renderer-service",
+            "node": "Call offer-service",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Call file-renderer-service": {
+    "Call offer-service": {
       "main": [
         [
           {
@@ -1133,6 +1174,7 @@
   },
   "pinData": {},
   "meta": {
+    "templateCredsSetupCompleted": true,
     "instanceId": "1443a7a60bef01212a78b66184585703b5548cecbd2b0eb76384f07b7e397f1f"
   }
 }
