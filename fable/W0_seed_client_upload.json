@@ -1,69 +1,11 @@
 {
   "name": "W0 - Seed CRM via upload form",
-  "description": "Forma dla klienta: uploaduj Excel + nc_url/base_id (token z n8n credentials) → seed-service zasilaj bazę. Setup: dodaj NocoDB credential!",
+  "description": "Forma: uploaduj Excel → seed-service zasila WYBRANĄ w edytorze bazę NocoDB. Setup: (1) dodaj NocoDB credential, (2) otwórz node 'Get NocoDB Base' i wybierz bazę z dropdown (Base pole → tryb 'From list').",
   "nodes": [
     {
       "parameters": {
-        "method": "POST",
-        "url": "=http://seed-service:8000/seed-upload?nc_url={{ encodeURIComponent($json.body.nc_url) }}&nc_token={{ encodeURIComponent($credentials.nocoDbApiToken.apiToken ?? '') }}&nc_base_id={{ encodeURIComponent($json.body.nc_base_id) }}&dry_run={{ $json.body.dry_run === 'true' }}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "nocoDbApiToken",
-        "sendBody": true,
-        "contentType": "multipart-form-data",
-        "bodyParameters": {
-          "parameters": [
-            {
-              "parameterType": "formBinaryData",
-              "name": "file",
-              "inputDataFieldName": "file"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "0a5a6cde-908e-470d-8e3d-c41d31f0a8c6",
-      "name": "Call seed-service /seed-upload",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1792,
-        336
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
-          "name": "NocoDB Credentials"
-        }
-      },
-      "onError": "continueErrorOutput"
-    },
-    {
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "result",
-              "name": "result",
-              "type": "object",
-              "value": "={{ (() => { const resp = $json.json ?? {}; return { success: !resp.error, file_name: $json.body.file?.name ?? '?', dry_run: $json.body.dry_run === 'true', status: resp.error ? '❌ ERROR' : resp.message ?? '✓ Done', total_records: resp.total_records ?? 0, created_leads: resp.created_leads ?? 0, created_companies: resp.created_companies ?? 0, created_participants: resp.created_participants ?? 0, skipped: resp.skipped ?? 0, errors_count: (resp.errors ?? []).length, first_errors: (resp.errors ?? []).slice(0, 3), }; })() }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "8137d8ab-523b-4e00-a34c-e2e344b9ec2e",
-      "name": "Format response",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        2016,
-        336
-      ]
-    },
-    {
-      "parameters": {
         "formTitle": "Seed NocoDB CRM z Excela",
-        "formDescription": "Uploaduj Excel i podaj dane do swojej bazy NocoDB",
+        "formDescription": "Uploaduj Excel (te same kolumny co Statusy_z_CRM_filled.xlsx)",
         "formFields": {
           "values": [
             {
@@ -75,15 +17,8 @@
               "fieldLabel": "NocoDB URL",
               "fieldType": "text",
               "fieldRequired": true,
-              "fieldDescription": "np. https://back-office.example.com",
+              "fieldDescription": "np. https://back-office.example.com (serwer, na którym leży wybrana baza)",
               "fieldPlaceholder": "https://nocodb.example.com"
-            },
-            {
-              "fieldLabel": "Base ID",
-              "fieldType": "text",
-              "fieldRequired": true,
-              "fieldDescription": "Z URL bazy: .../#/ws.../p<BASE_ID>/...",
-              "fieldPlaceholder": "p0faehtfzhvzfh2"
             },
             {
               "fieldLabel": "Dry-run (preview bez zmian)?",
@@ -109,13 +44,94 @@
       },
       "type": "n8n-nodes-base.formTrigger",
       "typeVersion": 2.6,
-      "position": [
-        1568,
-        336
-      ],
+      "position": [1568, 336],
       "id": "1390121c-2cf2-4a05-a3af-41ac57b2ed6d",
       "name": "On form submission",
       "webhookId": "3ce421d3-0af6-43c4-aa04-0e985c9ccf55"
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "resource": "base",
+        "operation": "get",
+        "workspaceId": {
+          "__rl": true,
+          "value": "SELECT_IN_N8N_EDITOR",
+          "mode": "list",
+          "cachedResultName": "<< otwórz node i wybierz workspace >>"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "SELECT_IN_N8N_EDITOR",
+          "mode": "list",
+          "cachedResultName": "<< otwórz node i wybierz bazę >>"
+        }
+      },
+      "id": "get_base",
+      "name": "Get NocoDB Base",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [1792, 336],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "NocoDB Credentials"
+        }
+      },
+      "notes": "SETUP: kliknij pole 'Base' (projectId), przełącz na 'From list' i wybierz docelową bazę. n8n pobierze listę baz z NocoDB API po Twoim credentialu."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://seed-service:8000/seed-upload?nc_url={{ encodeURIComponent($('On form submission').item.json.body.nc_url) }}&nc_token={{ encodeURIComponent($credentials.nocoDbApiToken.apiToken ?? '') }}&nc_base_id={{ encodeURIComponent($json.id ?? $('Get NocoDB Base').item.json.id) }}&dry_run={{ $('On form submission').item.json.body.dry_run === 'true' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "file"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0a5a6cde-908e-470d-8e3d-c41d31f0a8c6",
+      "name": "Call seed-service /seed-upload",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2016, 336],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "NocoDB Credentials"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "result",
+              "name": "result",
+              "type": "object",
+              "value": "={{ (() => { const resp = $json.json ?? {}; return { success: !resp.error, file_name: $('On form submission').item.json.body.file?.name ?? '?', dry_run: $('On form submission').item.json.body.dry_run === 'true', status: resp.error ? '❌ ERROR' : resp.message ?? '✓ Done', total_records: resp.total_records ?? 0, created_leads: resp.created_leads ?? 0, created_companies: resp.created_companies ?? 0, created_participants: resp.created_participants ?? 0, skipped: resp.skipped ?? 0, errors_count: (resp.errors ?? []).length, first_errors: (resp.errors ?? []).slice(0, 3), }; })() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8137d8ab-523b-4e00-a34c-e2e344b9ec2e",
+      "name": "Format response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2240, 336]
     },
     {
       "parameters": {
@@ -127,14 +143,22 @@
       "name": "HTTP Response",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 3.2,
-      "position": [
-        2240,
-        336
-      ]
+      "position": [2464, 336]
     }
   ],
   "connections": {
     "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Get NocoDB Base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get NocoDB Base": {
       "main": [
         [
           {
