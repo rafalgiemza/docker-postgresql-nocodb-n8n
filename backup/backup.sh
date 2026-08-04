@@ -1,15 +1,19 @@
 #!/usr/bin/env bash
 # =============================================================================
-# backup.sh — dumps every DB this stack owns (same per-DB granularity the
-# Makefile has always used, so `make restore` keeps working unchanged) into
-# ./backups/*_<timestamp>.*, then pushes that directory offsite via restic
-# (deduplicated, incremental) + rclone (R2/B2/etc). Local ./backups/ is left
-# in place afterwards — it's still the fast path for `make restore` on the
-# same host; restic is the durability layer for total-host-loss recovery
-# (`restic restore` into ./backups/ first, then `make restore` as usual).
+# backup.sh — dumps every DB + volume this stack owns (same per-DB
+# granularity the Makefile has always used, so `make restore` keeps working
+# unchanged) into ./backups/*_<timestamp>.*, then — if RESTIC_REPOSITORY/
+# RESTIC_PASSWORD are set — pushes that directory offsite via restic
+# (deduplicated, incremental) + rclone (R2/B2/etc). Without those env vars,
+# the offsite push is skipped and the script just leaves the local dump in
+# ./backups/ (e.g. for a manual `make backup`/`make restore` test over SSH
+# before offsite is configured). Local ./backups/ is always left in place
+# afterwards — it's the fast path for `make restore` on the same host;
+# restic is the durability layer for total-host-loss recovery (`restic
+# restore` into ./backups/ first, then `make restore` as usual).
 #
-# Requires (see backup/mikrus-backup.env.example, kept OUTSIDE this repo on
-# the VPS, e.g. /etc/mikrus-backup.env):
+# For the offsite push (see backup/mikrus-backup.env.example, kept OUTSIDE
+# this repo on the VPS, e.g. /etc/mikrus-backup.env):
 #   1. rclone configured with a remote named "offsite" pointing at R2 or B2
 #   2. restic installed
 #   3. RESTIC_PASSWORD and RESTIC_REPOSITORY exported before this script runs
@@ -31,11 +35,9 @@ TS="$(date +%F_%H%M%S)"
 POSTGRES_CONTAINER="docker-postgres-1"
 MONGO_CONTAINER="docker-mongodb-1"
 NOCODB_VOLUME="docker_nocodb_storage"
+MINIO_VOLUME="docker_minio_storage"
 
 fail() { echo "❌ FAILURE: $*" >&2; exit 1; }
-
-: "${RESTIC_REPOSITORY:?RESTIC_REPOSITORY not set — source /etc/mikrus-backup.env first (see backup/mikrus-backup.env.example)}"
-: "${RESTIC_PASSWORD:?RESTIC_PASSWORD not set — source /etc/mikrus-backup.env first (see backup/mikrus-backup.env.example)}"
 
 mkdir -p "$BACKUP_DIR"
 
@@ -48,9 +50,17 @@ docker exec "$POSTGRES_CONTAINER" pg_dump -U postgres -d "$NC_DB" > "$BACKUP_DIR
     || fail "pg_dump $NC_DB failed"
 docker exec "$POSTGRES_CONTAINER" pg_dump -U postgres -d "$APP_DB" > "$BACKUP_DIR/appdata_$TS.sql" \
     || fail "pg_dump $APP_DB failed"
+# NocoDB's own volume (/usr/app/data) — app-internal cache/config, NOT
+# attachments. Attachments/offers/recordings/transcripts live in MinIO (see
+# NC_S3_* in fragments/nocodb.yml) and are backed up via MINIO_VOLUME below.
 docker run --rm -v "$NOCODB_VOLUME":/data:ro -v "$BACKUP_DIR":/backup alpine \
-    tar -czf "/backup/nocodb_attachments_$TS.tar.gz" -C /data . \
-    || fail "NocoDB attachments tar failed"
+    tar -czf "/backup/nocodb_data_$TS.tar.gz" -C /data . \
+    || fail "NocoDB volume tar failed"
+# MinIO's on-disk data dir — all buckets in one archive: attachments, offers,
+# templates, recordings, transcripts, backups (PRD §8.5).
+docker run --rm -v "$MINIO_VOLUME":/data:ro -v "$BACKUP_DIR":/backup alpine \
+    tar -czf "/backup/minio_$TS.tar.gz" -C /data . \
+    || fail "MinIO volume tar failed"
 docker exec "$MONGO_CONTAINER" mongodump --archive --db=LibreChat --quiet > "$BACKUP_DIR/mongo_$TS.archive" \
     || fail "mongodump failed"
 
@@ -58,18 +68,22 @@ for f in "$BACKUP_DIR/roles_$TS.sql" "$BACKUP_DIR/n8n_$TS.sql" "$BACKUP_DIR/noco
     [ -s "$f" ] || fail "$f is empty, aborting before it poisons the offsite backup"
 done
 
-echo "=== Pushing $BACKUP_DIR offsite via restic ==="
-restic backup "$BACKUP_DIR" --tag "coaction-auto" || fail "restic backup failed"
+if [ -n "${RESTIC_REPOSITORY:-}" ] && [ -n "${RESTIC_PASSWORD:-}" ]; then
+    echo "=== Pushing $BACKUP_DIR offsite via restic ==="
+    restic backup "$BACKUP_DIR" --tag "coaction-auto" || fail "restic backup failed"
 
-# Keep: last 48 snapshots (~24h at 30-min cadence), 14 daily, 8 weekly.
-# Prune (actually reclaim space) only once a day — pass --prune for that,
-# same pattern as a separate daily cron entry.
-echo "=== Applying retention policy (forget, no prune) ==="
-restic forget --keep-last 48 --keep-daily 14 --keep-weekly 8 || fail "restic forget failed"
+    # Keep: last 48 snapshots (~24h at 30-min cadence), 14 daily, 8 weekly.
+    # Prune (actually reclaim space) only once a day — pass --prune for that,
+    # same pattern as a separate daily cron entry.
+    echo "=== Applying retention policy (forget, no prune) ==="
+    restic forget --keep-last 48 --keep-daily 14 --keep-weekly 8 || fail "restic forget failed"
 
-if [ "${1:-}" == "--prune" ]; then
-    echo "=== Pruning old snapshots ==="
-    restic prune || fail "restic prune failed"
+    if [ "${1:-}" == "--prune" ]; then
+        echo "=== Pruning old snapshots ==="
+        restic prune || fail "restic prune failed"
+    fi
+else
+    echo "⚠️  RESTIC_REPOSITORY/RESTIC_PASSWORD not set (source /etc/mikrus-backup.env first — see backup/mikrus-backup.env.example) — skipping offsite push, local dump in $BACKUP_DIR only."
 fi
 
 echo "=== Backup run completed successfully ($TS) ==="

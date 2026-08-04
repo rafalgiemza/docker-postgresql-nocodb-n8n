@@ -71,7 +71,7 @@ add-rag-db: ## One-time: add the RAG database to an already-running Postgres
 	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "CREATE USER $(RAG_DB_USER) WITH PASSWORD '$(RAG_DB_PASSWORD)';" || true
 	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "CREATE DATABASE $(RAG_DB) OWNER $(RAG_DB_USER);" || true
 
-backup: ## Dump all DBs + NocoDB attachments to ./backups and push offsite via restic
+backup: ## Dump all DBs + NocoDB/MinIO volumes to ./backups and push offsite via restic
 	./backup/backup.sh
 
 backup-prune: ## Run backup + prune old restic snapshots (same as the daily cron job)
@@ -84,20 +84,20 @@ restore: ## Restore from the latest (or RESTORE_TS=<ts>) local dump in ./backups
 	fi
 	@echo "🚀 Rozpoczynam przywracanie z backupu: $(RESTORE_TS)"
 	
-	@echo "📦 1/7 Podnoszę środowisko, aby uruchomić bazy danych..."
+	@echo "📦 1/8 Podnoszę środowisko, aby uruchomić bazy danych..."
 	$(DC_CMD) up -d
 	@echo "⏳ Czekam 15 sekund, aż bazy danych będą gotowe na przyjmowanie połączeń..."
 	@sleep 15
 
-	@echo "🗄️ 2/7 Tworzę bazy danych na nowym serwerze (ignorując błędy jeśli już istnieją)..."
+	@echo "🗄️ 2/8 Tworzę bazy danych na nowym serwerze (ignorując błędy jeśli już istnieją)..."
 	@docker exec docker-postgres-1 psql -U postgres -c "CREATE DATABASE $(POSTGRES_DB);" || true
 	@docker exec docker-postgres-1 psql -U postgres -c "CREATE DATABASE $(NC_DB);" || true
 	@docker exec docker-postgres-1 psql -U postgres -c "CREATE DATABASE $(APP_DB);" || true
 
-	@echo "🔑 3/7 Przywracanie globalnych ról..."
+	@echo "🔑 3/8 Przywracanie globalnych ról..."
 	@cat ./backups/roles_$(RESTORE_TS).sql | docker exec -i docker-postgres-1 psql -U postgres || true
 
-	@echo "💾 4/7 Przywracanie struktury i danych z plików SQL..."
+	@echo "💾 4/8 Przywracanie struktury i danych z plików SQL..."
 	@echo "   -> Wgrywam bazę n8n..."
 	cat ./backups/n8n_$(RESTORE_TS).sql | docker exec -i docker-postgres-1 psql -U postgres -d $(POSTGRES_DB)
 	@echo "   -> Wgrywam bazę NocoDB Meta..."
@@ -105,10 +105,13 @@ restore: ## Restore from the latest (or RESTORE_TS=<ts>) local dump in ./backups
 	@echo "   -> Wgrywam bazę AppData..."
 	cat ./backups/appdata_$(RESTORE_TS).sql | docker exec -i docker-postgres-1 psql -U postgres -d $(APP_DB)
 
-	@echo "📂 5/7 Wypakowuję archiwum załączników NocoDB bezpośrednio do wolumenu..."
-	docker run --rm -v docker_nocodb_storage:/data -v $(CURDIR)/backups:/backup alpine tar -xzf /backup/nocodb_attachments_$(RESTORE_TS).tar.gz -C /data
+	@echo "📂 5/8 Wypakowuję wolumen NocoDB (cache/config, nie załączniki)..."
+	docker run --rm -v docker_nocodb_storage:/data -v $(CURDIR)/backups:/backup alpine tar -xzf /backup/nocodb_data_$(RESTORE_TS).tar.gz -C /data
 
-	@echo "🍃 6/7 Przywracanie bazy MongoDB (LibreChat)..."
+	@echo "📦 6/8 Wypakowuję wolumen MinIO (attachments/offers/recordings/transcripts)..."
+	docker run --rm -v docker_minio_storage:/data -v $(CURDIR)/backups:/backup alpine tar -xzf /backup/minio_$(RESTORE_TS).tar.gz -C /data
+
+	@echo "🍃 7/8 Przywracanie bazy MongoDB (LibreChat)..."
 	@if [ -f "./backups/mongo_$(RESTORE_TS).archive" ]; then \
 		cat ./backups/mongo_$(RESTORE_TS).archive | docker exec -i docker-mongodb-1 mongorestore --archive --drop; \
 		echo "   -> MongoDB przywrócone."; \
@@ -116,6 +119,6 @@ restore: ## Restore from the latest (or RESTORE_TS=<ts>) local dump in ./backups
 		echo "   -> Brak pliku mongo_$(RESTORE_TS).archive. Pomijam ten krok."; \
 	fi
 
-	@echo "🔄 7/7 Twardy restart kontenerów, by zaczytały przywrócone dane..."
+	@echo "🔄 8/8 Twardy restart kontenerów, by zaczytały przywrócone dane..."
 	$(DC_CMD) restart
 	@echo "✅ Success!"
