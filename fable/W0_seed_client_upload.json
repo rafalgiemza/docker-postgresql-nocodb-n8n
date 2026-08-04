@@ -1,0 +1,113 @@
+{
+  "name": "W0 - Client seed upload (form)",
+  "description": "Forma: klient uploaduje Excel, podaje NocoDB server/token/base - seed-service zarobi całą robotę",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "w0-seed-form",
+        "options": {}
+      },
+      "id": "form_trigger",
+      "name": "Form: Upload + Config",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "wh-w0-seed-form"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://seed-service:8000/seed-upload",
+        "authentication": "generic",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "file"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "nc_url",
+              "value": "={{ $json.body.nc_url }}"
+            },
+            {
+              "name": "nc_token",
+              "value": "={{ $json.body.nc_token }}"
+            },
+            {
+              "name": "nc_base_id",
+              "value": "={{ $json.body.nc_base_id }}"
+            },
+            {
+              "name": "dry_run",
+              "value": "={{ $json.body.dry_run ?? 'true' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "call_seed_service",
+      "name": "Call seed-service /seed-upload",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "summary",
+              "name": "summary",
+              "type": "object",
+              "value": "={{ { file: $json.body.file?.name ?? '?', dry_run: $json.body.dry_run, total_records: $json.json?.total_records, created_leads: $json.json?.created_leads, created_companies: $json.json?.created_companies, created_participants: $json.json?.created_participants, errors: $json.json?.errors?.length ?? 0, message: $json.json?.message } }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "format_response",
+      "name": "Format response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [440, 0]
+    }
+  ],
+  "connections": {
+    "Form: Upload + Config": {
+      "main": [
+        [
+          {
+            "node": "Call seed-service /seed-upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call seed-service /seed-upload": {
+      "main": [
+        [
+          {
+            "node": "Format response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}
