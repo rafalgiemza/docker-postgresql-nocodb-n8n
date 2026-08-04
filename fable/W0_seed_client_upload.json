@@ -1,6 +1,6 @@
 {
   "name": "W0 - Seed CRM via upload form",
-  "description": "Forma: uploaduj Excel → seed-service zasila WYBRANĄ w edytorze bazę NocoDB. Setup: (1) dodaj NocoDB credential, (2) otwórz node 'Get NocoDB Base' i wybierz bazę z dropdown (Base pole → tryb 'From list').",
+  "description": "Forma: uploaduj Excel → seed-service zasila WYBRANĄ w edytorze bazę NocoDB (nasz stack, http://nocodb:8080 w sieci Dockera). Setup: (1) dodaj NocoDB credential, (2) otwórz node 'Get NocoDB Base' i wybierz bazę z dropdown (Base pole → tryb 'From list').",
   "nodes": [
     {
       "parameters": {
@@ -12,13 +12,6 @@
               "fieldLabel": "Excel file (Statusy_z_CRM_filled.xlsx)",
               "fieldType": "file",
               "fieldRequired": true
-            },
-            {
-              "fieldLabel": "NocoDB URL",
-              "fieldType": "text",
-              "fieldRequired": true,
-              "fieldDescription": "np. https://back-office.example.com (serwer, na którym leży wybrana baza)",
-              "fieldPlaceholder": "https://nocodb.example.com"
             },
             {
               "fieldLabel": "Dry-run (preview bez zmian)?",
@@ -84,7 +77,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=http://seed-service:8000/seed-upload?nc_url={{ encodeURIComponent($('On form submission').item.json.body.nc_url) }}&nc_token={{ encodeURIComponent($credentials.nocoDbApiToken.apiToken ?? '') }}&nc_base_id={{ encodeURIComponent($json.id ?? $('Get NocoDB Base').item.json.id) }}&dry_run={{ $('On form submission').item.json.body.dry_run === 'true' }}",
+        "url": "=http://seed-service:8000/seed-upload?nc_url={{ encodeURIComponent('http://nocodb:8080') }}&nc_token={{ encodeURIComponent($credentials.nocoDbApiToken.apiToken ?? '') }}&nc_base_id={{ encodeURIComponent($json.id ?? $('Get NocoDB Base').item.json.id) }}&dry_run={{ $('On form submission').item.json.body.dry_run === 'true' }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "nocoDbApiToken",
         "sendBody": true,
