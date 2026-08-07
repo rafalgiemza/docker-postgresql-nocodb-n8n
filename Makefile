@@ -89,10 +89,13 @@ restore: ## Restore from the latest (or RESTORE_TS=<ts>) local dump in ./backups
 	@echo "⏳ Czekam 15 sekund, aż bazy danych będą gotowe na przyjmowanie połączeń..."
 	@sleep 15
 
-	@echo "🗄️ 2/8 Tworzę bazy danych na nowym serwerze (ignorując błędy jeśli już istnieją)..."
-	@docker exec docker-postgres-1 psql -U postgres -c "CREATE DATABASE $(POSTGRES_DB);" || true
-	@docker exec docker-postgres-1 psql -U postgres -c "CREATE DATABASE $(NC_DB);" || true
-	@docker exec docker-postgres-1 psql -U postgres -c "CREATE DATABASE $(APP_DB);" || true
+	@echo "🗄️ 2/8 Tworzę bazy danych (czyszczę jeśli już istnieją)..."
+	@docker exec docker-postgres-1 psql -U postgres -c "DROP DATABASE IF EXISTS $(POSTGRES_DB);"
+	@docker exec docker-postgres-1 psql -U postgres -c "DROP DATABASE IF EXISTS $(NC_DB);"
+	@docker exec docker-postgres-1 psql -U postgres -c "DROP DATABASE IF EXISTS $(APP_DB);"
+	@docker exec docker-postgres-1 psql -U postgres -c "CREATE DATABASE $(POSTGRES_DB);"
+	@docker exec docker-postgres-1 psql -U postgres -c "CREATE DATABASE $(NC_DB);"
+	@docker exec docker-postgres-1 psql -U postgres -c "CREATE DATABASE $(APP_DB);"
 
 	@echo "🔑 3/8 Przywracanie globalnych ról..."
 	@cat ./backups/roles_$(RESTORE_TS).sql | docker exec -i docker-postgres-1 psql -U postgres || true
