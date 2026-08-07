@@ -152,6 +152,11 @@ LOSS_REASON_MAP = {
     "Przesunięte w czasie": "przesuniete_w_czasie",
 }
 
+LEAD_TYPE_MAP = {
+    "B2B": "B2B",
+    "B2C": "B2C",
+}
+
 
 def map_value(value, mapping, default=None):
     if not value:
@@ -216,7 +221,7 @@ def build_lead_data(excel_data):
         "lead_name": (excel_data.get("Nazwa klienta") or "").strip(),
         "contact_email": (excel_data.get("E.mail") or "").strip() or None,
         "contact_phone": (excel_data.get("Nr telefonu") or "").strip() or None,
-        "lead_type": excel_data.get("B2B / B2C", "B2C"),
+        "lead_type": mapped(excel_data.get("B2B / B2C"), LEAD_TYPE_MAP, "B2B/B2C") or "B2C",
         "lead_source": mapped(excel_data.get("Źródło"), SOURCE_MAP, "Źródło"),
         "contact_channel": mapped(excel_data.get("Forma kontaktu"), CHANNEL_MAP, "Forma kontaktu"),
         "qualification": mapped(excel_data.get("Kwalifikacja lead'a"), QUALIFICATION_MAP, "Kwalifikacja"),
@@ -316,7 +321,7 @@ def seed_records(records, token, url, base_id):
             result["created_leads"] += 1
 
             # Dla B2B: utwórz/link firmę
-            if rec.get("B2B / B2C") == "B2B":
+            if str(rec.get("B2B / B2C") or "").strip() == "B2B":
                 org_name = rec.get("Organizacja")
                 if org_name and org_name.strip():
                     company_id = create_or_find_company(
@@ -350,7 +355,7 @@ def seed_records(records, token, url, base_id):
                 print(f"  {idx}/{len(records)} ...")
 
         except Exception as e:
-            result["errors"].append(f"{idx}. {str(e)[:100]}")
+            result["errors"].append(f"{idx}. {str(e)[:300]}")
             result["skipped"] += 1
             continue
 
