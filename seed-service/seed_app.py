@@ -145,10 +145,10 @@ def parse_date(val):
 
 def read_excel():
     """Czyta Excel i zwraca rekordy."""
-    if not EXCEL_PATH.exists():
-        raise FileNotFoundError(f"Excel nie znaleziony: {EXCEL_PATH}")
+    if not DEFAULT_EXCEL_PATH.exists():
+        raise FileNotFoundError(f"Excel nie znaleziony: {DEFAULT_EXCEL_PATH}")
 
-    wb = openpyxl.load_workbook(EXCEL_PATH)
+    wb = openpyxl.load_workbook(DEFAULT_EXCEL_PATH)
     ws = wb.active
 
     records = []
