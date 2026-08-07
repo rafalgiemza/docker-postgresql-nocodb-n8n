@@ -30,3 +30,23 @@ odwoływał się do nieistniejącej `EXCEL_PATH` → `NameError` przy
 
 Po zmianach w `seed_app.py` obraz trzeba przebudować — kod jest kopiowany
 do obrazu w `Dockerfile` (`COPY seed_app.py .`), nie montowany jako wolumen.
+
+## CLI seeder usunięty (2026-08-07)
+
+`old-crm-based-seed/seed-fake/seed_nocodb_from_excel.py` +
+`SEED_EXCEL_README.md` zostały usunięte — zdублowany odpowiednik
+`seed-service` (Docker/FastAPI), ale utrzymywany osobno od migracji
+schematu w `fable/feedback-tables-1.md` (2026-08-06). W efekcie CLI miał
+aktualne nazwy pól (`lead_name`/`lead_type`/`lead_source`/`deal_value`,
+mapowania `SOURCE_MAP`/`CHANNEL_MAP`/`INDUSTRY_MAP` pod nową listę opcji,
+`LOSS_REASON_MAP`, zapis niezmapowanych wartości do `notes`), a
+`seed_app.py` miał stare (`contact_name`/`type`/`source`/`value`, stare
+mapowania bez fallbacku do `notes`) — dwa niezgodne ze sobą seedery.
+
+Przed usunięciem CLI-a przeniesiono jego aktualną logikę mapowań do
+`seed_app.py` (funkcja `build_lead_data()` + zaktualizowane mapy stałych),
+więc `seed-service` jest teraz jedynym i aktualnym sposobem seedowania.
+Przy okazji wydzielono współdzieloną `seed_records()` używaną przez
+`/seed` i `/seed-upload` zamiast dwóch kopii tej samej logiki (przyczyna
+rozjazdu na przyszłość — jedna kopia = jedno miejsce do aktualizacji przy
+kolejnej zmianie schematu).
