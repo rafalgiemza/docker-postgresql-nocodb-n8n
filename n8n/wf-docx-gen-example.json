@@ -1,0 +1,394 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf-docx-gen-example",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Button: Generate document",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1328,
+        96
+      ],
+      "webhookId": "wh-wf-docx-gen-example"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d-lead",
+              "name": "data.lead",
+              "type": "object",
+              "value": "={{ Object.fromEntries(Object.entries($('Button: Generate document').first().json.body.data.rows[0]).filter(([k, v]) => !k.startsWith('_nc_m2m_') && typeof v !== 'object')) }}"
+            },
+            {
+              "id": "d-company",
+              "name": "data.company",
+              "type": "object",
+              "value": "={{ $('Button: Generate document').first().json.body.data.rows[0].Company ?? {} }}"
+            },
+            {
+              "id": "d-report-meta",
+              "name": "data.report",
+              "type": "object",
+              "value": "={{ { generated_at: $now.toFormat('dd.MM.yyyy HH:mm'), author: 'CoAction Team', period: '2025' } }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "assemble-data",
+      "name": "Assemble render data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -880,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "operation": "getAll",
+        "workspaceId": "ws8amqq9",
+        "projectId": "p5a5pocv2qgyeye",
+        "table": "mt5vasjnlq29v3e",
+        "limit": 1,
+        "options": {
+          "sort": {
+            "property": [
+              {
+                "field": "Id",
+                "direction": "desc"
+              }
+            ]
+          },
+          "where": "(active,eq,true)~and(kind,eq,report)"
+        }
+      },
+      "id": "fetch-template",
+      "name": "Fetch active template",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        -656,
+        96
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "fuKl7juoVU9L7ZqE",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.file[0].signedUrl ?? $json.file[0].url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "template"
+            }
+          }
+        }
+      },
+      "id": "download-template",
+      "name": "Download template file",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -432,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://file-renderer-service:8000/render-docx",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "template",
+              "inputDataFieldName": "template"
+            },
+            {
+              "name": "data",
+              "value": "={{ JSON.stringify($('Assemble render data').first().json.data) }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "file",
+              "outputPropertyName": "document"
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "call-renderer",
+      "name": "Call file-renderer-service /render-docx",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -208,
+        96
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/storage/upload",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "document"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "upload-file",
+      "name": "Upload document file",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        16,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "fuKl7juoVU9L7ZqE",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/YOUR_DOCUMENTS_TABLE_ID/records",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ title: 'Report — ' + ($('Assemble render data').first().json.data.lead.contact_name ?? 'N/A'), kind: 'report', template_name: $('Fetch active template').first().json.name, file: $json.body, data_json: JSON.stringify($('Assemble render data').first().json.data), warnings: ($('Call file-renderer-service /render-docx').first().json.headers['x-warnings'] ?? '[]') }) }}",
+        "options": {}
+      },
+      "id": "create-record",
+      "name": "Create document record",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "fuKl7juoVU9L7ZqE",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "operation": "create",
+        "workspaceId": "ws8amqq9",
+        "projectId": "p5a5pocv2qgyeye",
+        "table": "mdqdz4zjmarhmmu",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "=BŁĄD generowania dokumentu"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "todo"
+            },
+            {
+              "fieldName": "priority",
+              "fieldValue": "high"
+            },
+            {
+              "fieldName": "description",
+              "fieldValue": "={{ JSON.stringify($('Call file-renderer-service /render-docx').first().json).slice(0,500) }}"
+            }
+          ]
+        }
+      },
+      "id": "task-error",
+      "name": "Task: generation failed",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        16,
+        192
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "fuKl7juoVU9L7ZqE",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "operation": "create",
+        "workspaceId": "ws8amqq9",
+        "projectId": "p5a5pocv2qgyeye",
+        "table": "mdqdz4zjmarhmmu",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "=Sprawdź wygenerowany dokument"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "todo"
+            },
+            {
+              "fieldName": "priority",
+              "fieldValue": "high"
+            },
+            {
+              "fieldName": "description",
+              "fieldValue": "=Document generated and saved.\nTemplate: {{ $('Fetch active template').first().json.name }}\nWarnings: {{ $('Call file-renderer-service /render-docx').first().json.headers['x-warnings'] ?? '[]' }}"
+            }
+          ]
+        }
+      },
+      "id": "task-review",
+      "name": "Task: review document",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        464,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "fuKl7juoVU9L7ZqE",
+          "name": "NocoDB Token account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Button: Generate document": {
+      "main": [
+        [
+          {
+            "node": "Assemble render data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble render data": {
+      "main": [
+        [
+          {
+            "node": "Fetch active template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch active template": {
+      "main": [
+        [
+          {
+            "node": "Download template file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download template file": {
+      "main": [
+        [
+          {
+            "node": "Call file-renderer-service /render-docx",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call file-renderer-service /render-docx": {
+      "main": [
+        [
+          {
+            "node": "Upload document file",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Task: generation failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload document file": {
+      "main": [
+        [
+          {
+            "node": "Create document record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create document record": {
+      "main": [
+        [
+          {
+            "node": "Task: review document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  ],
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "example-docx-workflow"
+  }
+}
