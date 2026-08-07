@@ -2,29 +2,38 @@
 """Seed NocoDB CRM z prawdziwymi danymi ze starego CRM (Excel).
 
 Czyta: Statusy_z_CRM_filled.xlsx (w tym samym folderze)
-Tworzy w NocoDB: leads, companies (B2B), participants
+Tworzy w NocoDB: leads, companies (B2B), attendees
+
+Zaktualizowane pod schemat po fable/feedback-tables-1.md (2026-08-06) -
+patrz fable/create_offer_tables.py. Wymaga bazy stworzonej TĄ wersją skryptu
+(tabela `attendees`, pola `lead_name`/`lead_type`/`lead_source`/`deal_value`
+na `leads`, nowe listy opcji `lead_source`/`contact_channel`/`industry`).
 
 CO ROBI:
   1. Czyta 1600 rekordów z Excela (bez wymyślania danych)
-  2. Mapuje kolumny Excela -> pola NocoDB (stage, source, contact_channel, etc)
+  2. Mapuje kolumny Excela -> pola NocoDB (stage, lead_source, contact_channel, etc)
   3. Dla każdego rekordu:
-     - Tworzy lead (contact_name, email, phone, stage, value, notes...)
+     - Tworzy lead (lead_name, email, phone, stage, deal_value, notes...)
      - Dla B2B: tworzy/znajduje firmę, linkuje lead -> company
-     - Tworzy participant (osoba kontaktowa), linkuje lead -> participant
+     - Tworzy attendee (osoba kontaktowa), linkuje lead -> attendee
   4. Pomija rekordy już istniejące (dedup po legacy_id)
+  5. Wartości Excela, które NIE mają odpowiednika w nowych listach opcji
+     (np. "Strona www" w Źródle, "Czat" w Formie kontaktu) NIE są na siłę
+     wciskane w najbliższy błędny kubełek - pole zostaje puste, a oryginalna
+     wartość ze starego CRM ląduje w `notes`, żeby nic nie zgubić.
 
 MAPOWANIA:
-  - B2B/B2C -> type
+  - B2B/B2C -> lead_type
   - Etap -> stage (utracona->lost, umowa podpisana->contract_signed, etc)
   - Stan -> state (otwarta->open, zamknięta->lost)
-  - Źródło -> source (Google, Polecenie, LinkedIn, etc)
-  - Forma kontaktu -> contact_channel (Bookings, Email, Formularz, Telefon)
-  - Branża -> industry (IT, Logistyka, etc)
-  - Szansa sprzedaży Wartość -> value (PLN)
+  - Źródło -> lead_source (Google, Recommendation, LinkedIn, etc - patrz SOURCE_MAP)
+  - Forma kontaktu -> contact_channel (Bookings, Mail, Formularz, Telefon - patrz CHANNEL_MAP)
+  - Branża -> industry (IT, Transport/Logistics, etc - patrz INDUSTRY_MAP)
+  - Szansa sprzedaży Wartość -> deal_value (PLN)
 
-LINKING (nowe):
+LINKING:
   - leads -> company (dla B2B via field "company")
-  - leads -> participants (via field "participants")
+  - leads -> attendees (via field "attendees")
 
 WYMAGA W ŚRODOWISKU:
   NC_API_TOKEN      - token z NocoDB (User menu → Tokens)
@@ -118,26 +127,43 @@ EXCEL_COLS = [
     (34, "Spr. ID"),
 ]
 
-# Mapowania wartości
+# Mapowania wartości -> nowe listy opcji z fable/create_offer_tables.py
+# (feedback-tables-1.md, 2026-08-06). Świadomie BEZ fallbacków na "najbliższą"
+# opcję tam, gdzie nowa lista po prostu nie ma odpowiednika (np. nowa
+# lead_source nie ma "strony www"/"kampanii ads"/"targów") - lepiej zostawić
+# pole puste i zapisać oryginał w notes niż udawać, że to np. "Google".
+# Patrz mapped() w create_lead(): brak klucza w mapie == wartość leci do notes.
 SOURCE_MAP = {
-    "Google": "google",
-    "Polecenie": "polecenie",
-    "LinkedIn": "linkedin",
-    "Strona www": "polecenie",  # fallback to recommendation
-    "Cold mail": "polecenie",
-    "Facebook": "google",  # fallback to google (social)
-    "Kampania Ads": "google",
-    "Targi": "polecenie",
-    "Webinar": "polecenie",
+    "Google": "Google",
+    "Polecenie": "Recommendation",
+    "LinkedIn": "LinkedIn",
+    "Facebook": "Facebook",
+    "Webinar": "Webinar",
+    "Cold mail": "Outreach",  # cold mail to forma outreachu, sensowne 1:1
+    # BEZ mapowania (-> notes): "Strona www", "Kampania Ads", "Targi" - nowa
+    # lista (Google/Outreach/Existing client/LinkedIn/Recommendation/Webinar/
+    # Facebook/Coming back Lead/Coming back Client) nie ma odpowiednika.
 }
 
 CHANNEL_MAP = {
-    "Bookings": "bookings",
-    "E-mail": "email",
-    "Formularz WWW": "formularz",
-    "Telefon": "telefon",
-    "Czat": "email",  # fallback to email
-    "Spotkanie": "telefon",  # fallback to phone
+    "Bookings": "Bookings",
+    "E-mail": "Mail",
+    "Formularz WWW": "Formularz",
+    "Telefon": "Telefon",
+    # BEZ mapowania (-> notes): "Czat", "Spotkanie" - nowa lista nie ma
+    # "chat"/"spotkanie osobiste"; stare fallbacki (Czat->email, Spotkanie->
+    # telefon) fałszowały dane, więc usunięte.
+}
+
+INDUSTRY_MAP = {
+    "IT": "IT",
+    "Logistyka": "Transport/Logistics",
+    "Edukacja": "Education",
+    "Finanse": "Finance",
+    "Usługi finansowe": "Finance",
+    "Medyczna": "Medicine",
+    "Produkcja": "Manufacturing",
+    "Handel": "Retail",
 }
 
 QUALIFICATION_MAP = {
@@ -238,15 +264,11 @@ def create_or_find_company(table_id, name, industry=None):
     # Utwórz nową
     record = {"name": name.strip()}
     if industry:
-        record["industry"] = map_value(industry, {
-            "IT": "IT",
-            "Logistyka": "logistyka",
-            "Edukacja": "edukacja",
-            "Finanse": "finanse",
-            "Medyczna": "medyczna",
-            "Produkcja": "produkcja",
-            "Handel": "handel",
-        }) or "inne"
+        mapped_industry = map_value(industry, INDUSTRY_MAP)
+        if mapped_industry:
+            record["industry"] = mapped_industry
+        else:
+            record["notes"] = f"Branża (stary CRM): {str(industry).strip()}"
 
     res = api("POST", f"/api/v2/tables/{table_id}/records", json=record)
     return res.get("Id") or (res[0].get("Id") if isinstance(res, list) else None)
@@ -254,38 +276,42 @@ def create_or_find_company(table_id, name, industry=None):
 
 def create_lead(tables, excel_data):
     """Tworzy rekord leada z danych Excela. Zwraca lead_id."""
+    unmapped = []  # wartości ze starego CRM bez odpowiednika w nowych listach
+
+    def mapped(value, mapping, field_label):
+        result = map_value(value, mapping)
+        if value and not result:
+            unmapped.append(f"{field_label} (stary CRM): {str(value).strip()}")
+        return result
+
     lead_data = {
-        "contact_name": (excel_data.get("Nazwa klienta") or "").strip(),
+        "lead_name": (excel_data.get("Nazwa klienta") or "").strip(),
         "contact_email": (excel_data.get("E.mail") or "").strip() or None,
         "contact_phone": (excel_data.get("Nr telefonu") or "").strip() or None,
-        "type": excel_data.get("B2B / B2C", "B2C"),
-        "source": map_value(excel_data.get("Źródło"), SOURCE_MAP),
-        "contact_channel": map_value(excel_data.get("Forma kontaktu"), CHANNEL_MAP),
-        "qualification": map_value(excel_data.get("Kwalifikacja lead'a"), QUALIFICATION_MAP),
+        "lead_type": excel_data.get("B2B / B2C", "B2C"),
+        "lead_source": mapped(excel_data.get("Źródło"), SOURCE_MAP, "Źródło"),
+        "contact_channel": mapped(excel_data.get("Forma kontaktu"), CHANNEL_MAP, "Forma kontaktu"),
+        "qualification": mapped(excel_data.get("Kwalifikacja lead'a"), QUALIFICATION_MAP, "Kwalifikacja"),
         "disqualify_reason": map_value(
             excel_data.get("Powód braku kwalifikacji lead'a"),
             LOSS_REASON_MAP),
         "stage": map_value(excel_data.get("Etap"), STAGE_MAP) or "new",
         "state": map_value(excel_data.get("Stan"), STATE_MAP) or "open",
         "loss_reason": map_value(excel_data.get("Powód utraty szansy"), LOSS_REASON_MAP),
-        "value": excel_data.get("Szansa sprzedaży Wartość") or None,
+        "deal_value": excel_data.get("Szansa sprzedaży Wartość") or None,
         "label": map_value(excel_data.get("Szansa sprzedaży Etykieta"),
                           {"Gorąca": "hot", "Oferta specjalna": "oferta_specjalna"}),
-        "notes": (excel_data.get("Notatki") or "").strip() or None,
         "legacy_id": str(excel_data.get("Spr. ID") or "").strip() or None,
-        "industry": map_value(excel_data.get("Branża"), {
-            "IT": "IT",
-            "Logistyka": "logistyka",
-            "Edukacja": "edukacja",
-            "Usługi finansowe": "finanse",
-            "Medyczna": "medyczna",
-            "Produkcja": "produkcja",
-            "Handel": "handel",
-        }) or "inne",
+        "industry": mapped(excel_data.get("Branża"), INDUSTRY_MAP, "Branża"),
         "offer_sent_at": parse_date(excel_data.get("Data wysłania oferty")),
         "contract_sent_at": parse_date(excel_data.get("Data wysłania umowy")),
         "closed_at": parse_date(excel_data.get("Data podpisania umowy")),
     }
+
+    # Oryginalne notatki + wartości ze starego CRM, które nie zmapowały się
+    # na nową liste opcji (patrz mapped() wyzej) - zeby nic nie zgubic.
+    notes_parts = [(excel_data.get("Notatki") or "").strip()] + unmapped
+    lead_data["notes"] = "\n".join(p for p in notes_parts if p) or None
 
     # Usuń None i puste stringi
     lead_data = {k: v for k, v in lead_data.items() if v is not None and v != ""}
@@ -336,14 +362,14 @@ def main(dry_run=False):
     print(f"NocoDB: {URL}, base: {BASE_ID}{' [DRY RUN]' if dry_run else ''}\n")
 
     if dry_run:
-        tables = {"leads": 1, "companies": 2, "participants": 3}  # dummy
+        tables = {"leads": 1, "companies": 2, "attendees": 3}  # dummy
         links = {}
     else:
         tables, links = resolve_meta()
         print(f"Tabele: {list(tables.keys())}\n")
         print(f"Link fields w leads: {links.get('leads', {})}\n")
-        if not all(t in tables for t in ["leads", "companies", "participants"]):
-            sys.exit("Brakuje tabel: leads, companies, participants")
+        if not all(t in tables for t in ["leads", "companies", "attendees"]):
+            sys.exit("Brakuje tabel: leads, companies, attendees")
 
     print("Czytam Excel...")
     records = read_excel()
@@ -360,7 +386,7 @@ def main(dry_run=False):
 
     created_leads = 0
     created_companies = 0
-    created_participants = 0
+    created_attendees = 0
     skipped = 0
 
     for idx, rec in enumerate(records, 1):
@@ -398,20 +424,20 @@ def main(dry_run=False):
                         link_records("leads", "company", lead_id, company_id,
                                    tables, links, dry_run=False)
 
-            # Utwórz participant (osoba kontaktowa)
-            participant_data = {
+            # Utwórz attendee (osoba kontaktowa)
+            attendee_data = {
                 "full_name": contact_name,
                 "email": (rec.get("E.mail") or "").strip() or None,
             }
-            participant_data = {k: v for k, v in participant_data.items() if v}
+            attendee_data = {k: v for k, v in attendee_data.items() if v}
 
-            p_res = api("POST", f"/api/v2/tables/{tables['participants']}/records",
-                       json=participant_data)
-            participant_id = p_res.get("Id") or (p_res[0].get("Id") if isinstance(p_res, list) else None)
-            if participant_id:
-                created_participants += 1
-                # Linkuj lead -> participant
-                link_records("leads", "participants", lead_id, participant_id,
+            a_res = api("POST", f"/api/v2/tables/{tables['attendees']}/records",
+                       json=attendee_data)
+            attendee_id = a_res.get("Id") or (a_res[0].get("Id") if isinstance(a_res, list) else None)
+            if attendee_id:
+                created_attendees += 1
+                # Linkuj lead -> attendee
+                link_records("leads", "attendees", lead_id, attendee_id,
                            tables, links, dry_run=False)
 
             if idx % 100 == 0:
@@ -424,9 +450,9 @@ def main(dry_run=False):
 
     print(f"\n✓ Leads: {created_leads}")
     print(f"✓ Companies: {created_companies}")
-    print(f"✓ Participants: {created_participants}")
+    print(f"✓ Attendees: {created_attendees}")
     print(f"⊘ Skipped/errors: {skipped}")
-    print(f"\nRazem: {created_leads + created_companies + created_participants} rekordów")
+    print(f"\nRazem: {created_leads + created_companies + created_attendees} rekordów")
 
 
 if __name__ == "__main__":

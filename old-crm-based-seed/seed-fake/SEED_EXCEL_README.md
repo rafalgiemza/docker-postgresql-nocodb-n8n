@@ -2,6 +2,12 @@
 
 Migracja 1600 rekordów z **Statusy_z_CRM_filled.xlsx** do nowej bazy NocoDB.
 
+> Zaktualizowane pod schemat po `fable/feedback-tables-1.md` (2026-08-06) —
+> wymaga bazy stworzonej aktualną wersją `fable/create_offer_tables.py`
+> (tabela `attendees`, nie `participants`; pola `lead_name`/`lead_type`/
+> `lead_source`/`deal_value` na `leads`; nowe listy opcji `lead_source`/
+> `contact_channel`/`industry`).
+
 ## Przygotowanie
 
 1. **Uzyskaj token NocoDB**
@@ -58,17 +64,17 @@ python3 seed_nocodb_from_excel.py
 
 #### 1. **Leads** (1600 sztuk)
 ```
-contact_name      ← Nazwa klienta
+lead_name         ← Nazwa klienta
 contact_email     ← E.mail
 contact_phone     ← Nr telefonu
-type              ← B2B/B2C
-source            ← Źródło (mapowania: Google, Polecenie, LinkedIn...)
+lead_type         ← B2B/B2C
+lead_source       ← Źródło (mapowania: Google, Recommendation, LinkedIn...)
 contact_channel   ← Forma kontaktu
 qualification     ← Kwalifikacja lead'a
 stage             ← Etap (mapowania: utracona→lost, umowa→contract_signed)
 state             ← Stan
-value             ← Szansa sprzedaży (PLN)
-notes             ← Notatki
+deal_value        ← Szansa sprzedaży (PLN)
+notes             ← Notatki + wartości bez mapowania (patrz niżej)
 legacy_id         ← Spr. ID (używany do dedup)
 ```
 
@@ -79,12 +85,21 @@ industry          ← Branża
 ```
 Link: `lead → company` (pole "company")
 
-#### 3. **Participants** (1 per lead = 1600)
+#### 3. **Attendees** (1 per lead = 1600)
 ```
 full_name         ← Nazwa klienta (osoba kontaktowa)
 email             ← E.mail
 ```
-Link: `lead → participant` (pole "participants")
+Link: `lead → attendee` (pole "attendees")
+
+## Wartości bez odpowiednika w nowych listach opcji
+
+Nowe listy `lead_source`/`contact_channel` (patrz `fable/feedback-tables-1.md`)
+nie pokrywają 1:1 wszystkiego, co było w starym CRM. Tam, gdzie nie ma sensownego
+odpowiednika, skrypt **nie** wciska wartości na siłę do najbliższej złej opcji —
+zostawia pole puste i dopisuje oryginał ze starego CRM do `notes`, np.:
+`Źródło (stary CRM): Strona www`. Dotyczy to: Źródła "Strona www"/"Kampania
+Ads"/"Targi" oraz Formy kontaktu "Czat"/"Spotkanie".
 
 ## Mapowania stage'ów
 
@@ -100,26 +115,39 @@ Link: `lead → participant` (pole "participants")
 | utracona | lost |
 | brak kwalifikacji | new |
 
-## Mapowania źródeł
+## Mapowania źródeł (`lead_source`)
 
 | Excel | NocoDB |
 |-------|--------|
-| Google | google |
-| Polecenie | polecenie |
-| LinkedIn | linkedin |
-| Strona www, Cold mail, Targi, Webinar | polecenie (fallback) |
-| Facebook, Kampania Ads | google (fallback) |
+| Google | Google |
+| Polecenie | Recommendation |
+| LinkedIn | LinkedIn |
+| Facebook | Facebook |
+| Webinar | Webinar |
+| Cold mail | Outreach |
+| Strona www, Kampania Ads, Targi | *(brak odpowiednika → notes)* |
 
-## Mapowania form kontaktu
+## Mapowania form kontaktu (`contact_channel`)
 
 | Excel | NocoDB |
 |-------|--------|
-| Bookings | bookings |
-| Formularz WWW | formularz |
-| Telefon | telefon |
-| E-mail | email |
-| Czat | email (fallback) |
-| Spotkanie | telefon (fallback) |
+| Bookings | Bookings |
+| Formularz WWW | Formularz |
+| Telefon | Telefon |
+| E-mail | Mail |
+| Czat, Spotkanie | *(brak odpowiednika → notes)* |
+
+## Mapowania branż (`industry`)
+
+| Excel | NocoDB |
+|-------|--------|
+| IT | IT |
+| Logistyka | Transport/Logistics |
+| Edukacja | Education |
+| Finanse, Usługi finansowe | Finance |
+| Medyczna | Medicine |
+| Produkcja | Manufacturing |
+| Handel | Retail |
 
 ## Bezpieczeństwo (idempotent)
 
@@ -133,7 +161,7 @@ Link: `lead → participant` (pole "participants")
 - Token jest stary lub niepoprawny
 - Generuj nowy w Account Settings
 
-### "Brakuje tabel: leads, companies, participants"
+### "Brakuje tabel: leads, companies, attendees"
 - Uruchom najpierw `python3 fable/create_offer_tables.py`
 - Baza musi być już schematyzowana
 
@@ -151,4 +179,4 @@ Link: `lead → participant` (pole "participants")
 - **Bez poważnych zmian**: Jeśli nazwa pola relacji się nie zgadza, skrypt wypisze ostrzeżenie i pójdzie dalej
 - **Dane historyczne**: Excel zawiera dane historyczne — stage'i są mapowane na możliwy stan w nowej bazie
 - **Bez meetingsów**: Daty badania/demo są w Excelu, ale teraz ich nie tworzymy — można dodać później
-- **Position brak**: Participants tworzą się tylko z imienia i emaila (brak danych o stanowisku w starym CRM)
+- **Position brak**: Attendees tworzą się tylko z imienia i emaila (brak danych o stanowisku w starym CRM)

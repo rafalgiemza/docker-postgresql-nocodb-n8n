@@ -72,6 +72,18 @@ CZEGO TEN SKRYPT NIE ROBI (do wyklikania ręcznie po uruchomieniu):
      udokumentowane, sprawdź i popraw w UI.
   4. Display value: NocoDB bierze pierwsze pole z listy — dlatego w każdej
      tabeli pole "nazwowe" jest pierwsze. Zweryfikuj w UI.
+  5. ZMIANY NA JUŻ WDROŻONEJ BAZIE (patrz `fable/feedback-tables-1.md`,
+     nałożone na TABLES/RELATIONS 2026-08-06): `create_tables()` pomija CAŁĄ
+     tabelę, jeśli tytuł już istnieje — nie ma diffa na poziomie pojedynczego
+     pola. Jeśli baza z 16 tabelami już żyje w produkcji, ponowne uruchomienie
+     tego skryptu NIE przemianuje `participants`→`attendees`,
+     `recommendation_items`→`recommendation_packages`,
+     `training_modules`→`training_descriptions`, ani nie dopisze nowych
+     opcji do istniejących SingleSelect/description — te tabele po prostu
+     zostaną pominięte jako "już istnieje". Zmiany trzeba nanieść ręcznie w
+     UI NocoDB (rename tabeli/pola zachowuje Id i dane) albo osobnym
+     skryptem migracyjnym (PATCH po Id) — TABLES/RELATIONS niżej to teraz
+     aktualny stan docelowy, nie automatyczny diff.
 
 Idempotentny: tabele i pola-relacje o istniejącym tytule są pomijane.
 
@@ -169,19 +181,52 @@ def select(*titles):
 
 
 # --------------------------------------------------------------- wspólne słowniki
-# Trzymane w stałych, bo v3 §11 wprost wymaga, żeby `pricing.segment` ==
-# `offers.variant` i `pricing.mode` == `recommendation_items.mode` — inaczej
-# automatyczne dopasowanie ceny nigdy nie będzie możliwe. Jedna definicja =
-# listy nie mogą się rozjechać.
+# Trzymane w stałych, bo v3 §11 wprost wymaga, żeby `pricing.product` ==
+# `offers.product_type` i `pricing.training_group_size` ==
+# `recommendation_packages.training_group_size` — inaczej automatyczne
+# dopasowanie ceny nigdy nie będzie możliwe. Jedna definicja = listy nie
+# mogą się rozjechać.
 AI_STATUS = ("none", "pending", "ai_draft_ready", "ai_accepted", "ai_rejected")
 MODE = ("1-1", "w_parach", "grupa")
-VARIANT = ("standard", "intensive_workshop", "oferta_specjalna")
-INDUSTRY = ("IT", "produkcja", "finanse", "medyczna", "logistyka",
-            "edukacja", "handel", "inne")
+# feedback-tables-1.md: offers.variant -> product_type (+ 3 nowe warianty),
+# pricing.segment -> product - obie kolumny nadal musza dzielic te sama liste.
+VARIANT = ("standard", "intensive_workshop", "oferta_specjalna",
+           "audyt_jezykowy", "job_interview", "webinar")
+# feedback-tables-1.md - pelna lista branz z excelowego CRM klienta (1:1,
+# wlacznie z zapisem "E.commerce"/"Networks/Itadmin" itp. - to widoczne w
+# dropdownie etykiety, nie wewnetrzne identyfikatory, wiec zostawione tak jak
+# podala klientka, bez normalizacji wielkosci liter).
+INDUSTRY = ("Agriculture", "AI", "Automation", "Automotive", "Banking", "Clothing",
+            "Construction", "Data Solutions", "Design", "E.commerce", "Energy",
+            "Entertainment", "Finance", "Food", "Furniture", "Home Appliances",
+            "Hotels", "HR services", "Insurance", "Networks/Itadmin", "IT",
+            "Medicine", "Law", "Machinery", "Marketing Agency", "Media", "Pharma",
+            "Military", "Packaging", "Public sector", "Publishing", "Real Estate",
+            "Retail", "Software Development", "Tech Product", "Telecommunication",
+            "Tourism", "Training", "Transport/Logistics", "Housing", "Space",
+            "Manufacturing", "Education", "CyberSec")
 
 
-def ai_status_field():
-    return {"title": "ai_status", "type": "SingleSelect", "options": select(*AI_STATUS)}
+def ai_status_field(action=None):
+    """`action` = etykieta przycisku, ktory faktycznie startuje generowanie w
+    tej tabeli (patrz naglowek skryptu, sekcja "CZEGO TEN SKRYPT NIE ROBI" -
+    Button na offers/meetings/assessments). feedback-tables-1.md prosil o
+    opis "jak wygenerowac tresc" w description - NIE piszemy tu "zmien status
+    i odswiez", bo to nieprawda: generowanie startuje przyciskiem, a zmiana
+    samego ai_status niczego nie wywoluje.
+    """
+    base = ("Status tresci generowanej przez AI: none (nic nie generowano) -> "
+            "pending (automatyzacja wlasnie generuje, czekaj) -> "
+            "ai_draft_ready (jest szkic, czeka na weryfikacje czlowieka) -> "
+            "ai_accepted / ai_rejected (decyzja czlowieka). Tylko ai_accepted "
+            "moze zasilic oferte. Sama zmiana tego pola NIC nie generuje")
+    if action:
+        note = f' - uzupelnij pola powyzej, kliknij przycisk "{action}", potem odswiez'
+    else:
+        note = (" - przycisk/automatyzacja generujaca tresc dla tej tabeli nie "
+                "jest jeszcze podpieta, do ustalenia")
+    return {"title": "ai_status", "type": "SingleSelect", "options": select(*AI_STATUS),
+            "description": base + note + "."}
 
 
 # --------------------------------------------------------------- definicje tabel
@@ -201,28 +246,55 @@ TABLES = [
             {"title": "folder_url", "type": "URL"},
             {"title": "notes", "type": "LongText"},
             # v3 §10 - kontekst biznesowy z discovery
-            {"title": "communication_processes", "type": "LongText"},
-            {"title": "business_impact", "type": "LongText"},
+            {"title": "communication_processes", "type": "LongText",
+             "description": "Jak w firmie przebiega komunikacja: kluczowe role, "
+                            "z kim i o czym rozmawiaja pracownicy, kto jest "
+                            "odbiorca komunikacji (np. klienci zagraniczni, "
+                            "zespoly rozproszone). Wypelnia AI na podstawie "
+                            "transkryptu spotkania discovery, czlowiek poprawia."},
+            {"title": "business_impact", "type": "LongText",
+             "description": "Jaki jest biznesowy skutek brakow jezykowych w tej "
+                            "firmie (np. utracone kontrakty, wolniejsza obsluga "
+                            "klienta zagranicznego). Wypelnia AI na podstawie "
+                            "transkryptu spotkania discovery, czlowiek poprawia."},
         ],
     },
     {
         "title": "leads",
         "description": "Jedna szansa sprzedazy. Kanban po `stage`. UWAGA: "
-                       "`value` to PROGNOZA wartosci szansy - nie mylic z "
-                       "`offers.price` (kwota na konkretnym dokumencie).",
+                       "`deal_value` to PROGNOZA wartosci szansy - nie mylic z "
+                       "`offers.total_price` (kwota na konkretnym dokumencie).",
         "fields": [
-            {"title": "contact_name", "type": "SingleLineText"},
+            # feedback-tables-1.md: contact_name -> lead_name (tabela miesza
+            # firmy i klientow B2C, "contact_name" bylo mylace)
+            {"title": "lead_name", "type": "SingleLineText"},
             {"title": "contact_email", "type": "Email"},
             {"title": "contact_phone", "type": "PhoneNumber"},
-            {"title": "type", "type": "SingleSelect", "options": select("B2C", "B2B")},
+            # feedback-tables-1.md: type -> lead_type (za duzo pol "type" w
+            # roznych tabelach w calej bazie, latwo pomylic)
+            {"title": "lead_type", "type": "SingleSelect", "options": select("B2C", "B2B")},
             {"title": "owner", "type": "User"},
-            {"title": "source", "type": "SingleSelect",
-             "options": select("google", "polecenie", "linkedin",
-                               "powrot_klienta", "inne")},
+            # feedback-tables-1.md: source -> lead_source; lista zastapiona
+            # tabelka podana przez klientke (zrodlo/kanal pozyskania leada)
+            {"title": "lead_source", "type": "SingleSelect",
+             "options": select("Google", "Outreach", "Existing client", "LinkedIn",
+                               "Recommendation", "Webinar", "Facebook",
+                               "Coming back Lead", "Coming back Client")},
+            # feedback-tables-1.md: brakujace typy kontaktu - lista z excela
+            # ("Uwzglednij wszystkie rodzaje contact_channel z excelowego crm")
+            # + ta sama tabelka co lead_source (klientka: "do obu pol")
             {"title": "contact_channel", "type": "SingleSelect",
-             "options": select("bookings", "formularz", "email", "telefon")},
+             "options": select("Bookings", "Telefon", "Linkedin CoAction", "Mail",
+                               "Formularz", "Facebook Przemka", "Facebook CoAction",
+                               "Linkedin Przemka", "Google", "Outreach",
+                               "Existing client", "LinkedIn", "Recommendation",
+                               "Webinar", "Facebook", "Coming back Lead",
+                               "Coming back Client")},
+            # feedback-tables-1.md: rozdzielenie non-MQL/non-SQL, zeby od razu
+            # bylo widac NA JAKIM etapie lead zostal zdyskwalifikowany (tak
+            # jak w excelu) - unqualified zostaje jako ogolny fallback
             {"title": "qualification", "type": "SingleSelect",
-             "options": select("unqualified", "MQL", "SQL")},
+             "options": select("unqualified", "non-MQL", "MQL", "non-SQL", "SQL")},
             {"title": "disqualify_reason", "type": "SingleSelect",
              "options": select("brak_budzetu", "brak_potrzeby", "konkurencja",
                                "brak_kontaktu", "inne")},
@@ -238,8 +310,14 @@ TABLES = [
              "options": select("cena", "brak_decyzji", "konkurencja",
                                "przesuniete_w_czasie", "inne")},
             {"title": "loss_note", "type": "LongText"},
-            {"title": "value", "type": "Currency",
-             "options": {"locale": "pl-PL", "code": "PLN"}},
+            # feedback-tables-1.md: value -> deal_value + opis, zeby nie mylic
+            # z offers.total_price (patrz opis tabeli wyzej: value to PROGNOZA)
+            {"title": "deal_value", "type": "Currency",
+             "options": {"locale": "pl-PL", "code": "PLN"},
+             "description": "Wartosc szansy sprzedazy (prognoza pipeline'u, "
+                            "szacowana zanim istnieje oferta). To NIE jest "
+                            "kwota z konkretnego dokumentu ofertowego - tamta "
+                            "jest w offers.total_price."},
             {"title": "label", "type": "SingleSelect",
              "options": select("hot", "oferta_specjalna")},
             # v3 §1 - dla B2C, gdzie nie ma rekordu firmy
@@ -260,7 +338,10 @@ TABLES = [
         ],
     },
     {
-        "title": "participants",
+        # feedback-tables-1.md: "participants" myli sie z uczestnikami kursow
+        # (na tych mowimy "participants" tez) - to sa osoby AUDYTOWANE, nie
+        # kazda z nich zostanie uczestnikiem kursu -> attendees.
+        "title": "attendees",
         "description": "Osoba szkolona (!= kupujacy). v3 §3: tworzymy ZAWSZE, "
                        "takze dla B2C - inaczej nie ma gdzie trzymac oceny "
                        "i rekomendacji, a generator oferty wyrenderuje pusto. "
@@ -286,7 +367,9 @@ TABLES = [
                        "ktora ma trafic na slajd, musi byc osobnym polem.",
         "fields": [
             {"title": "title", "type": "SingleLineText"},
-            {"title": "type", "type": "SingleSelect",
+            # feedback-tables-1.md: type -> meeting_type (jw., zeby nie mylic
+            # z "type"/"variant" w innych tabelach)
+            {"title": "meeting_type", "type": "SingleSelect",
              "options": select("discovery", "demo", "audit", "needs_analysis",
                                "offer_discussion", "inne")},
             {"title": "starts_at", "type": "DateTime"},
@@ -297,13 +380,38 @@ TABLES = [
             # brudnopis
             {"title": "notes", "type": "LongText"},
             {"title": "transcript", "type": "LongText"},
-            # draft AI -> czystopis (jeden prompt, jeden status)
-            {"title": "goals", "type": "LongText"},
-            {"title": "challenges", "type": "LongText"},
-            {"title": "participant_types", "type": "LongText"},
-            {"title": "business_context", "type": "LongText"},
-            {"title": "communication_situations", "type": "LongText"},
-            ai_status_field(),
+            # draft AI -> czystopis (jeden prompt, jeden status) - opisy ponizej
+            # wg nocodb_crm_schema_v3.md §2; goals/challenges leca wprost do
+            # szablonu oferty jako {{meeting.goals}}/{{meeting.challenges}}
+            # (v3 §"Co sie zmienia w W9 i szablonie oferty") - to jedyne dwa
+            # pola z tej piatki ze zweryfikowanym miejscem docelowym w pliku.
+            {"title": "goals", "type": "LongText",
+             "description": "Cele klienta wzgledem szkolenia. Generowane przez "
+                            "AI z transcript+notes, czlowiek poprawia po "
+                            "ai_draft_ready. Trafia wprost na slajd oferty "
+                            "jako {{meeting.goals}}."},
+            {"title": "challenges", "type": "LongText",
+             "description": "Wyzwania/problemy zglaszane podczas spotkania. "
+                            "Generowane przez AI z transcript+notes, czlowiek "
+                            "poprawia. Trafia wprost na slajd oferty jako "
+                            "{{meeting.challenges}}."},
+            {"title": "participant_types", "type": "LongText",
+             "description": "Jacy ludzie / jakie role uczestnicza w szkoleniu "
+                            "(skrot, nie lista imion - te sa w `attendees`). "
+                            "Generowane przez AI z transcript+notes, czlowiek "
+                            "poprawia."},
+            {"title": "business_context", "type": "LongText",
+             "description": "Kontekst biznesowy firmy/klienta z rozmowy - "
+                            "odpowiednik `companies.communication_processes` "
+                            "dla tego konkretnego spotkania. Generowane przez "
+                            "AI z transcript+notes, czlowiek poprawia."},
+            {"title": "communication_situations", "type": "LongText",
+             "description": "Konkretne sytuacje komunikacyjne po angielsku, w "
+                            "ktorych klient bierze udzial (np. negocjacje z "
+                            "dostawca, prezentacje dla zarzadu) - to one "
+                            "bezposrednio zasilaja audyt jezykowy. Generowane "
+                            "przez AI z transcript+notes, czlowiek poprawia."},
+            ai_status_field("Generuj analizę"),
             # surowy blob z LLM - do wgladu/debugu, NIE zrodlo dla oferty
             {"title": "ai_analysis_raw", "type": "LongText"},
             {"title": "outcome", "type": "LongText"},
@@ -313,7 +421,7 @@ TABLES = [
         "title": "assessments",
         "description": "Historia ocen CEFR: jeden wiersz na audyt. Najnowsza "
                        "ocena = sort=-UpdatedAt (pole systemowe), bez osobnej "
-                       "flagi 'aktualna'. Zastepuje plaskie participants.cefr_*.",
+                       "flagi 'aktualna'. Zastepuje plaskie attendees.cefr_*.",
         "fields": [
             {"title": "title", "type": "SingleLineText"},
             {"title": "assessed_at", "type": "Date"},
@@ -327,7 +435,7 @@ TABLES = [
             {"title": "gaps", "type": "LongText"},
             {"title": "needs_summary", "type": "LongText"},
             {"title": "auditor_notes", "type": "LongText"},
-            ai_status_field(),
+            ai_status_field("Generuj needs summary"),
             # v3 §12 - raport audytowy jako artefakt audytu, bez osobnej tabeli
             {"title": "report_file", "type": "Attachment"},
             {"title": "report_data_json", "type": "LongText"},
@@ -345,51 +453,76 @@ TABLES = [
                                "skills_only", "mieszana")},
             {"title": "headline", "type": "SingleLineText"},
             {"title": "rationale", "type": "LongText"},
+            # feedback-tables-1.md: brakowalo wyjasnienia CZEGO to priorytet
             {"title": "priority", "type": "SingleSelect",
-             "options": select("wysoki", "sredni", "niski")},
+             "options": select("wysoki", "sredni", "niski"),
+             "description": "Priorytet TEJ rekomendacji wzgledem innych "
+                            "rekomendacji dla tej samej osoby (jedna osoba "
+                            "moze miec kilka proponowanych sciezek) - pomaga "
+                            "wybrac, ktora sciezke pokazac jako glowna w "
+                            "ofercie."},
+            # brak potwierdzonego przycisku dla tej tabeli w skrypcie (patrz
+            # naglowek: Button jest tylko na offers/meetings/assessments) -
+            # ai_status_field() bez `action` pisze to wprost, zamiast zmyslac
             ai_status_field(),
         ],
     },
     {
-        "title": "training_modules",
+        # feedback-tables-1.md: nazwa tabeli TRAINING_MODULES -> Training_descriptions
+        # (znormalizowane do lowercase snake_case - konwencja calego pliku)
+        "title": "training_descriptions",
         "description": "Biblioteka modulow szkoleniowych (dzis istnieja tylko "
                        "jako tekst zaszyty na slajdach ETAP 1/ETAP 2).",
         "fields": [
             {"title": "title", "type": "SingleLineText"},
-            {"title": "category", "type": "SingleSelect",
+            # feedback-tables-1.md: category -> Training_Type
+            {"title": "training_type", "type": "SingleSelect",
              "options": select("business_english", "english_for_it",
                                "workshop_facylitacja", "workshop_negocjacje",
                                "inne")},
-            {"title": "goal_statement", "type": "LongText"},
+            # feedback-tables-1.md: goal_statement -> learning_goal
+            {"title": "learning_goal", "type": "LongText"},
             {"title": "description", "type": "LongText"},
-            {"title": "default_hours", "type": "Number"},
+            # feedback-tables-1.md wymienia "hours_in_package" pod ta tabela
+            # bez dodatkowego kontekstu; zalozenie: to rename default_hours,
+            # analogiczny do hours -> hours_in_package w recommendation_packages
+            # (patrz nizej) - do potwierdzenia, jesli chodzilo o cos innego.
+            {"title": "hours_in_package", "type": "Number"},
             {"title": "active", "type": "Checkbox", "default_value": True},
         ],
     },
     {
-        "title": "recommendation_items",
+        # feedback-tables-1.md: "Nazwa tabeli: recommendation_packages, a nie items"
+        "title": "recommendation_packages",
         "description": "Konkretna sciezka: ktore moduly, w jakiej kolejnosci, "
                        "ile godzin, w jakim trybie. Zasila slajd repeat:module. "
-                       "`label` istnieje wylacznie po to, zeby display value "
-                       "nie byl liczba (sort_order) - patrz naglowek skryptu.",
+                       "`package_name` istnieje wylacznie po to, zeby display "
+                       "value nie byl liczba (sort_order) - patrz naglowek skryptu.",
         "fields": [
-            {"title": "label", "type": "SingleLineText"},
+            # feedback-tables-1.md: label -> package_name
+            {"title": "package_name", "type": "SingleLineText"},
             {"title": "sort_order", "type": "Number"},
-            {"title": "hours", "type": "Number"},
-            {"title": "mode", "type": "SingleSelect", "options": select(*MODE)},
+            # feedback-tables-1.md: hours -> Hours_in_Package
+            {"title": "hours_in_package", "type": "Number"},
+            # feedback-tables-1.md: mode -> Training_Group_Size
+            {"title": "training_group_size", "type": "SingleSelect", "options": select(*MODE)},
         ],
     },
     {
         "title": "pricing",
         "description": "Cennik wersjonowany. SWIADOMIE bez relacji do ofert - "
                        "tabela referencyjna, z ktorej czlowiek odczytuje stawke. "
-                       "`segment` == offers.variant, `mode` == "
-                       "recommendation_items.mode (wspolne stale w skrypcie).",
+                       "`product` == offers.product_type, `training_group_size` == "
+                       "recommendation_packages.training_group_size (wspolne "
+                       "stale w skrypcie: VARIANT / MODE).",
         "fields": [
-            {"title": "segment", "type": "SingleSelect", "options": select(*VARIANT)},
-            {"title": "mode", "type": "SingleSelect", "options": select(*MODE)},
+            # feedback-tables-1.md: segment -> product
+            {"title": "product", "type": "SingleSelect", "options": select(*VARIANT)},
+            # feedback-tables-1.md: mode -> Training_Group_Size
+            {"title": "training_group_size", "type": "SingleSelect", "options": select(*MODE)},
             {"title": "hours", "type": "Number"},
-            {"title": "price", "type": "Currency",
+            # feedback-tables-1.md: price -> total_price (vs hourly price)
+            {"title": "total_price", "type": "Currency",
              "options": {"locale": "pl-PL", "code": "PLN"}},
             {"title": "valid_from", "type": "Date"},
             {"title": "valid_to", "type": "Date"},
@@ -404,15 +537,29 @@ TABLES = [
             {"title": "title", "type": "SingleLineText"},
             {"title": "status", "type": "SingleSelect",
              "options": select("draft", "sent", "accepted", "rejected")},
-            {"title": "price", "type": "Currency",
+            # feedback-tables-1.md: price -> total_price (vs hourly price)
+            {"title": "total_price", "type": "Currency",
              "options": {"locale": "pl-PL", "code": "PLN"}},
             {"title": "hours", "type": "Number"},
-            {"title": "variant", "type": "SingleSelect", "options": select(*VARIANT)},
+            # feedback-tables-1.md: variant -> product_type, dodane Audyt
+            # jezykowy/Job Interview/Webinar (juz w VARIANT), MultiSelect bo
+            # "w jednej ofercie moze byc kilka roznych" produktow naraz
+            {"title": "product_type", "type": "MultiSelect", "options": select(*VARIANT)},
             {"title": "version", "type": "Number"},
             {"title": "template_name", "type": "SingleLineText"},
             {"title": "file", "type": "Attachment"},
-            {"title": "data_json", "type": "LongText"},
-            {"title": "warnings", "type": "LongText"},
+            # feedback-tables-1.md: brakowalo opisu co tu wpisywac
+            {"title": "data_json", "type": "LongText",
+             "description": "Zamrozony zrzut danych (JSON), z ktorych "
+                            "zostal wygenerowany ten dokument - realizacja "
+                            "wymogu 'historia ofert'. Zapisywane AUTOMATYCZNIE "
+                            "przez automatyzacje przy generowaniu pliku - nie "
+                            "edytowac recznie."},
+            {"title": "warnings", "type": "LongText",
+             "description": "Ostrzezenia zwrocone automatycznie przez usluge "
+                            "generujaca plik oferty (np. brakujace dane w "
+                            "szablonie). Zapisywane AUTOMATYCZNIE - nie "
+                            "edytowac recznie."},
             {"title": "sent_at", "type": "Date"},
             {"title": "valid_until", "type": "Date"},
         ],
@@ -520,9 +667,9 @@ TABLES = [
 RELATIONS = [
     # --- firma
     ("companies", "leads", "hm", "leads"),
-    ("companies", "participants", "hm", "participants"),
+    ("companies", "attendees", "hm", "attendees"),
     # --- lead jako centrum
-    ("leads", "participants", "hm", "participants"),
+    ("leads", "attendees", "hm", "attendees"),
     ("leads", "meetings", "hm", "meetings"),
     ("leads", "tasks", "hm", "tasks"),
     ("leads", "activities", "hm", "activities"),
@@ -531,12 +678,12 @@ RELATIONS = [
     # self-link: sugestia duplikatu (W5/W4v2 nigdy nie scala automatycznie)
     ("leads", "possible_duplicate", "mm", "leads"),
     # --- trzy poziomy merytoryczne (v3 "Architektura tabel")
-    ("participants", "assessments", "hm", "assessments"),
-    ("participants", "recommendations", "hm", "recommendations"),
-    ("participants", "meetings", "mm", "meetings"),
+    ("attendees", "assessments", "hm", "assessments"),
+    ("attendees", "recommendations", "hm", "recommendations"),
+    ("attendees", "meetings", "mm", "meetings"),
     ("meetings", "assessments", "hm", "assessments"),
-    ("recommendations", "items", "hm", "recommendation_items"),
-    ("training_modules", "recommendation_items", "hm", "recommendation_items"),
+    ("recommendations", "packages", "hm", "recommendation_packages"),
+    ("training_descriptions", "recommendation_packages", "hm", "recommendation_packages"),
     # --- log
     ("meetings", "activities", "hm", "activities"),
     ("tasks", "activities", "hm", "activities"),
@@ -556,10 +703,19 @@ _UIDT = {"SingleLineText", "LongText", "Email", "PhoneNumber", "URL", "Number",
 
 
 def to_v2_column(f):
-    """Pole w stylu v3 -> kolumna w kontrakcie v2."""
+    """Pole w stylu v3 -> kolumna w kontrakcie v2.
+
+    `description` (field description widoczny w NocoDB UI pod ikonką "i" przy
+    nazwie pola) - NIEZWERYFIKOWANE NA ŻYWO w tej sesji (brak dostepnej
+    instancji), tylko udokumentowana funkcja NocoDB. Po uruchomieniu sprawdz
+    w UI, czy opis faktycznie sie zapisal - jesli API po cichu go ignoruje,
+    trzeba bedzie dopisac opisy recznie.
+    """
     t = f["type"]
     assert t in _UIDT, f"nieznany typ pola: {t}"
     col = {"title": f["title"], "column_name": f["title"], "uidt": t}
+    if f.get("description"):
+        col["description"] = f["description"]
     opts = f.get("options") or {}
     if t in ("SingleSelect", "MultiSelect"):
         # v2 trzyma opcje jako 'a','b','c' w jednym polu dtxp, nie jako liste
