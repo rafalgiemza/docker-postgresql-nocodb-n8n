@@ -4,9 +4,9 @@ Migracja 1600 rekordów z **Statusy_z_CRM_filled.xlsx** do nowej bazy NocoDB.
 
 > Zaktualizowane pod schemat po `fable/feedback-tables-1.md` (2026-08-06) —
 > wymaga bazy stworzonej aktualną wersją `fable/create_offer_tables.py`
-> (tabela `attendees`, nie `participants`; pola `lead_name`/`lead_type`/
-> `lead_source`/`deal_value` na `leads`; nowe listy opcji `lead_source`/
-> `contact_channel`/`industry`).
+> (pola `lead_name`/`lead_type`/`lead_source`/`deal_value` na `leads`; nowe
+> listy opcji `lead_source`/`contact_channel`/`industry`; tabela
+> `participants` zostaje bez zmian).
 
 ## Przygotowanie
 
@@ -85,12 +85,12 @@ industry          ← Branża
 ```
 Link: `lead → company` (pole "company")
 
-#### 3. **Attendees** (1 per lead = 1600)
+#### 3. **Participants** (1 per lead = 1600)
 ```
 full_name         ← Nazwa klienta (osoba kontaktowa)
 email             ← E.mail
 ```
-Link: `lead → attendee` (pole "attendees")
+Link: `lead → participant` (pole "participants")
 
 ## Wartości bez odpowiednika w nowych listach opcji
 
@@ -161,7 +161,7 @@ Ads"/"Targi" oraz Formy kontaktu "Czat"/"Spotkanie".
 - Token jest stary lub niepoprawny
 - Generuj nowy w Account Settings
 
-### "Brakuje tabel: leads, companies, attendees"
+### "Brakuje tabel: leads, companies, participants"
 - Uruchom najpierw `python3 fable/create_offer_tables.py`
 - Baza musi być już schematyzowana
 
@@ -179,4 +179,4 @@ Ads"/"Targi" oraz Formy kontaktu "Czat"/"Spotkanie".
 - **Bez poważnych zmian**: Jeśli nazwa pola relacji się nie zgadza, skrypt wypisze ostrzeżenie i pójdzie dalej
 - **Dane historyczne**: Excel zawiera dane historyczne — stage'i są mapowane na możliwy stan w nowej bazie
 - **Bez meetingsów**: Daty badania/demo są w Excelu, ale teraz ich nie tworzymy — można dodać później
-- **Position brak**: Attendees tworzą się tylko z imienia i emaila (brak danych o stanowisku w starym CRM)
+- **Position brak**: Participants tworzą się tylko z imienia i emaila (brak danych o stanowisku w starym CRM)

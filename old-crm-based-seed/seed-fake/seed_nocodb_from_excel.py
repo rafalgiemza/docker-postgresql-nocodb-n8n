@@ -2,12 +2,13 @@
 """Seed NocoDB CRM z prawdziwymi danymi ze starego CRM (Excel).
 
 Czyta: Statusy_z_CRM_filled.xlsx (w tym samym folderze)
-Tworzy w NocoDB: leads, companies (B2B), attendees
+Tworzy w NocoDB: leads, companies (B2B), participants
 
 Zaktualizowane pod schemat po fable/feedback-tables-1.md (2026-08-06) -
 patrz fable/create_offer_tables.py. Wymaga bazy stworzonej TĄ wersją skryptu
-(tabela `attendees`, pola `lead_name`/`lead_type`/`lead_source`/`deal_value`
-na `leads`, nowe listy opcji `lead_source`/`contact_channel`/`industry`).
+(pola `lead_name`/`lead_type`/`lead_source`/`deal_value` na `leads`, nowe
+listy opcji `lead_source`/`contact_channel`/`industry`; tabela `participants`
+zostaje - klientka potwierdziła, że ta nazwa jest ok).
 
 CO ROBI:
   1. Czyta 1600 rekordów z Excela (bez wymyślania danych)
@@ -15,7 +16,7 @@ CO ROBI:
   3. Dla każdego rekordu:
      - Tworzy lead (lead_name, email, phone, stage, deal_value, notes...)
      - Dla B2B: tworzy/znajduje firmę, linkuje lead -> company
-     - Tworzy attendee (osoba kontaktowa), linkuje lead -> attendee
+     - Tworzy participant (osoba kontaktowa), linkuje lead -> participant
   4. Pomija rekordy już istniejące (dedup po legacy_id)
   5. Wartości Excela, które NIE mają odpowiednika w nowych listach opcji
      (np. "Strona www" w Źródle, "Czat" w Formie kontaktu) NIE są na siłę
@@ -33,7 +34,7 @@ MAPOWANIA:
 
 LINKING:
   - leads -> company (dla B2B via field "company")
-  - leads -> attendees (via field "attendees")
+  - leads -> participants (via field "participants")
 
 WYMAGA W ŚRODOWISKU:
   NC_API_TOKEN      - token z NocoDB (User menu → Tokens)
@@ -362,14 +363,14 @@ def main(dry_run=False):
     print(f"NocoDB: {URL}, base: {BASE_ID}{' [DRY RUN]' if dry_run else ''}\n")
 
     if dry_run:
-        tables = {"leads": 1, "companies": 2, "attendees": 3}  # dummy
+        tables = {"leads": 1, "companies": 2, "participants": 3}  # dummy
         links = {}
     else:
         tables, links = resolve_meta()
         print(f"Tabele: {list(tables.keys())}\n")
         print(f"Link fields w leads: {links.get('leads', {})}\n")
-        if not all(t in tables for t in ["leads", "companies", "attendees"]):
-            sys.exit("Brakuje tabel: leads, companies, attendees")
+        if not all(t in tables for t in ["leads", "companies", "participants"]):
+            sys.exit("Brakuje tabel: leads, companies, participants")
 
     print("Czytam Excel...")
     records = read_excel()
@@ -386,7 +387,7 @@ def main(dry_run=False):
 
     created_leads = 0
     created_companies = 0
-    created_attendees = 0
+    created_participants = 0
     skipped = 0
 
     for idx, rec in enumerate(records, 1):
@@ -424,20 +425,20 @@ def main(dry_run=False):
                         link_records("leads", "company", lead_id, company_id,
                                    tables, links, dry_run=False)
 
-            # Utwórz attendee (osoba kontaktowa)
-            attendee_data = {
+            # Utwórz participant (osoba kontaktowa)
+            participant_data = {
                 "full_name": contact_name,
                 "email": (rec.get("E.mail") or "").strip() or None,
             }
-            attendee_data = {k: v for k, v in attendee_data.items() if v}
+            participant_data = {k: v for k, v in participant_data.items() if v}
 
-            a_res = api("POST", f"/api/v2/tables/{tables['attendees']}/records",
-                       json=attendee_data)
-            attendee_id = a_res.get("Id") or (a_res[0].get("Id") if isinstance(a_res, list) else None)
-            if attendee_id:
-                created_attendees += 1
-                # Linkuj lead -> attendee
-                link_records("leads", "attendees", lead_id, attendee_id,
+            p_res = api("POST", f"/api/v2/tables/{tables['participants']}/records",
+                       json=participant_data)
+            participant_id = p_res.get("Id") or (p_res[0].get("Id") if isinstance(p_res, list) else None)
+            if participant_id:
+                created_participants += 1
+                # Linkuj lead -> participant
+                link_records("leads", "participants", lead_id, participant_id,
                            tables, links, dry_run=False)
 
             if idx % 100 == 0:
@@ -450,9 +451,9 @@ def main(dry_run=False):
 
     print(f"\n✓ Leads: {created_leads}")
     print(f"✓ Companies: {created_companies}")
-    print(f"✓ Attendees: {created_attendees}")
+    print(f"✓ Participants: {created_participants}")
     print(f"⊘ Skipped/errors: {skipped}")
-    print(f"\nRazem: {created_leads + created_companies + created_attendees} rekordów")
+    print(f"\nRazem: {created_leads + created_companies + created_participants} rekordów")
 
 
 if __name__ == "__main__":

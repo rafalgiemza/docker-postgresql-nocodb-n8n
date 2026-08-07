@@ -76,8 +76,7 @@ CZEGO TEN SKRYPT NIE ROBI (do wyklikania ręcznie po uruchomieniu):
      nałożone na TABLES/RELATIONS 2026-08-06): `create_tables()` pomija CAŁĄ
      tabelę, jeśli tytuł już istnieje — nie ma diffa na poziomie pojedynczego
      pola. Jeśli baza z 16 tabelami już żyje w produkcji, ponowne uruchomienie
-     tego skryptu NIE przemianuje `participants`→`attendees`,
-     `recommendation_items`→`recommendation_packages`,
+     tego skryptu NIE przemianuje `recommendation_items`→`recommendation_packages`,
      `training_modules`→`training_descriptions`, ani nie dopisze nowych
      opcji do istniejących SingleSelect/description — te tabele po prostu
      zostaną pominięte jako "już istnieje". Zmiany trzeba nanieść ręcznie w
@@ -338,10 +337,7 @@ TABLES = [
         ],
     },
     {
-        # feedback-tables-1.md: "participants" myli sie z uczestnikami kursow
-        # (na tych mowimy "participants" tez) - to sa osoby AUDYTOWANE, nie
-        # kazda z nich zostanie uczestnikiem kursu -> attendees.
-        "title": "attendees",
+        "title": "participants",
         "description": "Osoba szkolona (!= kupujacy). v3 §3: tworzymy ZAWSZE, "
                        "takze dla B2C - inaczej nie ma gdzie trzymac oceny "
                        "i rekomendacji, a generator oferty wyrenderuje pusto. "
@@ -397,7 +393,7 @@ TABLES = [
                             "{{meeting.challenges}}."},
             {"title": "participant_types", "type": "LongText",
              "description": "Jacy ludzie / jakie role uczestnicza w szkoleniu "
-                            "(skrot, nie lista imion - te sa w `attendees`). "
+                            "(skrot, nie lista imion - te sa w `participants`). "
                             "Generowane przez AI z transcript+notes, czlowiek "
                             "poprawia."},
             {"title": "business_context", "type": "LongText",
@@ -421,7 +417,7 @@ TABLES = [
         "title": "assessments",
         "description": "Historia ocen CEFR: jeden wiersz na audyt. Najnowsza "
                        "ocena = sort=-UpdatedAt (pole systemowe), bez osobnej "
-                       "flagi 'aktualna'. Zastepuje plaskie attendees.cefr_*.",
+                       "flagi 'aktualna'. Zastepuje plaskie participants.cefr_*.",
         "fields": [
             {"title": "title", "type": "SingleLineText"},
             {"title": "assessed_at", "type": "Date"},
@@ -667,9 +663,9 @@ TABLES = [
 RELATIONS = [
     # --- firma
     ("companies", "leads", "hm", "leads"),
-    ("companies", "attendees", "hm", "attendees"),
+    ("companies", "participants", "hm", "participants"),
     # --- lead jako centrum
-    ("leads", "attendees", "hm", "attendees"),
+    ("leads", "participants", "hm", "participants"),
     ("leads", "meetings", "hm", "meetings"),
     ("leads", "tasks", "hm", "tasks"),
     ("leads", "activities", "hm", "activities"),
@@ -678,9 +674,9 @@ RELATIONS = [
     # self-link: sugestia duplikatu (W5/W4v2 nigdy nie scala automatycznie)
     ("leads", "possible_duplicate", "mm", "leads"),
     # --- trzy poziomy merytoryczne (v3 "Architektura tabel")
-    ("attendees", "assessments", "hm", "assessments"),
-    ("attendees", "recommendations", "hm", "recommendations"),
-    ("attendees", "meetings", "mm", "meetings"),
+    ("participants", "assessments", "hm", "assessments"),
+    ("participants", "recommendations", "hm", "recommendations"),
+    ("participants", "meetings", "mm", "meetings"),
     ("meetings", "assessments", "hm", "assessments"),
     ("recommendations", "packages", "hm", "recommendation_packages"),
     ("training_descriptions", "recommendation_packages", "hm", "recommendation_packages"),
