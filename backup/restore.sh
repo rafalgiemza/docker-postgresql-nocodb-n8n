@@ -97,7 +97,20 @@ else
 fi
 
 echo "🔄 8/8 Podnoszę resztę stacka (n8n/nocodb/seaweedfs/...), by zaczytała przywrócone dane..."
-$DC_CMD up -d
+# Postgres bywa chwilowo nieresponsywny na pg_isready tuż po dużym restore
+# (masowy COPY do 3 baz + dwa tar -x wolumenów zaraz obok, na tym samym
+# dysku) — znany, powtarzalny wzorzec I/O-stall na tym hoście, nie jednorazowy
+# fluke. `up -d` wtedy pada z "dependency postgres failed to start", mimo że
+# sam Postgres wraca do normy sekundy później — stąd retry zamiast twardego
+# fail.
+for attempt in 1 2 3; do
+    if $DC_CMD up -d; then
+        break
+    fi
+    [ "$attempt" -lt 3 ] || fail "docker compose up -d nie powiodło się po 3 próbach — sprawdź 'docker compose ps' i logi postgresa ręcznie."
+    echo "⚠️  up -d nie powiodło się (próba $attempt/3) — Postgres pewnie jeszcze się domyka po restore, ponawiam za 5s..."
+    sleep 5
+done
 # Caddy trzyma połączenie/DNS do starych IP n8n/nocodb/seaweedfs sprzed ich
 # restartu powyżej i nie zawsze się sam odświeża — bez tego kolejny restore
 # kończy się 502 Bad Gateway, dopóki ktoś ręcznie nie zrestartuje Caddy
