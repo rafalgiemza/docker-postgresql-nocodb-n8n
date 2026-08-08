@@ -1,0 +1,23 @@
+# One-shot: creates buckets (PRD §8.5) + versioning/lifecycle rules, then
+# exits. The `nocodb` identity itself is no longer provisioned here — it's
+# static config loaded by `seaweedfs` at startup (see
+# scripts/seaweedfs-entrypoint.sh), unlike MinIO's dynamic admin API.
+services:
+  seaweedfs-init:
+    image: quay.io/minio/mc:latest
+    restart: 'no'
+    entrypoint: ['/bin/sh', '/seaweedfs-init.sh']
+    environment:
+      - SEAWEEDFS_ROOT_ACCESS_KEY=${SEAWEEDFS_ROOT_ACCESS_KEY}
+      - SEAWEEDFS_ROOT_SECRET_KEY=${SEAWEEDFS_ROOT_SECRET_KEY}
+      - SEAWEEDFS_BUCKET_ATTACHMENTS=${SEAWEEDFS_BUCKET_ATTACHMENTS}
+      - SEAWEEDFS_BUCKET_OFFERS=${SEAWEEDFS_BUCKET_OFFERS}
+      - SEAWEEDFS_BUCKET_TEMPLATES=${SEAWEEDFS_BUCKET_TEMPLATES}
+      - SEAWEEDFS_BUCKET_RECORDINGS=${SEAWEEDFS_BUCKET_RECORDINGS}
+      - SEAWEEDFS_BUCKET_TRANSCRIPTS=${SEAWEEDFS_BUCKET_TRANSCRIPTS}
+      - SEAWEEDFS_BUCKET_BACKUPS=${SEAWEEDFS_BUCKET_BACKUPS}
+    volumes:
+      - ../scripts/seaweedfs-init.sh:/seaweedfs-init.sh:ro
+    depends_on:
+      seaweedfs:
+        condition: service_healthy

@@ -13,6 +13,6 @@ Pierwsza osoba z zespołu zakłada konto sama przez UI pod `LIBRECHAT_HOST` — 
 
 `librechat`'s `depends_on: mongodb` ma `required: false` właśnie po to, żeby start nie blokował się na nieistniejącym (bo odgaszonym profilem) lokalnym kontenerze.
 
-**Prod:** wymaga rekordu DNS dla `LIBRECHAT_HOST` (`chat.<domena>`) wskazującego na ten sam adres VPS co `N8N_HOST`/`NC_HOST`/`MINIO_HOST` — bez niego Caddy nie wystawi certu.
+**Prod:** wymaga rekordu DNS dla `LIBRECHAT_HOST` (`chat.<domena>`) wskazującego na ten sam adres VPS co `N8N_HOST`/`NC_HOST`/`SEAWEEDFS_HOST` — bez niego Caddy nie wystawi certu.
 
 **Dev vs prod — `LIBRECHAT_URL`:** jeden `docker-compose.yml` dla obu środowisk (patrz `fragments/librechat.yml`) — `DOMAIN_CLIENT`/`DOMAIN_SERVER` (cookie-domain/CORS w LibreChat) czytają pełny scheme+host z `LIBRECHAT_URL` w `.env`, osobno od `LIBRECHAT_HOST` (który służy tylko routingowi w Caddyfile). W dev LibreChat jest też zawsze dostępny bezpośrednio na `127.0.0.1:3080` (bez Caddy) — `LIBRECHAT_URL` musi się wtedy zgadzać z tym, co faktycznie widzi przeglądarka (`http://localhost:3080`), inaczej logowanie/sesja się wysypie. Patrz komentarz przy `LIBRECHAT_URL` w [`.env.example`](../.env.example).

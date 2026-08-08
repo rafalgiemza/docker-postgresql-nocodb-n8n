@@ -27,7 +27,7 @@ DC_CMD="docker compose -f $REPO_ROOT/docker-compose.yml"
 POSTGRES_CONTAINER="docker-postgres-1"
 MONGO_CONTAINER="docker-mongodb-1"
 NOCODB_VOLUME="docker_nocodb_storage"
-MINIO_VOLUME="docker_minio_storage"
+SEAWEEDFS_VOLUME="docker_seaweedfs_storage"
 
 TS="${1:-}"
 
@@ -67,9 +67,9 @@ echo "📂 5/8 Wypakowuję wolumen NocoDB (cache/config, nie załączniki)..."
 docker run --rm -v "$NOCODB_VOLUME":/data -v "$BACKUP_DIR":/backup alpine \
     tar -xzf "/backup/nocodb_data_$TS.tar.gz" -C /data
 
-echo "📦 6/8 Wypakowuję wolumen MinIO (attachments/offers/recordings/transcripts)..."
-docker run --rm -v "$MINIO_VOLUME":/data -v "$BACKUP_DIR":/backup alpine \
-    tar -xzf "/backup/minio_$TS.tar.gz" -C /data
+echo "📦 6/8 Wypakowuję wolumen SeaweedFS (attachments/offers/recordings/transcripts)..."
+docker run --rm -v "$SEAWEEDFS_VOLUME":/data -v "$BACKUP_DIR":/backup alpine \
+    tar -xzf "/backup/seaweedfs_$TS.tar.gz" -C /data
 
 echo "🍃 7/8 Przywracanie bazy MongoDB (LibreChat)..."
 if [ -f "$BACKUP_DIR/mongo_$TS.archive" ]; then
@@ -79,7 +79,7 @@ else
     echo "   -> Brak pliku mongo_$TS.archive. Pomijam ten krok."
 fi
 
-echo "🔄 8/8 Podnoszę resztę stacka (n8n/nocodb/minio/...), by zaczytała przywrócone dane..."
+echo "🔄 8/8 Podnoszę resztę stacka (n8n/nocodb/seaweedfs/...), by zaczytała przywrócone dane..."
 $DC_CMD up -d
 
 echo "✅ Success!"
