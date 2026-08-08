@@ -150,7 +150,7 @@ tylko tworzeniem bucketów + wersjonowaniem + lifecycle, nie userami.
 | `Caddyfile` | `{$MINIO_HOST} { reverse_proxy minio:9000 }` → `{$SEAWEEDFS_HOST} { reverse_proxy seaweedfs:8333 }` |
 | `.env.example` | Cały blok "MinIO" zastąpić blokiem "SeaweedFS" — patrz §3.1 niżej |
 | `backup/backup.sh` | `MINIO_VOLUME="docker_minio_storage"` → `SEAWEEDFS_VOLUME="docker_seaweedfs_storage"`, nazwa archiwum `minio_$TS.tar.gz` → `seaweedfs_$TS.tar.gz`, komentarze |
-| `Makefile` | Krok 6/8 `restore`: wolumen + nazwa pliku archiwum jak wyżej |
+| `Makefile` / `backup/restore.sh` | Wolumen + nazwa pliku archiwum jak wyżej. **Aktualizacja po merge'u develop (2026-08-08):** równolegle na `develop` `restore` został wyekstrahowany z Makefile do osobnego `backup/restore.sh` (`fix(restore): stop app containers before DROP DATABASE, extract to script`) — konflikt przy merge'u tego brancha, rozwiązany ręcznie, `SEAWEEDFS_VOLUME`/`seaweedfs_$TS.tar.gz` poprawnie przeniesione na nową strukturę, zweryfikowane |
 | `scripts/versions.sh` | Wiersz `report "minio" ... "minio --version"` → `report "seaweedfs" "docker-seaweedfs-1" "weed version"` |
 | `docs/init-minio.md` → `docs/init-seaweedfs.md` | Przepisany runbook wdrożenia na VPS (nowe zmienne, nowy gotcha o `-dir=/data`, brak konsoli) |
 | `docs/docker.md` | Zdanie o restart policy: `minio` → `seaweedfs` w liście serwisów |
