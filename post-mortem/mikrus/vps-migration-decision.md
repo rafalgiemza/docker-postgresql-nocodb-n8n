@@ -63,5 +63,5 @@ Pierwszy deploy na VPS PRO od razu ujawnił nowy problem: `mongodb` (`MongoDB 5.
 
 ### Do zrobienia (dopisane)
 
-- [ ] Zdecydować docelowo: zamrożone MinIO OSS czy migracja na Garage/SeaweedFS — zanim `crm-api` (FAZA 3 w `.ai/IMPLEMENTATION_PLAN.md`) zbuduje na nim integrację S3.
+- [x] Zdecydować docelowo: zamrożone MinIO OSS czy migracja na Garage/SeaweedFS — **rozstrzygnięte 2026-08-08: migracja na SeaweedFS** (Garage odpadł, brak wersjonowania bucketów). Pełny plan i wykonanie: [`.ai/migrate-from-minio-to-SeaweedFS.md`](../../.ai/migrate-from-minio-to-SeaweedFS.md).
 - [ ] Potwierdzić u Sferahost, że `host-passthrough` przetrwa ewentualny restart/migrację VM między hostami w ich klastrze (nie tylko jednorazowa zmiana).

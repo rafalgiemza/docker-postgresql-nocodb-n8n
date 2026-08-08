@@ -14,7 +14,7 @@ services:
     environment:
       - N8N_HOST=${N8N_HOST}
       - NC_HOST=${NC_HOST}
-      - MINIO_HOST=${MINIO_HOST}
+      - SEAWEEDFS_HOST=${SEAWEEDFS_HOST}
       - LIBRECHAT_HOST=${LIBRECHAT_HOST}
       - STATUS_HOST=${STATUS_HOST}
       - BESZEL_HOST=${BESZEL_HOST}
@@ -25,11 +25,11 @@ services:
           # public S3 hostname used in browser-facing presigned URLs, so one
           # NC_S3_ENDPOINT works both internally and externally — traffic is
           # routed through Caddy either way. See README.md.
-          - ${MINIO_HOST}
+          - ${SEAWEEDFS_HOST}
     depends_on:
       - n8n
       - nocodb
-      - minio
+      - seaweedfs
       - librechat
       - uptime-kuma
       - beszel

@@ -71,7 +71,7 @@ add-rag-db: ## One-time: add the RAG database to an already-running Postgres
 	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "CREATE USER $(RAG_DB_USER) WITH PASSWORD '$(RAG_DB_PASSWORD)';" || true
 	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "CREATE DATABASE $(RAG_DB) OWNER $(RAG_DB_USER);" || true
 
-backup: ## Dump all DBs + NocoDB/MinIO volumes to ./backups and push offsite via restic
+backup: ## Dump all DBs + NocoDB/SeaweedFS volumes to ./backups and push offsite via restic
 	./backup/backup.sh
 
 backup-prune: ## Run backup + prune old restic snapshots (same as the daily cron job)
@@ -111,8 +111,8 @@ restore: ## Restore from the latest (or RESTORE_TS=<ts>) local dump in ./backups
 	@echo "📂 5/8 Wypakowuję wolumen NocoDB (cache/config, nie załączniki)..."
 	docker run --rm -v docker_nocodb_storage:/data -v $(CURDIR)/backups:/backup alpine tar -xzf /backup/nocodb_data_$(RESTORE_TS).tar.gz -C /data
 
-	@echo "📦 6/8 Wypakowuję wolumen MinIO (attachments/offers/recordings/transcripts)..."
-	docker run --rm -v docker_minio_storage:/data -v $(CURDIR)/backups:/backup alpine tar -xzf /backup/minio_$(RESTORE_TS).tar.gz -C /data
+	@echo "📦 6/8 Wypakowuję wolumen SeaweedFS (attachments/offers/recordings/transcripts)..."
+	docker run --rm -v docker_seaweedfs_storage:/data -v $(CURDIR)/backups:/backup alpine tar -xzf /backup/seaweedfs_$(RESTORE_TS).tar.gz -C /data
 
 	@echo "🍃 7/8 Przywracanie bazy MongoDB (LibreChat)..."
 	@if [ -f "./backups/mongo_$(RESTORE_TS).archive" ]; then \

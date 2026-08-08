@@ -8,11 +8,11 @@ services:
       - NC_DB=pg://postgres:5432?u=${NC_DB_USER}&p=${NC_DB_PASSWORD}&d=${NC_DB}
       - NC_DISABLE_TELE=true
       - NC_ALLOW_LOCAL_EXTERNAL_DBS=${NC_ALLOW_LOCAL_EXTERNAL_DBS}
-      - NC_S3_BUCKET_NAME=${MINIO_BUCKET_ATTACHMENTS}
+      - NC_S3_BUCKET_NAME=${SEAWEEDFS_BUCKET_ATTACHMENTS}
       - NC_S3_REGION=us-east-1
-      - NC_S3_ACCESS_KEY=${NOCODB_MINIO_ACCESS_KEY}
-      - NC_S3_ACCESS_SECRET=${NOCODB_MINIO_SECRET_KEY}
-      - NC_S3_ENDPOINT=${MINIO_ENDPOINT}
+      - NC_S3_ACCESS_KEY=${NOCODB_SEAWEEDFS_ACCESS_KEY}
+      - NC_S3_ACCESS_SECRET=${NOCODB_SEAWEEDFS_SECRET_KEY}
+      - NC_S3_ENDPOINT=${SEAWEEDFS_ENDPOINT}
       - NC_S3_FORCE_PATH_STYLE=true
     ports:
       # Loopback-only (see fragments/postgres.yml). Host port 8081 (not 8080)
@@ -23,7 +23,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      minio-init:
+      seaweedfs-init:
         condition: service_completed_successfully
     healthcheck:
       test: ['CMD-SHELL', 'wget -qO- http://localhost:8080/ || exit 1']

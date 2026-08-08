@@ -17,7 +17,7 @@ set -e
 # ryzyko zablokowania się z własnego środowiska — patrz plan).
 #
 # Idempotentny: bezpieczny do wielokrotnego uruchamiania (GET, dopasuj po
-# nazwie, pomiń jeśli istnieje — wzorem minio-init.sh).
+# nazwie, pomiń jeśli istnieje — wzorem seaweedfs-init.sh).
 #
 # UWAGA: dokładny kształt endpointów NocoDB v2 meta API poniżej (ścieżki,
 # pola payloadu dla source/grid/kanban/calendar/filter) jest zrekonstruowany

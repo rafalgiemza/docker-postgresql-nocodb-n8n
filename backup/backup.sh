@@ -35,7 +35,7 @@ TS="$(date +%F_%H%M%S)"
 POSTGRES_CONTAINER="docker-postgres-1"
 MONGO_CONTAINER="docker-mongodb-1"
 NOCODB_VOLUME="docker_nocodb_storage"
-MINIO_VOLUME="docker_minio_storage"
+SEAWEEDFS_VOLUME="docker_seaweedfs_storage"
 
 fail() { echo "❌ FAILURE: $*" >&2; exit 1; }
 
@@ -51,16 +51,17 @@ docker exec "$POSTGRES_CONTAINER" pg_dump -U postgres -d "$NC_DB" > "$BACKUP_DIR
 docker exec "$POSTGRES_CONTAINER" pg_dump -U postgres -d "$APP_DB" > "$BACKUP_DIR/appdata_$TS.sql" \
     || fail "pg_dump $APP_DB failed"
 # NocoDB's own volume (/usr/app/data) — app-internal cache/config, NOT
-# attachments. Attachments/offers/recordings/transcripts live in MinIO (see
-# NC_S3_* in fragments/nocodb.yml) and are backed up via MINIO_VOLUME below.
+# attachments. Attachments/offers/recordings/transcripts live in SeaweedFS
+# (see NC_S3_* in fragments/nocodb.yml) and are backed up via
+# SEAWEEDFS_VOLUME below.
 docker run --rm -v "$NOCODB_VOLUME":/data:ro -v "$BACKUP_DIR":/backup alpine \
     tar -czf "/backup/nocodb_data_$TS.tar.gz" -C /data . \
     || fail "NocoDB volume tar failed"
-# MinIO's on-disk data dir — all buckets in one archive: attachments, offers,
-# templates, recordings, transcripts, backups (PRD §8.5).
-docker run --rm -v "$MINIO_VOLUME":/data:ro -v "$BACKUP_DIR":/backup alpine \
-    tar -czf "/backup/minio_$TS.tar.gz" -C /data . \
-    || fail "MinIO volume tar failed"
+# SeaweedFS's on-disk data dir — all buckets in one archive: attachments,
+# offers, templates, recordings, transcripts, backups (PRD §8.5).
+docker run --rm -v "$SEAWEEDFS_VOLUME":/data:ro -v "$BACKUP_DIR":/backup alpine \
+    tar -czf "/backup/seaweedfs_$TS.tar.gz" -C /data . \
+    || fail "SeaweedFS volume tar failed"
 docker exec "$MONGO_CONTAINER" mongodump --archive --db=LibreChat --quiet > "$BACKUP_DIR/mongo_$TS.archive" \
     || fail "mongodump failed"
 
