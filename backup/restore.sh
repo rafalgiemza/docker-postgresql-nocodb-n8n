@@ -6,10 +6,14 @@
 #
 # n8n/nocodb hold live connections to their own Postgres databases the moment
 # they're running, and DROP DATABASE blocks on any open connection — so this
-# only brings up postgres/mongodb first, restores everything, then starts the
-# rest of the stack at the end. pg_terminate_backend before each DROP also
-# clears stray host-side connections (e.g. a DB GUI client left open against
-# the published 127.0.0.1:5432 port) that would block the drop the same way.
+# explicitly stops them (and seaweedfs, whose volume gets overwritten in step
+# 6) before touching Postgres, restores everything, then starts the rest of
+# the stack at the end. `docker compose up -d postgres mongodb` alone is NOT
+# enough — it only ensures those two are running, it does not stop whatever
+# else was already up from a previous run. DROP DATABASE also retries after
+# pg_terminate_backend: a stray host-side connection (e.g. a DB GUI client
+# left open against the published 127.0.0.1:5432 port) can reconnect in the
+# gap between the terminate and the drop, so one shot isn't reliable.
 #
 # Requires the usual stack .env to be exported (Makefile does this via
 # `include .env` + `export` — POSTGRES_DB/NC_DB/APP_DB).
@@ -37,16 +41,29 @@ fail() { echo "❌ FAILURE: $*" >&2; exit 1; }
 
 echo "🚀 Rozpoczynam przywracanie z backupu: $TS"
 
-echo "📦 1/8 Podnoszę tylko bazy danych (postgres/mongo) — n8n/nocodb muszą zostać wyłączone, inaczej złapią połączenie przed DROP DATABASE..."
+echo "📦 1/8 Zatrzymuję n8n/nocodb/seaweedfs (trzymają połączenia do Postgresa / uchwyty do wolumenów) i podnoszę tylko postgres/mongo..."
+$DC_CMD stop n8n nocodb seaweedfs
 $DC_CMD up -d postgres mongodb
 echo "⏳ Czekam 15 sekund, aż bazy danych będą gotowe na przyjmowanie połączeń..."
 sleep 15
 
+terminate_and_drop_db() {
+    local db="$1" attempt
+    for attempt in 1 2 3; do
+        docker exec "$POSTGRES_CONTAINER" psql -U postgres -c \
+            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$db' AND pid <> pg_backend_pid();" >/dev/null
+        if docker exec "$POSTGRES_CONTAINER" psql -U postgres -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS $db;"; then
+            return 0
+        fi
+        echo "⚠️  DROP DATABASE $db nie powiódł się (próba $attempt/3) — coś wciąż trzyma połączenie, ponawiam za 2s..."
+        sleep 2
+    done
+    fail "DROP DATABASE $db nie powiodło się po 3 próbach. Sprawdź ręcznie: docker exec $POSTGRES_CONTAINER psql -U postgres -c \"SELECT pid, usename, application_name, client_addr, query FROM pg_stat_activity WHERE datname='$db';\""
+}
+
 echo "🗄️ 2/8 Tworzę bazy danych (ubijam zalegające sesje, czyszczę jeśli już istnieją)..."
 for db in "$POSTGRES_DB" "$NC_DB" "$APP_DB"; do
-    docker exec "$POSTGRES_CONTAINER" psql -U postgres -c \
-        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$db' AND pid <> pg_backend_pid();"
-    docker exec "$POSTGRES_CONTAINER" psql -U postgres -c "DROP DATABASE IF EXISTS $db;"
+    terminate_and_drop_db "$db"
 done
 for db in "$POSTGRES_DB" "$NC_DB" "$APP_DB"; do
     docker exec "$POSTGRES_CONTAINER" psql -U postgres -c "CREATE DATABASE $db;"
