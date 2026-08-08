@@ -41,7 +41,14 @@ volumes:
   db_storage:
   n8n_storage:
   nocodb_storage:
+  # Created outside Compose (docker run -v ... in backup.sh/restore.sh ran
+  # against this volume before `docker compose up` ever had, so it never
+  # picked up Compose's ownership labels) — external: true stops Compose
+  # from complaining every time it's touched. name: is required here since
+  # external volumes skip the usual <project>_<key> prefixing.
   seaweedfs_storage:
+    external: true
+    name: docker_seaweedfs_storage
   mongo_storage:
   librechat_images:
   librechat_uploads:
