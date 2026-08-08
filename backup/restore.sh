@@ -98,5 +98,11 @@ fi
 
 echo "🔄 8/8 Podnoszę resztę stacka (n8n/nocodb/seaweedfs/...), by zaczytała przywrócone dane..."
 $DC_CMD up -d
+# Caddy trzyma połączenie/DNS do starych IP n8n/nocodb/seaweedfs sprzed ich
+# restartu powyżej i nie zawsze się sam odświeża — bez tego kolejny restore
+# kończy się 502 Bad Gateway, dopóki ktoś ręcznie nie zrestartuje Caddy
+# (potwierdzone na VPS-B).
+echo "🔄 Restartuję Caddy, żeby złapał nowe IP kontenerów..."
+$DC_CMD restart caddy
 
 echo "✅ Success!"
