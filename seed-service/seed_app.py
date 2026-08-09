@@ -40,21 +40,34 @@ def api(method, path, token, url, **kw):
 
 
 def resolve_meta(token, url, base_id):
-    """Pobierz metadane tabel i pola relacji."""
+    """Pobierz metadane tabel i pola relacji.
+
+    `links` mapuje tytuł pola (lowercased) -> column id - działa dla relacji
+    zadeklarowanych wprost z danej tabeli (np. leads.participants).
+    `links_by_target` mapuje id tabeli docelowej -> column id - potrzebne dla
+    pól zwrotnych, które NocoDB dokleja samo przy relacjach `hm`
+    zadeklarowanych z drugiej strony (np. companies->leads w RELATIONS z
+    scripts/init-schema.py tworzy pole zwrotne na `leads`, którego nazwy
+    skrypt NIE kontroluje - patrz nagłówek init-schema.py, pkt 3)."""
     tables = {}
     links = {}
+    links_by_target = {}
 
     for t in api("GET", f"/api/v2/meta/bases/{base_id}/tables", token, url).get("list", []):
         title = t["title"].strip().lower()
         tables[title] = t["id"]
         links[title] = {}
+        links_by_target[title] = {}
 
         for col in api("GET", f"/api/v2/meta/tables/{t['id']}", token, url).get("columns", []):
             if col.get("uidt") in ("Links", "LinkToAnotherRecord"):
                 field_title = col["title"].strip().lower()
                 links[title][field_title] = col["id"]
+                related_id = (col.get("colOptions") or {}).get("fk_related_model_id")
+                if related_id:
+                    links_by_target[title][related_id] = col["id"]
 
-    return tables, links
+    return tables, links, links_by_target
 
 
 # --- Mapowania Excela na kolumny (0-based index)
@@ -285,7 +298,7 @@ def seed_records(records, token, url, base_id):
     """Seeduje leads/companies/participants do NocoDB. Współdzielone przez
     /seed i /seed-upload, żeby mapowanie pól nie rozjeżdżało się między
     dwiema kopiami tej samej logiki."""
-    tables, links = resolve_meta(token, url, base_id)
+    tables, links, links_by_target = resolve_meta(token, url, base_id)
     if not all(t in tables for t in ["leads", "companies", "participants"]):
         raise RuntimeError("Brakuje tabel: leads, companies, participants")
 
@@ -328,10 +341,22 @@ def seed_records(records, token, url, base_id):
                         tables["companies"], token, url, org_name, rec.get("Branża"))
                     if company_id:
                         result["created_companies"] += 1
-                        company_field_id = links.get("leads", {}).get("company")
+                        # Nazwa pola zwrotnego na `leads` dla relacji
+                        # companies->leads nie jest kontrolowana przez
+                        # init-schema.py (NocoDB nadaje ją samo) - najpierw
+                        # próbujemy oczywistej nazwy, a jak jej nie ma,
+                        # szukamy pola po id tabeli docelowej (companies).
+                        company_field_id = (
+                            links.get("leads", {}).get("company")
+                            or links_by_target.get("leads", {}).get(tables["companies"])
+                        )
                         if company_field_id:
                             link_records(tables["leads"], company_field_id, lead_id,
                                        company_id, token, url)
+                        else:
+                            result["errors"].append(
+                                f"Lead {contact_name}: firma '{org_name}' utworzona, "
+                                "ale nie znaleziono pola relacji leads->companies")
 
             # Utwórz participant
             participant_data = {
