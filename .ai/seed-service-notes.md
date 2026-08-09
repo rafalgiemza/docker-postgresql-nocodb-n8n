@@ -9,7 +9,7 @@ te żyją w innych fragmentach i łączą się tylko przy starcie z korzenia rep
 
 Błędne (będzie: `service "seed-service" depends on undefined service "nocodb"`):
 ```bash
-cd old-crm-based-seed/seed-fake
+cd init-data
 docker compose -f fragments/seed-service.yml build seed-service
 ```
 
@@ -33,10 +33,10 @@ do obrazu w `Dockerfile` (`COPY seed_app.py .`), nie montowany jako wolumen.
 
 ## CLI seeder usunięty (2026-08-07)
 
-`old-crm-based-seed/seed-fake/seed_nocodb_from_excel.py` +
+`init-data/seed_nocodb_from_excel.py` +
 `SEED_EXCEL_README.md` zostały usunięte — zdублowany odpowiednik
 `seed-service` (Docker/FastAPI), ale utrzymywany osobno od migracji
-schematu w `fable/feedback-tables-1.md` (2026-08-06). W efekcie CLI miał
+schematu w `docs/archive/fable/feedback-tables-1.md` (2026-08-06). W efekcie CLI miał
 aktualne nazwy pól (`lead_name`/`lead_type`/`lead_source`/`deal_value`,
 mapowania `SOURCE_MAP`/`CHANNEL_MAP`/`INDUSTRY_MAP` pod nową listę opcji,
 `LOSS_REASON_MAP`, zapis niezmapowanych wartości do `notes`), a

@@ -154,7 +154,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://offer-service:8000/render",
+        "url": "http://file-renderer-service:8000/render",
         "sendBody": true,
         "contentType": "multipart-form-data",
         "bodyParameters": {

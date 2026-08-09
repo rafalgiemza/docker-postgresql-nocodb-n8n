@@ -12,7 +12,7 @@ command -v python3 >/dev/null 2>&1 || {
   exit 1
 }
 python3 -c "import requests" 2>/dev/null || {
-  echo "❌ Brak modułu 'requests' dla python3 — zainstaluj: pip3 install -r fable/requirements.txt"
+  echo "❌ Brak modułu 'requests' dla python3 — zainstaluj: pip3 install -r docs/archive/fable/requirements.txt"
   exit 1
 }
 

@@ -98,8 +98,8 @@ Pełna tabela usług + dostęp: `README.md`.
 
 ## 5. Model danych (baza NocoDB)
 
-Stan bieżący (żywa baza testowa): `fable/nocodb_crm_schema_v2.md`.
-**Docelowy model — `fable/nocodb_crm_schema_v3.md`** (warstwa rekomendacji,
+Stan bieżący (żywa baza testowa): `docs/archive/fable/nocodb_crm_schema_v2.md`.
+**Docelowy model — `docs/archive/fable/nocodb_crm_schema_v3.md`** (warstwa rekomendacji,
 historia ocen, pola strukturalne z discovery); bootstrap pustej bazy:
 `scripts/init-schema.py`. Skrót relacji stanu bieżącego:
 
@@ -118,7 +118,7 @@ projects ──< tasks >── task_templates
 > `REVOKE CREATE ON SCHEMA public` pozostaje krytyczne). Jedynym śladem "jak
 > wygląda schemat" jest stan żywej bazy + `pg_dump` w backupach; mały, ręcznie
 > pisany SQL (widoki, triggery) dopisywany tylko gdy faktycznie potrzebny.
-> Baza testowa "CoAction TEST Base" już istnieje (`fable/meta.json`, utworzona
+> Baza testowa "CoAction TEST Base" już istnieje (`docs/archive/fable/meta.json`, utworzona
 > 2026-07-17) i implementuje dokładnie ten model.
 
 - `leads` — szansa sprzedaży; kanban po `stage`, `state` (open/won/lost/archived),
@@ -140,7 +140,7 @@ projects ──< tasks >── task_templates
   na raz); `offers` — wygenerowane oferty (`file` Attachment, `status`,
   `data_json` snapshot, `warnings`, link do `leads`). Dodane wraz z
   `file-renderer-service` (§12, §14) — jedyne dwie tabele spoza pierwotnego modelu
-  z `fable/nocodb_crm_schema_v2.md`, tworzone tak samo ręcznie w Creator UI.
+  z `docs/archive/fable/nocodb_crm_schema_v2.md`, tworzone tak samo ręcznie w Creator UI.
   W modelu docelowym `offer_templates` uogólnia się do `document_templates`
   z polem `kind` (`nocodb_crm_schema_v3.md` §12).
 
@@ -179,13 +179,13 @@ stara/nowa wartość w każdym workflow na update (triggery per-pole są płatne
 
 > Te workflowy **zastępują** `n8n-workflows/wf1-wf6*.json` (stary pipeline
 > lead→discovery→audit→recommendation→offer z generowaniem PPTX) — te pliki
-> zostają w repo jako historyczne, nieużywane. Importowalne wersje: `fable/W1_
-> recurring_tasks.json` … `fable/W6b_offer_pipeline.json` + `fable/W4v2_
-> intake_matching.json` (zastępuje `W4_new_lead_intake.json`) + `fable/W9_
+> zostają w repo jako historyczne, nieużywane. Importowalne wersje: `docs/archive/fable/W1_
+> recurring_tasks.json` … `docs/archive/fable/W6b_offer_pipeline.json` + `docs/archive/fable/W4v2_
+> intake_matching.json` (zastępuje `W4_new_lead_intake.json`) + `docs/archive/fable/W9_
 > generate_offer.json` (§12, §14), spakowane też w
-> `fable/n8n_workflows_coaction.zip` (**uwaga:** ten zip powstał przed
+> `docs/archive/fable/n8n_workflows_coaction.zip` (**uwaga:** ten zip powstał przed
 > dodaniem W9 — nie zawiera go, do regeneracji przy najbliższej okazji) z
-> instrukcją placeholderów/webhooków (`fable/README.md`).
+> instrukcją placeholderów/webhooków (`docs/archive/fable/README.md`).
 
 **Kaskada intake (W4 v2):** Tier 1 dokładny e-mail (jedyna auto-akcja: otwarty
 lead → task "napisał ponownie" bez nowego leada; zamknięty → nowy lead,
@@ -203,7 +203,7 @@ HTTP POST), OpenRouter (model konfigurowalny per env).
 
 ## 8. Migracja danych
 
-`fable/import_legacy_excel.py`: Excel CEO → NocoDB. Selecty normalizowane do
+`docs/archive/fable/import_legacy_excel.py`: Excel CEO → NocoDB. Selecty normalizowane do
 realnych opcji; 12 kolumn dat → kamienie milowe + rekordy meetings (done);
 planowane działania → otwarte taski; `enquiry_no` liczony z historii; pełny
 surowy wiersz w payload activity (nic nie ginie); idempotencja po `legacy_id`.
@@ -221,7 +221,7 @@ starym Excelem + kolumna linków do rekordów NocoDB; sunset ~2 mies. po migracj
 
 ## 9. Testy
 
-Test Runner (pytest, katalog 63 przypadków w `fable/test_cases.md`): syntetyczne
+Test Runner (pytest, katalog 63 przypadków w `docs/archive/fable/test_cases.md`): syntetyczne
 payloady webhooków NocoDB → endpointy n8n → asercje przez API. ~25 przypadków
 AUTO zaimplementowanych (guardy, kaskada, pułapki typu substring domen);
 SEMI = LLM z asercjami strukturalnymi; PROC = importer przez dry-run.
@@ -230,24 +230,24 @@ workflowów i prefiksów).
 
 ## 10. Artefakty projektu
 
-Wszystkie poniższe pliki leżą w `fable/` (archiwum artefaktów z sesji projektowej
+Wszystkie poniższe pliki leżą w `docs/archive/fable/` (archiwum artefaktów z sesji projektowej
 w przeglądarce Claude, 2026-07-17/18) — ten PRD jest ich podsumowaniem, nie
 zastępuje szczegółów w źródłowych plikach.
 
 | Plik | Zawartość |
 |---|---|
-| `fable/nocodb_crm_schema_v2.md` (+ `v1.md`, wcześniejsza iteracja) | pełny schemat 9 tabel + zasady |
-| `fable/crm_flow.mermaid`, `fable/crm_erd.mermaid`, `fable/crm_intake_matching.mermaid` | diagramy: cykl życia leada, ERD, kaskada intake |
-| `fable/W1..W6b*.json` + `fable/README.md` (`fable/n8n_workflows_coaction.zip`) | importowalne workflowy + instrukcja placeholderów/webhooków |
-| `fable/W4v2_intake_matching.json` | intake 3 źródeł + kaskada (zastępuje W4) |
-| `fable/W0_seed_sample_data.json`, `fable/seed_nocodb.py`, `fable/sample_data_overview.md` | dane przykładowe (2 drogi) + mapa relacji |
-| `fable/import_legacy_excel.py` | migracja legacy z dry-run |
-| `fable/test_runner_coaction.zip` (`fable/test_cases.md`, `fable/conftest.py`, `fable/test_workflows.py`, `fable/nocodb.py`) | katalog przypadków + harness pytest, grupa `W9` dodana 2026-07-26 |
-| `fable/meta.json` | eksport żywej struktury "CoAction TEST Base" z NocoDB (2026-07-17) — dowód, że model jest wdrożony, nie tylko zaprojektowany |
-| `fable/W9_generate_offer.json` | workflow „Generuj ofertę" — dodany 2026-07-26, patrz §7/§12 |
-| `fable/nocodb_crm_schema_v3.md` + `scripts/init-schema.py` | docelowy model danych (faza 2) + skrypt tworzący cały schemat w pustej bazie |
+| `docs/archive/fable/nocodb_crm_schema_v2.md` (+ `v1.md`, wcześniejsza iteracja) | pełny schemat 9 tabel + zasady |
+| `docs/archive/fable/crm_flow.mermaid`, `docs/archive/fable/crm_erd.mermaid`, `docs/archive/fable/crm_intake_matching.mermaid` | diagramy: cykl życia leada, ERD, kaskada intake |
+| `docs/archive/fable/W1..W6b*.json` + `docs/archive/fable/README.md` (`docs/archive/fable/n8n_workflows_coaction.zip`) | importowalne workflowy + instrukcja placeholderów/webhooków |
+| `docs/archive/fable/W4v2_intake_matching.json` | intake 3 źródeł + kaskada (zastępuje W4) |
+| `docs/archive/fable/W0_seed_sample_data.json`, `docs/archive/fable/seed_nocodb.py`, `docs/archive/fable/sample_data_overview.md` | dane przykładowe (2 drogi) + mapa relacji |
+| `docs/archive/fable/import_legacy_excel.py` | migracja legacy z dry-run |
+| `docs/archive/fable/test_runner_coaction.zip` (`docs/archive/fable/test_cases.md`, `docs/archive/fable/conftest.py`, `docs/archive/fable/test_workflows.py`, `docs/archive/fable/nocodb.py`) | katalog przypadków + harness pytest, grupa `W9` dodana 2026-07-26 |
+| `docs/archive/fable/meta.json` | eksport żywej struktury "CoAction TEST Base" z NocoDB (2026-07-17) — dowód, że model jest wdrożony, nie tylko zaprojektowany |
+| `docs/archive/fable/W9_generate_offer.json` | workflow „Generuj ofertę" — dodany 2026-07-26, patrz §7/§12 |
+| `docs/archive/fable/nocodb_crm_schema_v3.md` + `scripts/init-schema.py` | docelowy model danych (faza 2) + skrypt tworzący cały schemat w pustej bazie |
 
-Wyjątek od "wszystko w `fable/`": **`file-renderer-service/`** (poza `fable/`, dodany
+Wyjątek od "wszystko w `docs/archive/fable/`": **`file-renderer-service/`** (poza `docs/archive/fable/`, dodany
 2026-07-26) — generyczny mikroserwis FastAPI (`python-pptx`/`python-docx`):
 dostaje szablon + dane, zwraca gotowy plik, zero wiedzy o NocoDB i o ofertach
 (obsłuży też raport audytowy); kontrakt/ograniczenia w `file-renderer-service/README.md`, wpięcie
@@ -309,13 +309,13 @@ NocoDB-native, prostsze:
 - [x] VPS-A (produkcja) i VPS-B (staging) wykupione i działają — pełny stack, 100% uptime
 - [ ] Baza NocoDB modelu z §5 wdrożona i uzupełniona danymi na obu VPS-ach (dziś istnieje jako "CoAction TEST Base" — zweryfikować, czy to już VPS-A/B, czy osobne środowisko do przeniesienia)
 - [ ] **backup offsite** (cron na serwerach + wybór dostawcy — patrz §11 pkt 1)
-- [ ] podmiana placeholderów workflowów na ID z docelowej instancji (sed per VPS, patrz `fable/README.md`)
+- [ ] podmiana placeholderów workflowów na ID z docelowej instancji (sed per VPS, patrz `docs/archive/fable/README.md`)
 - [ ] wtyczka webhook CF7 na WordPressie + realny payload → mapa pól adaptera
 - [ ] Power Automate dla Bookings → adapter
 - [ ] dry-run importu na pełnym Excelu → STAGE_MAP → import na produkcji
 - [ ] widok SQL `legacy_crm_mirror` + workflow lustra (po dostarczeniu `\dt`/`\d`)
 - [ ] przebieg Test Runnera na VPS-B → poprawka builderów payloadów pod realną wersję NocoDB
-- [ ] rollout zespołowy: pokaz `fable/crm_flow.mermaid`, widoki per osoba, data twardego cięcia
+- [ ] rollout zespołowy: pokaz `docs/archive/fable/crm_flow.mermaid`, widoki per osoba, data twardego cięcia
 - [ ] rozstrzygnięcie otwartych pytań biznesowych, patrz §14
 - [ ] `file-renderer-service` na żywej bazie: utworzyć tabele `document_templates`/`offers`,
       `NC_CRM_BASE_ID` w `.env`, `docker compose up -d --build file-renderer-service`,

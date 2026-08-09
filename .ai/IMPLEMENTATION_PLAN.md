@@ -1,6 +1,6 @@
 # Plan wdrożenia — stan obecny → faza 1 (CoAction CRM)
 
-Bazowane na `.ai/PRD.md` v2.1 (model NocoDB-native, `fable/` jako źródło szczegółów
+Bazowane na `.ai/PRD.md` v2.1 (model NocoDB-native, `docs/archive/fable/` jako źródło szczegółów
 schematu/workflowów/testów) — patrz tam sekcję "Historia wersji" na górze dokumentu
 dla kontekstu, dlaczego ten plan wygląda inaczej niż wcześniej.
 
@@ -33,19 +33,19 @@ dla kontekstu, dlaczego ten plan wygląda inaczej niż wcześniej.
 | Uptime Kuma | ✅ monitoring wszystkich usług, interwał 30s od 2026-07-15 | `fragments/uptime-kuma.yml` |
 | Beszel | ✅ monitoring zasobów per-kontener | `fragments/beszel.yml` |
 | Sieci Docker segmentowane (`edge`/`internal`/`data`) | ❌ brak — jedna płaska sieć; `file-renderer-service` (pierwszy customowy `build:` w tym compose) dziś na niej, bez opublikowanego portu — wystarcza, izolacja `internal` nadal odłożona | — |
-| `file-renderer-service` (generyczny renderer PPTX/DOCX, FAZA 8) | ✅ kod + wpięcie w compose gotowe (`fragments/file-renderer-service.yml`); ❌ tabele `document_templates`/`offers`, `NC_CRM_BASE_ID`, pierwszy szablon i import W9 jeszcze do zrobienia na żywej bazie | `file-renderer-service/`, `fable/W9_generate_offer.json` |
+| `file-renderer-service` (generyczny renderer PPTX/DOCX, FAZA 8) | ✅ kod + wpięcie w compose gotowe (`fragments/file-renderer-service.yml`); ❌ tabele `document_templates`/`offers`, `NC_CRM_BASE_ID`, pierwszy szablon i import W9 jeszcze do zrobienia na żywej bazie | `file-renderer-service/`, `docs/archive/fable/W9_generate_offer.json` |
 
 ## 2. Model danych CRM (NocoDB-native, `.ai/PRD.md` §5)
 
 | Element | Stan |
 |---|---|
-| Schemat 9 tabel (`companies/leads/participants/meetings/tasks/activities/task_templates/projects/testimonials`) | ✅ zaprojektowany i **wdrożony jako żywa baza** — "CoAction TEST Base" w NocoDB, eksport struktury w `fable/meta.json` (2026-07-17) |
+| Schemat 9 tabel (`companies/leads/participants/meetings/tasks/activities/task_templates/projects/testimonials`) | ✅ zaprojektowany i **wdrożony jako żywa baza** — "CoAction TEST Base" w NocoDB, eksport struktury w `docs/archive/fable/meta.json` (2026-07-17) |
 | Workflowy n8n W1–W6b (+ W4v2 kaskada intake) | ✅ dostarczone jako importowalne JSON-y, patrz `.ai/PRD.md` §7/§10 |
 | Test Runner (63 przypadki, pytest) | ✅ dostarczony, patrz `.ai/PRD.md` §9 |
 | Importer legacy Excel (`import_legacy_excel.py`) | ✅ dostarczony, dry-run jeszcze nie uruchomiony na pełnym pliku |
 | Seed danych przykładowych (2 drogi: workflow W0 / skrypt Python) | ✅ dostarczony, przeszedł na realnej bazie |
 
-**Do zweryfikowania:** czy "CoAction TEST Base" (`fable/meta.json`) to już baza na
+**Do zweryfikowania:** czy "CoAction TEST Base" (`docs/archive/fable/meta.json`) to już baza na
 VPS-B (staging), czy osobne, jeszcze nieprzeniesione środowisko — wpływa na to, ile
 z poniższej FAZY 3 jest już zrobione na docelowej infrastrukturze vs. wymaga
 migracji/powtórzenia.
@@ -65,12 +65,12 @@ migracji/powtórzenia.
 
 ### FAZA 3 — Workflowy n8n (W1–W6b)
 1. Podmiana placeholderów (ID tabel/pól, credentiale, adresy mailowe) per VPS —
-   instrukcja gotowa w `fable/README.md` §1–3
+   instrukcja gotowa w `docs/archive/fable/README.md` §1–3
 2. Import kolejno **W3 → W2 → W1 → W4v2 → W5 → W6a → W6b** (powiadomienia najpierw,
-   zgodnie z `fable/README.md` §4)
+   zgodnie z `docs/archive/fable/README.md` §4)
 3. Webhooki NocoDB skonfigurowane z **"Include previous record"** — krytyczne dla
    guardów stara/nowa wartość
-4. Smoke test scenariusza "Piotr" (`fable/README.md` §4) na VPS-B
+4. Smoke test scenariusza "Piotr" (`docs/archive/fable/README.md` §4) na VPS-B
 
 ### FAZA 4 — Test Runner na VPS-B
 1. Uruchomienie przeciw VPS-B (osobna instancja n8n = koniec kopii workflowów `-TEST`
@@ -90,7 +90,7 @@ migracji/powtórzenia.
 2. Power Automate dla MS Bookings → adapter HTTP POST
 
 ### FAZA 7 — Rollout zespołowy
-1. Pokaz `fable/crm_flow.mermaid`, widoki per osoba
+1. Pokaz `docs/archive/fable/crm_flow.mermaid`, widoki per osoba
 2. Ustalenie daty twardego cięcia z Asany/Excela
 3. Szkolenie: NocoDB (codziennie), n8n (rozszerzanie), interpretacja `activities`
 
@@ -102,7 +102,7 @@ wskrzeszenie starego `crm-api`, tylko nowy, prostszy `file-renderer-service/`
 w `.ai/PRD.md` §12.
 
 Zrobione: kod serwisu, `fragments/file-renderer-service.yml` wpięty w
-`docker-compose.yml`, workflow `fable/W9_generate_offer.json`, testy offline
+`docker-compose.yml`, workflow `docs/archive/fable/W9_generate_offer.json`, testy offline
 (`file-renderer-service/test_renderer.py`, `test_docx_renderer.py`, `test_app.py`,
 `test_schema_v3_contract.py`) + grupa `W9` w Test Runnerze.
 
@@ -126,5 +126,5 @@ Specyficzne dla wdrożenia (nie biznesowe):
 1. dbmate czy inne narzędzie migracji dla ewentualnego przyszłego SQL (widoki,
    triggery) — nieblokujące, odłożone do momentu, gdy powstanie pierwszy ręczny SQL
    wymagający wersjonowania.
-2. Czy "CoAction TEST Base" (`fable/meta.json`) ma zostać przeniesiona 1:1 na VPS-A/B,
+2. Czy "CoAction TEST Base" (`docs/archive/fable/meta.json`) ma zostać przeniesiona 1:1 na VPS-A/B,
    czy odtworzona od zera na docelowej infrastrukturze — do ustalenia przed FAZĄ 3.

@@ -1,7 +1,9 @@
 .env*
 !.env.example
 cloud-init.yaml
-fable/szablon_na_baze_rekomendacj_1638.pptx
+docs/archive/fable/szablon_na_baze_rekomendacj_1638.pptx
 .DS_Store
 workshop/evaluation.md
 workshop/note.md
+__pycache__/
+.claude/

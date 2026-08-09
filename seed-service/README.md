@@ -108,7 +108,7 @@ Dodaj do `docker-compose.yml`:
       NC_API_TOKEN: ${NC_API_TOKEN}
       NC_CRM_BASE_ID: ${NC_CRM_BASE_ID}
     volumes:
-      - ./old-crm-based-seed/seed-fake:/data
+      - ./init-data:/data
     networks:
       - coaction-network
     depends_on:
@@ -215,7 +215,7 @@ Klient może:
 
 Excel (`Statusy_z_CRM_filled.xlsx`) montowany z:
 ```
-./old-crm-based-seed/seed-fake:/data
+./init-data:/data
 ```
 
 Jeśli chcesz inną ścieżkę, zmień w `docker-compose.yml`.

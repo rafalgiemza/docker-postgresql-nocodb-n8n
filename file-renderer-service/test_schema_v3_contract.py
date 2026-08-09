@@ -1,5 +1,5 @@
 """Pins down that the renderer handles the data shape produced after the
-schema v3 migration (fable/nocodb_crm_schema_v3.md) WITHOUT any code change -
+schema v3 migration (docs/archive/fable/nocodb_crm_schema_v3.md) WITHOUT any code change -
 and encodes the two limitations that shape imposes on how n8n must assemble
 `data`. No NocoDB, no network.
 

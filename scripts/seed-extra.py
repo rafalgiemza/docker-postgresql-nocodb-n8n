@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 r"""Seeduje przez NocoDB REST API 13 tabel CRM, których NIE dotyka
 `seed-service` (ten zasila tylko `leads`/`companies`/`participants` z
-`old-crm-based-seed/seed-fake/Statusy_z_CRM_filled.xlsx` - patrz
+`init-data/Statusy_z_CRM_filled.xlsx` - patrz
 `seed-service/seed_app.py`). Do szybkiego ręcznego testowania reszty
 pipeline'u (meetings -> assessments -> recommendations -> offers, taski,
 log activities), NIE do produkcji.
@@ -29,7 +29,7 @@ zmienisz listę opcji w init-schema.py, zmień ją i tu.
 Pola typu User (owner/assignee/assigned_methodologist) - jeśli chcesz je
 wypełnić, ustaw SEED_TEAM_EMAILS (comma-separated) w .env; bez tego skrypt
 świadomie zostawia je puste zamiast wpisywać czyjś prywatny e-mail na sztywno
-(tak jak robił to nieaktualny fable/seed_nocodb.py).
+(tak jak robił to nieaktualny docs/archive/fable/seed_nocodb.py).
 
 Wymaga w środowisku (patrz .env.example): NC_API_TOKEN, NC_CRM_BASE_ID.
 Opcjonalnie: NC_LOCAL_URL (default http://localhost:8081), SEED_TEAM_EMAILS.

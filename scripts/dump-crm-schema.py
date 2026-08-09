@@ -2,8 +2,8 @@
 r"""Zrzuca żywy schemat CRM (id tabel, id pól, cele relacji, nazwy tabel
 łączących _nc_m2m_*) z NocoDB przez Meta API v2 do pliku JSON.
 
-PO CO: rekonstrukcja workflowów n8n (patrz `fable/W9_generate_offer.json`)
-po migracji na `nocodb_crm_schema_v3.md` + `fable/feedback-tables-1.md`
+PO CO: rekonstrukcja workflowów n8n (patrz `docs/archive/fable/W9_generate_offer.json`)
+po migracji na `nocodb_crm_schema_v3.md` + `docs/archive/fable/feedback-tables-1.md`
 wymaga prawdziwych id tabel/pól z instancji, na której faktycznie stoi nowy
 schemat (16 tabel) — nie da się ich wyczytać z gita, bo `init-schema.py`
 nadaje je dynamicznie przy tworzeniu. Ten skrypt zamiast zgadywać/czytać
@@ -26,7 +26,7 @@ Usage:
   make dump-crm-schema
   # albo bezpośrednio:
   set -a; source .env; set +a
-  python3 scripts/dump-crm-schema.py [--out fable/schema_map.json]
+  python3 scripts/dump-crm-schema.py [--out docs/archive/fable/schema_map.json]
 """
 import argparse
 import json
@@ -97,8 +97,8 @@ def dump():
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out", default="fable/schema_map.json",
-                    help="gdzie zapisac wynik (domyslnie fable/schema_map.json)")
+    ap.add_argument("--out", default="docs/archive/fable/schema_map.json",
+                    help="gdzie zapisac wynik (domyslnie docs/archive/fable/schema_map.json)")
     args = ap.parse_args()
 
     print(f"NocoDB: {URL}, base: {BASE_ID}")

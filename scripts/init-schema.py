@@ -2,8 +2,8 @@
 r"""Tworzy CAŁY schemat CRM (16 tabel + relacje) w pustej bazie NocoDB przez
 Meta API v3 — pod wdrożenie produkcji od zera.
 
-Źródło prawdy: `fable/nocodb_crm_schema_v3.md` (decyzje projektowe i tabele
-nowe/zmienione) + `fable/nocodb_crm_schema_v2.md` (pola tabel bazowych, których
+Źródło prawdy: `docs/archive/fable/nocodb_crm_schema_v3.md` (decyzje projektowe i tabele
+nowe/zmienione) + `docs/archive/fable/nocodb_crm_schema_v2.md` (pola tabel bazowych, których
 v3 nie powtarza, bo opisuje wyłącznie różnice).
 
 Trzy poziomy merytoryczne, patrz v3 "Architektura tabel":
@@ -44,7 +44,7 @@ WYMAGA RĘCZNEGO DOKOŃCZENIA: relacje `hm` powstają jako kolumny klucza obcego
 (stary typ pola link), a nie jako tabele łączące. W UI NocoDB pokazuje przy
 nich "Upgrade Link Field" — trzeba to kliknąć, bo webhooki NocoDB wystawiają
 pełne rekordy powiązane tylko przez `_nc_m2m_*` (od tego zależy W9, patrz
-`fable/W9_generate_offer.json`, node "Assemble render data"). Relacje `mm`
+`docs/archive/fable/W9_generate_offer.json`, node "Assemble render data"). Relacje `mm`
 dostają tabelę łączącą od razu. TODO: znaleźć parametr API wymuszający nowy
 typ od razu — inaczej ten sam klikany krok wraca przy każdym odtworzeniu.
 
@@ -72,7 +72,7 @@ CZEGO TEN SKRYPT NIE ROBI (do wyklikania ręcznie po uruchomieniu):
      udokumentowane, sprawdź i popraw w UI.
   4. Display value: NocoDB bierze pierwsze pole z listy — dlatego w każdej
      tabeli pole "nazwowe" jest pierwsze. Zweryfikuj w UI.
-  5. ZMIANY NA JUŻ WDROŻONEJ BAZIE (patrz `fable/feedback-tables-1.md`,
+  5. ZMIANY NA JUŻ WDROŻONEJ BAZIE (patrz `docs/archive/fable/feedback-tables-1.md`,
      nałożone na TABLES/RELATIONS 2026-08-06): `create_tables()` pomija CAŁĄ
      tabelę, jeśli tytuł już istnieje — nie ma diffa na poziomie pojedynczego
      pola. Jeśli baza z 16 tabelami już żyje w produkcji, ponowne uruchomienie

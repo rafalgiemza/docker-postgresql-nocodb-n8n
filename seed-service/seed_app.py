@@ -4,7 +4,7 @@
 Migruje rekordy ze starego CRM (Excel) do NocoDB.
 Obsługuje: fixed file lub upload, fixed base_id lub query param.
 
-Zaktualizowane pod schemat po fable/feedback-tables-1.md (2026-08-06) -
+Zaktualizowane pod schemat po docs/archive/fable/feedback-tables-1.md (2026-08-06) -
 patrz scripts/init-schema.py. Wymaga bazy stworzonej TĄ wersją skryptu
 (pola `lead_name`/`lead_type`/`lead_source`/`deal_value` na `leads`, nowe
 listy opcji `lead_source`/`contact_channel`/`industry`; tabela `participants`
@@ -127,7 +127,7 @@ CHANNEL_MAP = {
     # BEZ mapowania (-> notes): "Czat", "Spotkanie"
 }
 
-# ZWERYFIKOWANE 2026-08-09 wobec old-crm-based-seed/seed-fake/generate_crm_data.py
+# ZWERYFIKOWANE 2026-08-09 wobec init-data/generate_crm_data.py
 # (to jest generator, ktory faktycznie produkuje Statusy_z_CRM_filled.xlsx -
 # jedyne pewne zrodlo prawdy o realnej domenie wartosci starego CRM). Mapa
 # ponizej byla wczesniej pisana pod zgadywane wartosci ("Medyczna", "Handel")

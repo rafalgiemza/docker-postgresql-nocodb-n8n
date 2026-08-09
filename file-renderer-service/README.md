@@ -112,13 +112,13 @@ poza opcjonalnym `PORT`.
    siebie nie buduje obrazów).
 2. Sanity: `docker compose exec n8n wget -qO- http://file-renderer-service:8000/health`
    → `{"ok": true}`.
-3. Zaimportuj `fable/W9_generate_offer.json` (13 node'ów): payload przycisku →
+3. Zaimportuj `docs/archive/fable/W9_generate_offer.json` (13 node'ów): payload przycisku →
    `Assemble render data` (Edit Fields) → pobranie aktywnego szablonu +
    binarki → POST multipart do `/render` → upload wyniku do NocoDB →
    rekord w `offers` (`status=draft`, `file`, `data_json`, `warnings`
    z nagłówka `X-Warnings`) → link do leada → task review / task błędu.
    Podmień jedyny placeholder `__LNK_OFFER_LEAD__` (ID pola Link
-   `offers`→`leads`, patrz `fable/README.md` §1).
+   `offers`→`leads`, patrz `docs/archive/fable/README.md` §1).
 4. Na tabeli `leads` dodaj pole **Button** "Generuj ofertę" → webhook na
    workflow z kroku 3. Sensowny warunek widoczności:
    `offer_prep_status = draft_ready` (ustawiane przez W6b).
@@ -130,7 +130,7 @@ Na pustej bazie tworzy je `scripts/init-schema.py` (cały schemat v3);
 na istniejącej — ręcznie w NocoDB Creator UI.
 
 > **Nazwa:** w bazie testowej ta tabela nazywa się jeszcze `offer_templates`.
-> Model docelowy (`fable/nocodb_crm_schema_v3.md` §12) uogólnia ją do
+> Model docelowy (`docs/archive/fable/nocodb_crm_schema_v3.md` §12) uogólnia ją do
 > `document_templates` z polem `kind`, bo ten serwis jest generyczny i
 > obsłuży też raport audytowy — nie tylko oferty.
 
