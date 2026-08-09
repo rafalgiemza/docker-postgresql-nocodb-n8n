@@ -16,4 +16,18 @@ python3 -c "import requests" 2>/dev/null || {
   exit 1
 }
 
+# NocoDB healthcheck (fragments/nocodb.yml) daje mu do ~100s na start
+# (interval 10s * retries 10) - zaraz po `make up` kontener bywa jeszcze
+# "health: starting" i skrypt niżej pada z ConnectionError zamiast poczekać.
+NC_URL="${NC_LOCAL_URL:-http://localhost:8081}"
+echo "⏳ Czekam, aż NocoDB odpowie pod ${NC_URL}..."
+for attempt in $(seq 1 30); do
+  curl -fsS -o /dev/null "${NC_URL}/" 2>/dev/null && break
+  if [ "$attempt" -eq 30 ]; then
+    echo "❌ NocoDB (${NC_URL}) nie odpowiada po 60s — sprawdź 'make ps' / 'make logs'."
+    exit 1
+  fi
+  sleep 2
+done
+
 python3 scripts/init-schema.py "$@"
