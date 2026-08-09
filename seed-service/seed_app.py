@@ -75,6 +75,7 @@ EXCEL_COLS = [
     (0, "ID"),
     (1, "Nazwa klienta"),
     (2, "Organizacja"),
+    (3, "Folder klienta"),
     (4, "B2B / B2C"),
     (5, "Handlowiec"),
     (6, "Branża"),
@@ -96,6 +97,8 @@ EXCEL_COLS = [
     (26, "Powód utraty szansy"),
     (27, "Etap"),
     (28, "Stan"),
+    (29, "Data planowanego działania"),
+    (30, "Planowane działanie"),
     (31, "Szansa sprzedaży Wartość"),
     (32, "Szansa sprzedaży Etykieta"),
     (33, "Notatki"),
@@ -124,20 +127,41 @@ CHANNEL_MAP = {
     # BEZ mapowania (-> notes): "Czat", "Spotkanie"
 }
 
+# ZWERYFIKOWANE 2026-08-09 wobec old-crm-based-seed/seed-fake/generate_crm_data.py
+# (to jest generator, ktory faktycznie produkuje Statusy_z_CRM_filled.xlsx -
+# jedyne pewne zrodlo prawdy o realnej domenie wartosci starego CRM). Mapa
+# ponizej byla wczesniej pisana pod zgadywane wartosci ("Medyczna", "Handel")
+# ktore w danych nie wystepuja w ogole (generator daje "Medycyna", "Handel
+# detaliczny") - stad wiekszosc branz nigdy sie nie mapowala.
 INDUSTRY_MAP = {
     "IT": "IT",
-    "Logistyka": "Transport/Logistics",
-    "Edukacja": "Education",
-    "Finanse": "Finance",
-    "Usługi finansowe": "Finance",
-    "Medyczna": "Medicine",
+    "Software Development": "Software Development",
+    "E-commerce": "E.commerce",
     "Produkcja": "Manufacturing",
+    "Budownictwo": "Construction",
+    "Logistyka": "Transport/Logistics",
     "Handel": "Retail",
+    "Handel detaliczny": "Retail",
+    "Usługi finansowe": "Finance",
+    "Finanse": "Finance",
+    "Medycyna": "Medicine",
+    "Medyczna": "Medicine",
+    "Edukacja": "Education",
+    # dwie ponizsze to decyzje "najblizszej sensownej opcji", nie 1:1 -
+    # w INDUSTRY (init-schema.py) nie ma dedykowanego HoReCa/Marketing
+    "HoReCa": "Hotels",
+    "Marketing": "Marketing Agency",
+    "Nieruchomości": "Real Estate",
 }
 
+# "Brak kwalifikacji" to realna wartosc generatora dla zdyskwalifikowanych
+# leadow (Kwalifikacja lead'a + Powod braku kwalifikacji lead'a razem) -
+# "Niekwalifikowany" (stary klucz) nigdzie w danych nie wystepuje, zostaje
+# dla kompatybilnosci z innymi mozliwymi eksportami.
 QUALIFICATION_MAP = {
     "MQL": "MQL",
     "SQL": "SQL",
+    "Brak kwalifikacji": "unqualified",
     "Niekwalifikowany": "unqualified",
 }
 
@@ -158,11 +182,57 @@ STATE_MAP = {
     "zamknięta": "lost",
 }
 
+# `leads.loss_reason` (dlaczego przegralismy juz kwalifikowana szanse) i
+# `leads.disqualify_reason` (dlaczego lead nigdy nie zostal zakwalifikowany)
+# to DWA rozne pola z dwiema roznymi listami opcji - wczesniej obie uzywaly
+# tej samej mapy (LOSS_REASON_MAP), przez co disqualify_reason nigdy sie nie
+# trafial (domeny nie maja wspolnych wartosci poza "konkurencja"). Wartosci
+# bez dobrego odpowiednika w nowej (celowo krotszej) liscie leca na "inne" -
+# oryginalny tekst i tak zawsze ląduje w *_note (patrz build_lead_data), wiec
+# nic nie ginie nawet po zbiciu do "inne".
 LOSS_REASON_MAP = {
     "Cena": "cena",
-    "Brak decyzji": "brak_decyzji",
-    "Konkurencja": "konkurencja",
-    "Przesunięte w czasie": "przesuniete_w_czasie",
+    "Wybrał konkurencję": "konkurencja",
+    "Brak decyzji / cisza": "brak_decyzji",
+    "Odłożone w czasie": "przesuniete_w_czasie",
+    "Brak budżetu": "inne",
+    "Realizacja wewnętrzna": "inne",
+    "Za długi termin realizacji": "inne",
+    "Zmiana potrzeb": "inne",
+}
+
+DISQUALIFY_REASON_MAP = {
+    "Brak kontaktu": "brak_kontaktu",
+    "Brak budżetu": "brak_budzetu",
+    "Oferta konkurencji / handlowiec": "konkurencja",
+    "Nie nasza usługa": "brak_potrzeby",
+    "Poza obszarem działania": "inne",
+    "Spam / bot": "inne",
+    "Szuka pracy": "inne",
+    "Duplikat": "inne",
+}
+
+# feedback-tables-1.md/v2 zakladaly "Gorąca"/"Oferta specjalna" jako etykiety
+# excelowe - w realnym CRM (generate_crm_data.py DEAL_LABELS) tych wartosci
+# nie ma wcale, wystepuje inna, szersza taksonomia. Mapowanie identycznosciowe,
+# bo tytuly opcji w schemacie (init-schema.py) sa teraz 1:1 z tymi wartosciami.
+LABEL_MAP = {
+    "Nowy klient": "Nowy klient",
+    "Upsell": "Upsell",
+    "Odnowienie": "Odnowienie",
+    "Projekt jednorazowy": "Projekt jednorazowy",
+    "Abonament": "Abonament",
+    "Pilne": "Pilne",
+    "Gorąca": "hot",
+    "Oferta specjalna": "oferta_specjalna",
+}
+
+# leads.owner to pole typu User w NocoDB - wymaga realnego konta, nie
+# dowolnego tekstu. Mapujemy tylko handlowcow, dla ktorych mamy potwierdzony
+# adres konta w NocoDB; reszta (Marek/Anna/Kasia/Tomek/Ola/Bartek - historyczni
+# lub bez konta) leci do notes zamiast ryzykowac blad API na calym rekordzie.
+HANDLOWIEC_MAP = {
+    "Przemek": "p.fidzina@coaction.pl",
 }
 
 LEAD_TYPE_MAP = {
@@ -230,6 +300,14 @@ def build_lead_data(excel_data):
             unmapped.append(f"{label} (stary CRM): {str(value).strip()}")
         return result
 
+    # disqualify_reason/loss_reason: kategoria idzie do SingleSelect (z
+    # fallbackiem "inne" dla wartosci spoza celowo krotszej nowej listy),
+    # ale oryginalny tekst ZAWSZE ląduje w dedykowanym *_note (LongText) -
+    # te pola istnieją w schemacie dokładnie po to, żeby żaden szczegół
+    # z 8-elementowej starej listy nie zginął przy zbiciu do "inne".
+    disqualify_raw = (excel_data.get("Powód braku kwalifikacji lead'a") or "").strip()
+    loss_raw = (excel_data.get("Powód utraty szansy") or "").strip()
+
     lead_data = {
         "lead_name": (excel_data.get("Nazwa klienta") or "").strip(),
         "contact_email": (excel_data.get("E.mail") or "").strip() or None,
@@ -239,13 +317,14 @@ def build_lead_data(excel_data):
         "contact_channel": mapped(excel_data.get("Forma kontaktu"), CHANNEL_MAP, "Forma kontaktu"),
         "qualification": mapped(excel_data.get("Kwalifikacja lead'a"), QUALIFICATION_MAP, "Kwalifikacja"),
         "disqualify_reason": map_value(
-            excel_data.get("Powód braku kwalifikacji lead'a"), LOSS_REASON_MAP),
+            disqualify_raw, DISQUALIFY_REASON_MAP, "inne" if disqualify_raw else None),
+        "disqualify_note": disqualify_raw or None,
         "stage": map_value(excel_data.get("Etap"), STAGE_MAP) or "new",
         "state": map_value(excel_data.get("Stan"), STATE_MAP) or "open",
-        "loss_reason": map_value(excel_data.get("Powód utraty szansy"), LOSS_REASON_MAP),
+        "loss_reason": map_value(loss_raw, LOSS_REASON_MAP, "inne" if loss_raw else None),
+        "loss_note": loss_raw or None,
         "deal_value": excel_data.get("Szansa sprzedaży Wartość") or None,
-        "label": map_value(excel_data.get("Szansa sprzedaży Etykieta"),
-                          {"Gorąca": "hot", "Oferta specjalna": "oferta_specjalna"}),
+        "label": mapped(excel_data.get("Szansa sprzedaży Etykieta"), LABEL_MAP, "Etykieta"),
         "legacy_id": str(excel_data.get("ID") or "").strip() or None,
         "industry": mapped(excel_data.get("Branża"), INDUSTRY_MAP, "Branża"),
         "offer_sent_at": parse_date(excel_data.get("Data wysłania oferty")),
@@ -253,13 +332,40 @@ def build_lead_data(excel_data):
         "closed_at": parse_date(excel_data.get("Data podpisania umowy")),
     }
 
+    # leads.owner (User) - tylko dla handlowcow z potwierdzonym kontem;
+    # reszta zostaje czytelna w notes zamiast ryzykowac blad API (patrz
+    # HANDLOWIEC_MAP i retry bez ownera w seed_records()).
+    handlowiec = (excel_data.get("Handlowiec") or "").strip()
+    if handlowiec:
+        owner_email = map_value(handlowiec, HANDLOWIEC_MAP)
+        if owner_email:
+            lead_data["owner"] = owner_email
+        else:
+            unmapped.append(f"Handlowiec (stary CRM, brak konta w NocoDB): {handlowiec}")
+
+    # Spr. ID - tylko czesc leadow (zamkniete/wygrane) ma numer zamowienia ze
+    # starego systemu; brak dedykowanego pola w nowym schemacie, wiec notes.
+    spr_id = (excel_data.get("Spr. ID") or "").strip()
+    if spr_id:
+        unmapped.append(f"Nr sprzedaży (stary CRM): {spr_id}")
+
+    # Data planowanego działania / Planowane działanie - "następny krok" dla
+    # otwartych leadow. Brak dedykowanego linku do `tasks` tutaj świadomie:
+    # wymagałby tego samego niepewnego kontraktu User (assignee) co owner,
+    # tuz przed startem produkcyjnym - notes zachowuje dane bez tego ryzyka.
+    planned_action = (excel_data.get("Planowane działanie") or "").strip()
+    if planned_action:
+        planned_date = parse_date(excel_data.get("Data planowanego działania"))
+        suffix = f" ({planned_date})" if planned_date else ""
+        unmapped.append(f"Planowane działanie (stary CRM): {planned_action}{suffix}")
+
     notes_parts = [(excel_data.get("Notatki") or "").strip()] + unmapped
     lead_data["notes"] = "\n".join(p for p in notes_parts if p) or None
 
     return {k: v for k, v in lead_data.items() if v is not None and v != ""}
 
 
-def create_or_find_company(table_id, token, url, name, industry=None):
+def create_or_find_company(table_id, token, url, name, industry=None, folder_slug=None):
     """Szuka lub tworzy firmę (B2B)."""
     if not name or not name.strip():
         return None
@@ -271,13 +377,24 @@ def create_or_find_company(table_id, token, url, name, industry=None):
     if existing:
         return existing[0].get("Id")
 
+    notes_parts = []
     record = {"name": name}
     if industry:
         mapped_industry = map_value(industry, INDUSTRY_MAP)
         if mapped_industry:
             record["industry"] = mapped_industry
         else:
-            record["notes"] = f"Branża (stary CRM): {str(industry).strip()}"
+            notes_parts.append(f"Branża (stary CRM): {str(industry).strip()}")
+    if folder_slug and str(folder_slug).strip():
+        # "Folder klienta" z Excela to tylko slug (np. "acme-sp-z-o-o-11" -
+        # patrz generate_crm_data.py: slugify(nazwa)+lead_id), NIE prawdziwy
+        # link - `companies.folder_url` (typ URL) jest myślący jako pole na
+        # faktyczny link (Drive/SharePoint), który człowiek doda później.
+        # Wrzucanie tu goły slug wygladalby jak zepsuty link w UI, więc leci
+        # do notes zamiast fabrykować URL, którego nie mamy.
+        notes_parts.append(f"Folder klienta (stary CRM): {str(folder_slug).strip()}")
+    if notes_parts:
+        record["notes"] = "\n".join(notes_parts)
 
     res = api("POST", f"/api/v2/tables/{table_id}/records", token, url, json=record)
     return res.get("Id") or (res[0].get("Id") if isinstance(res, list) else None)
@@ -324,8 +441,22 @@ def seed_records(records, token, url, base_id):
                     continue
 
             lead_data = build_lead_data(rec)
-            res = api("POST", f"/api/v2/tables/{tables['leads']}/records",
-                     token, url, json=lead_data)
+            try:
+                res = api("POST", f"/api/v2/tables/{tables['leads']}/records",
+                         token, url, json=lead_data)
+            except RuntimeError as e:
+                # NIEZWERYFIKOWANE NA ŻYWO: kontrakt pola `owner` (User) w
+                # NocoDB records API (zakładamy plain string email). Jeśli
+                # to złe założenie, nie chcemy tracić całego leada - retry
+                # bez ownera, żeby reszta danych i tak się zapisała.
+                if "owner" not in lead_data:
+                    raise
+                retry_data = {k: v for k, v in lead_data.items() if k != "owner"}
+                res = api("POST", f"/api/v2/tables/{tables['leads']}/records",
+                         token, url, json=retry_data)
+                result["errors"].append(
+                    f"Lead {contact_name}: owner '{lead_data['owner']}' odrzucony przez "
+                    f"NocoDB (lead i tak utworzony, bez ownera) - {str(e)[:200]}")
             lead_id = res.get("Id") or (res[0].get("Id") if isinstance(res, list) else None)
             if not lead_id:
                 result["errors"].append(f"Lead {contact_name}: nie utworzono")
@@ -338,7 +469,8 @@ def seed_records(records, token, url, base_id):
                 org_name = rec.get("Organizacja")
                 if org_name and org_name.strip():
                     company_id = create_or_find_company(
-                        tables["companies"], token, url, org_name, rec.get("Branża"))
+                        tables["companies"], token, url, org_name, rec.get("Branża"),
+                        rec.get("Folder klienta"))
                     if company_id:
                         result["created_companies"] += 1
                         # Nazwa pola zwrotnego na `leads` dla relacji
@@ -358,9 +490,15 @@ def seed_records(records, token, url, base_id):
                                 f"Lead {contact_name}: firma '{org_name}' utworzona, "
                                 "ale nie znaleziono pola relacji leads->companies")
 
-            # Utwórz participant
+            # Utwórz participant - "Osoba kontaktowa" to realny człowiek
+            # (kupujący/kontakt), NIE "Nazwa klienta" (dla B2B to nazwa
+            # FIRMY, np. "Grupa Zubowicz-Straszak Sp.k." - participant z taką
+            # full_name byłby błędny). Fallback na "Nazwa klienta" tylko gdy
+            # "Osoba kontaktowa" jest pusta (nie powinno się zdarzać w
+            # obecnym generatorze, ale nie chcemy stracić rekordu przez to).
+            participant_name = (rec.get("Osoba kontaktowa") or "").strip() or contact_name
             participant_data = {
-                "full_name": contact_name,
+                "full_name": participant_name,
                 "email": (rec.get("E.mail") or "").strip() or None,
             }
             participant_data = {k: v for k, v in participant_data.items() if v}

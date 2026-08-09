@@ -319,8 +319,15 @@ TABLES = [
                             "szacowana zanim istnieje oferta). To NIE jest "
                             "kwota z konkretnego dokumentu ofertowego - tamta "
                             "jest w offers.total_price."},
+            # feedback-tables-1.md/init v2 zakladaly "hot"/"oferta_specjalna",
+            # ale realna taksonomia "Szansa sprzedaży Etykieta" ze starego CRM
+            # (generate_crm_data.py DEAL_LABELS) to zupelnie inna lista -
+            # dopisana ponizej, stare dwie opcje zostaja (nieszkodliwe, na
+            # wypadek gdyby juz cos ich uzywalo z proby na stagingu).
             {"title": "label", "type": "SingleSelect",
-             "options": select("hot", "oferta_specjalna")},
+             "options": select("hot", "oferta_specjalna", "Nowy klient", "Upsell",
+                               "Odnowienie", "Projekt jednorazowy", "Abonament",
+                               "Pilne")},
             # v3 §1 - dla B2C, gdzie nie ma rekordu firmy
             {"title": "industry", "type": "SingleSelect", "options": select(*INDUSTRY)},
             {"title": "notes", "type": "LongText"},
