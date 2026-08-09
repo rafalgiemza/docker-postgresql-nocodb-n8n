@@ -90,9 +90,11 @@ Wymaga w środowisku (patrz .env.example): NC_API_TOKEN, NC_CRM_BASE_ID.
 Opcjonalnie NC_LOCAL_URL (domyślnie http://localhost:8081).
 
 Usage:
+  make init-schema
+  # albo bezpośrednio:
   set -a; source .env; set +a
-  python3 fable/create_offer_tables.py --dry-run
-  python3 fable/create_offer_tables.py
+  python3 scripts/init-schema.py --dry-run
+  python3 scripts/init-schema.py
 """
 import argparse
 import os

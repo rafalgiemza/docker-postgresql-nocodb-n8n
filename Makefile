@@ -8,7 +8,7 @@ DC_CMD = docker compose -f docker-compose.yml
 LATEST_TS := $(shell ls -1t ./backups/appdata_*.sql 2>/dev/null | head -n 1 | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}')
 RESTORE_TS ?= $(LATEST_TS)
 
-.PHONY: help init init-env config up down restart pull ps versions logs migrate dump-appdata-schema seed seed-demo backup backup-prune restore wire-apps add-rag-db
+.PHONY: help init init-env config up down restart pull ps versions logs migrate dump-appdata-schema seed seed-demo backup backup-prune restore wire-apps init-schema add-rag-db
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -61,6 +61,11 @@ seed-demo: ## Load one demo offer end-to-end (re-runnable)
 # docs/init-nocodb.md). Uruchom po `make migrate && make seed`.
 wire-apps: ## Wire NocoDB/n8n to appdata/crm after a hard-reset
 	./scripts/crm-wire-init.sh
+
+# Tworzy 16 tabel CRM + relacje w NocoDB przez Meta API — wymaga `make wire-apps`
+# najpierw. Patrz naglowek scripts/init-schema.py po pelny kontekst.
+init-schema: ## Create the full CRM schema (16 tables + relations) in NocoDB — run after wire-apps
+	./scripts/init-schema.sh
 
 # Jednorazowe dodanie bazy RAG na już działającym Postgresie — init-data.sh
 # odpala się tylko przy świeżym, pustym wolumenie, więc na istniejącej

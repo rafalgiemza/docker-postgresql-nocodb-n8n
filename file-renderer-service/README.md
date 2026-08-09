@@ -126,7 +126,7 @@ poza opcjonalnym `PORT`.
 
 ## Tabele `document_templates`/`offers` (używane przez n8n, nie przez serwis)
 
-Na pustej bazie tworzy je `fable/create_offer_tables.py` (cały schemat v3);
+Na pustej bazie tworzy je `scripts/init-schema.py` (cały schemat v3);
 na istniejącej — ręcznie w NocoDB Creator UI.
 
 > **Nazwa:** w bazie testowej ta tabela nazywa się jeszcze `offer_templates`.

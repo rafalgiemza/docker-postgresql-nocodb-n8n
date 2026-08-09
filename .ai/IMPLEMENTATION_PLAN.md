@@ -108,7 +108,7 @@ Zrobione: kod serwisu, `fragments/file-renderer-service.yml` wpięty w
 
 Zostaje na żywej bazie (patrz `file-renderer-service/README.md` Deployment):
 1. Tabele `document_templates`/`offers` — na pustej bazie przez
-   `fable/create_offer_tables.py` (cały schemat v3), inaczej ręcznie w Creator UI.
+   `scripts/init-schema.py` (cały schemat v3), inaczej ręcznie w Creator UI.
 2. `NC_CRM_BASE_ID` w `.env`.
 3. `docker compose up -d --build file-renderer-service` + sanity `/health`.
 4. Import `W9`, przycisk **Generuj ofertę** na `leads`, pierwszy szablon.

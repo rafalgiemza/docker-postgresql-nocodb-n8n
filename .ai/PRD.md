@@ -101,7 +101,7 @@ Pełna tabela usług + dostęp: `README.md`.
 Stan bieżący (żywa baza testowa): `fable/nocodb_crm_schema_v2.md`.
 **Docelowy model — `fable/nocodb_crm_schema_v3.md`** (warstwa rekomendacji,
 historia ocen, pola strukturalne z discovery); bootstrap pustej bazy:
-`fable/create_offer_tables.py`. Skrót relacji stanu bieżącego:
+`scripts/init-schema.py`. Skrót relacji stanu bieżącego:
 
 ```
 companies ──< leads ──< meetings / participants / tasks / activities
@@ -245,7 +245,7 @@ zastępuje szczegółów w źródłowych plikach.
 | `fable/test_runner_coaction.zip` (`fable/test_cases.md`, `fable/conftest.py`, `fable/test_workflows.py`, `fable/nocodb.py`) | katalog przypadków + harness pytest, grupa `W9` dodana 2026-07-26 |
 | `fable/meta.json` | eksport żywej struktury "CoAction TEST Base" z NocoDB (2026-07-17) — dowód, że model jest wdrożony, nie tylko zaprojektowany |
 | `fable/W9_generate_offer.json` | workflow „Generuj ofertę" — dodany 2026-07-26, patrz §7/§12 |
-| `fable/nocodb_crm_schema_v3.md` + `fable/create_offer_tables.py` | docelowy model danych (faza 2) + skrypt tworzący cały schemat w pustej bazie |
+| `fable/nocodb_crm_schema_v3.md` + `scripts/init-schema.py` | docelowy model danych (faza 2) + skrypt tworzący cały schemat w pustej bazie |
 
 Wyjątek od "wszystko w `fable/`": **`file-renderer-service/`** (poza `fable/`, dodany
 2026-07-26) — generyczny mikroserwis FastAPI (`python-pptx`/`python-docx`):

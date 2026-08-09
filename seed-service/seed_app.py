@@ -5,7 +5,7 @@ Migruje rekordy ze starego CRM (Excel) do NocoDB.
 Obsługuje: fixed file lub upload, fixed base_id lub query param.
 
 Zaktualizowane pod schemat po fable/feedback-tables-1.md (2026-08-06) -
-patrz fable/create_offer_tables.py. Wymaga bazy stworzonej TĄ wersją skryptu
+patrz scripts/init-schema.py. Wymaga bazy stworzonej TĄ wersją skryptu
 (pola `lead_name`/`lead_type`/`lead_source`/`deal_value` na `leads`, nowe
 listy opcji `lead_source`/`contact_channel`/`industry`; tabela `participants`
 zostaje bez zmian).
@@ -89,7 +89,7 @@ EXCEL_COLS = [
     (34, "Spr. ID"),
 ]
 
-# Mapowania wartości -> nowe listy opcji z fable/create_offer_tables.py
+# Mapowania wartości -> nowe listy opcji z scripts/init-schema.py
 # (feedback-tables-1.md, 2026-08-06). Świadomie BEZ fallbacków na "najbliższą"
 # opcję tam, gdzie nowa lista po prostu nie ma odpowiednika - lepiej zostawić
 # pole puste i zapisać oryginał w notes niż udawać np. że to "Google".

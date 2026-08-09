@@ -364,7 +364,7 @@ Relacje `leads`↔`offers`, `leads`↔`participants`, `leads`↔`testimonials`,
 > rzeczy i widać to gołym okiem: `Links` pokazuje **licznik** powiązanych
 > wierszy, a starszy `LinkToAnotherRecord` wypisuje wartość wyświetlaną
 > każdego rekordu — przy leadzie z 20 taskami komórka robi się nieczytelna.
-> `fable/create_offer_tables.py` tworzy wszystkie relacje jako `Links`.
+> `scripts/init-schema.py` tworzy wszystkie relacje jako `Links`.
 > Dodając relację ręcznie w UI, wybierz ten sam typ, żeby schemat został
 > spójny.
 
@@ -402,7 +402,7 @@ Przeszła na żywo na VPS-B 2026-08-03. Efekt: 36 tabel w `appdata`, schemat
    > ten krok rób ręcznie.
 4. **ID do `.env`:** `NC_CRM_BASE_ID` i `NC_CRM_SOURCE_ID` (źródło z niepustym
    `alias`; to z `alias: null` jest wewnętrzne).
-5. **Bootstrap:** `python3 fable/create_offer_tables.py --dry-run`, potem bez flagi.
+5. **Bootstrap:** `make init-schema` (albo `python3 scripts/init-schema.py --dry-run`, potem bez flagi).
 6. **Weryfikacja w Postgresie, nie w UI** — w UI tabele wyglądają tak samo
    niezależnie od tego, w której bazie fizycznie siedzą:
    ```

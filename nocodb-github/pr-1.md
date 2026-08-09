@@ -5,7 +5,7 @@ Materiał do issue + PR w `nocodb/nocodb`. Treść zgłoszenia po **angielsku**
 
 ## Dlaczego to nasza sprawa
 
-`fable/create_offer_tables.py` musi tworzyć 16 tabel w bazie `appdata`
+`scripts/init-schema.py` musi tworzyć 16 tabel w bazie `appdata`
 (schemat `crm`), podpiętej w NocoDB jako zewnętrzne źródło danych. To nasze
 źródło prawdy — objęte `make backup`, dostępne dla `n8n_crm_user`, dumpowane
 do `appdata/appdata_schema.sql`. Wewnętrzna baza NocoDB nie jest żadną z tych
