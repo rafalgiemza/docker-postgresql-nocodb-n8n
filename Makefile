@@ -8,7 +8,7 @@ DC_CMD = docker compose -f docker-compose.yml
 LATEST_TS := $(shell ls -1t ./backups/appdata_*.sql 2>/dev/null | head -n 1 | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}')
 RESTORE_TS ?= $(LATEST_TS)
 
-.PHONY: help init init-env config up down restart pull ps versions logs migrate dump-appdata-schema seed seed-demo backup backup-prune restore wire-apps init-schema init-appdata-db add-rag-db
+.PHONY: help init init-env config up down restart pull ps versions logs migrate dump-appdata-schema seed seed-demo backup backup-prune restore wire-apps init-schema upgrade-links init-appdata-db add-rag-db
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -66,6 +66,17 @@ wire-apps: ## Wire NocoDB/n8n to appdata/crm after a hard-reset
 # najpierw. Patrz naglowek scripts/init-schema.py po pelny kontekst.
 init-schema: ## Create the full CRM schema (16 tables + relations) in NocoDB — run after wire-apps
 	./scripts/init-schema.sh
+
+# Naprawia pola relacji utworzone przez init-schema.py: NocoDB tworzy je w
+# starym formacie "Link to another record" v1 (bez fizycznej tabeli łączącej
+# dla relacji hm) - ten skrypt robi to samo co klik "Upgrade" w UI (jeden
+# request convertLinkToV2), plus usuwa/przemianowuje pola powstałe przy
+# okazji (stare pole -> Rollup do skasowania, nowe "LTAR_<tytuł>" -> zmiana
+# nazwy na oryginalny tytuł). Patrz nagłówek scripts/upgrade-links.py.
+# Wymaga `make init-schema` najpierw. Prawdziwe DDL na appdata - idempotentny,
+# ale zrób `make backup` przed pierwszym uruchomieniem na produkcji.
+upgrade-links: ## Upgrade CRM relation fields from Links v1 to LinkToAnotherRecord v3 — 2nd step after init-schema
+	./scripts/upgrade-links.sh
 
 init-data: 
 	 # 1. Sanity check - serwis widzi plik i ma NC_API_TOKEN/NC_CRM_BASE_ID?
