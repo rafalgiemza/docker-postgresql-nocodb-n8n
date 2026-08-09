@@ -8,7 +8,7 @@ DC_CMD = docker compose -f docker-compose.yml
 LATEST_TS := $(shell ls -1t ./backups/appdata_*.sql 2>/dev/null | head -n 1 | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}')
 RESTORE_TS ?= $(LATEST_TS)
 
-.PHONY: help init init-env config up down restart pull ps versions logs migrate dump-appdata-schema seed seed-demo backup backup-prune restore wire-apps init-schema add-rag-db
+.PHONY: help init init-env config up down restart pull ps versions logs migrate dump-appdata-schema seed seed-demo backup backup-prune restore wire-apps init-schema init-appdata-db add-rag-db
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -66,6 +66,23 @@ wire-apps: ## Wire NocoDB/n8n to appdata/crm after a hard-reset
 # najpierw. Patrz naglowek scripts/init-schema.py po pelny kontekst.
 init-schema: ## Create the full CRM schema (16 tables + relations) in NocoDB — run after wire-apps
 	./scripts/init-schema.sh
+
+# Jednorazowe (re)utworzenie bazy appdata + ról appdata_owner/nocodb_crm_user/
+# n8n_crm_user + pustego schematu crm — to samo co init-data.sh robi na
+# świeżym wolumenie Postgresa, ale ręcznie, na już działającej instancji
+# (np. po `DROP DATABASE appdata` albo gdy .env nie miał tych zmiennych przy
+# pierwszym starcie kontenera). Świadomie BEZ appdata_schema.sql — ten plik to
+# zdjęcie starego, przedwersyjnego (v2) układu tabel; tabele v3 tworzy
+# `make init-schema` przez NocoDB Meta API, nie SQL. Idempotentne.
+init-appdata-db: ## One-time: (re)create the appdata database + roles/crm schema on an already-running Postgres
+	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "CREATE USER $(APPDATA_OWNER_USER) WITH PASSWORD '$(APPDATA_OWNER_PASSWORD)';" || true
+	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "CREATE DATABASE $(APP_DB) OWNER $(APPDATA_OWNER_USER);" || true
+	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "CREATE USER $(NOCODB_CRM_USER) WITH PASSWORD '$(NOCODB_CRM_PASSWORD)';" || true
+	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "GRANT CONNECT ON DATABASE $(APP_DB) TO $(NOCODB_CRM_USER);" || true
+	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "CREATE USER $(N8N_CRM_USER) WITH PASSWORD '$(N8N_CRM_PASSWORD)';" || true
+	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "GRANT CONNECT ON DATABASE $(APP_DB) TO $(N8N_CRM_USER);" || true
+	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(APP_DB) -c "REVOKE CREATE ON SCHEMA public FROM $(NOCODB_CRM_USER); REVOKE CREATE ON SCHEMA public FROM $(N8N_CRM_USER); CREATE SCHEMA IF NOT EXISTS crm AUTHORIZATION $(POSTGRES_USER); GRANT CREATE, USAGE ON SCHEMA crm TO $(NOCODB_CRM_USER); ALTER ROLE $(NOCODB_CRM_USER) IN DATABASE $(APP_DB) SET search_path TO crm;"
+	@echo "✅ appdata + role gotowe. Dalej: make init-schema"
 
 # Jednorazowe dodanie bazy RAG na już działającym Postgresie — init-data.sh
 # odpala się tylko przy świeżym, pustym wolumenie, więc na istniejącej
