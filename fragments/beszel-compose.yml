@@ -19,14 +19,14 @@
 # it, then finish adding the system with Host=beszel-agent, Port=45876.
 services:
   beszel:
-    image: henrygd/beszel:latest
+    image: henrygd/beszel:0.18.7
     restart: unless-stopped
     labels:
       - autoheal=true
     environment:
       - APP_URL=https://${BESZEL_HOST}
     ports:
-      # Loopback-only (see fragments/postgres.yml).
+      # Loopback-only (see fragments/postgres-compose.yml).
       - "127.0.0.1:8090:8090"
     volumes:
       - beszel_data:/beszel_data
@@ -45,7 +45,7 @@ services:
           memory: 512M
 
   beszel-agent:
-    image: henrygd/beszel-agent:latest
+    image: henrygd/beszel-agent:0.18.7
     restart: unless-stopped
     labels:
       - autoheal=true

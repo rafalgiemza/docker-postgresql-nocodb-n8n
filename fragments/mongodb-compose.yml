@@ -9,7 +9,15 @@
 # MONGO_URI=<external uri>, then `make down && make up`. No compose edits.
 services:
   mongodb:
-    image: mongo:${MONGO_VERSION}
+    # Pinned to match upstream LibreChat's own tested docker-compose.yml
+    # pairing (not `latest`/major-only): jumping straight to a newer Mongo
+    # major can hit https://github.com/danny-avila/LibreChat/issues/10304
+    # (server refuses to start unless featureCompatibilityVersion is migrated
+    # first). Requires the VPS's virtual CPU to expose AVX (see post-mortem
+    # docs — was blocked on the Sferahost VPS PRO box until they enabled CPU
+    # host-passthrough). Don't blindly merge a Dependabot major bump here —
+    # check LibreChat's compose pairing first.
+    image: mongo:8.0.20
     restart: unless-stopped
     labels:
       - autoheal=true

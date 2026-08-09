@@ -1,6 +1,6 @@
 services:
   seaweedfs:
-    image: chrislusf/seaweedfs:${SEAWEEDFS_VERSION}
+    image: chrislusf/seaweedfs:4.41
     restart: unless-stopped
     labels:
       - autoheal=true
@@ -17,7 +17,7 @@ services:
       - NOCODB_SEAWEEDFS_SECRET_KEY=${NOCODB_SEAWEEDFS_SECRET_KEY}
       - SEAWEEDFS_BUCKET_ATTACHMENTS=${SEAWEEDFS_BUCKET_ATTACHMENTS}
     ports:
-      # Loopback-only (see fragments/postgres.yml): S3 API + master status.
+      # Loopback-only (see fragments/postgres-compose.yml): S3 API + master status.
       # No console equivalent to MinIO's :9001 — see
       # .ai/migrate-from-minio-to-SeaweedFS.md §5.
       - "127.0.0.1:8333:8333"

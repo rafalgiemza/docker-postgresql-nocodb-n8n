@@ -29,9 +29,9 @@ dla kontekstu, dlaczego ten plan wygląda inaczej niż wcześniej.
 | **Backup offsite (cron + target realny)** | ❌ mechanizm (`restic`+`rclone`) gotowy w skrypcie, ale cron na serwerach i wybór dostawcy nie dopięte — **priorytet #1** | `backup/backup.sh`, `.ai/PRD.md` §11/§14 |
 | Dostęp NocoDB → `appdata` (schemat `crm`, `nocodb_crm_user` z `CREATE`+`USAGE`, `REVOKE CREATE ON SCHEMA public`) | ✅ zrobione | `scripts/init-data.sh` |
 | LibreChat + MongoDB | ✅ gotowe, zero integracji z CRM | `docker-compose.yml`, `librechat.yaml` |
-| SeaweedFS + buckety (offers/templates/recordings/transcripts/backups) — zmigrowane z MinIO 2026-08-08, patrz `.ai/migrate-from-minio-to-SeaweedFS.md` | ✅ gotowe; **`offers`/`templates` pozostają nieużywane** — `file-renderer-service` trzyma pliki jako NocoDB Attachment (bucket `attachments`), świadomy dług, nie rozwiązywany teraz | `scripts/seaweedfs-init.sh`, `fragments/seaweedfs.yml` |
-| Uptime Kuma | ✅ monitoring wszystkich usług, interwał 30s od 2026-07-15 | `fragments/uptime-kuma.yml` |
-| Beszel | ✅ monitoring zasobów per-kontener | `fragments/beszel.yml` |
+| SeaweedFS + buckety (offers/templates/recordings/transcripts/backups) — zmigrowane z MinIO 2026-08-08, patrz `.ai/migrate-from-minio-to-SeaweedFS.md` | ✅ gotowe; **`offers`/`templates` pozostają nieużywane** — `file-renderer-service` trzyma pliki jako NocoDB Attachment (bucket `attachments`), świadomy dług, nie rozwiązywany teraz | `scripts/seaweedfs-init.sh`, `fragments/seaweedfs-compose.yml` |
+| Uptime Kuma | ✅ monitoring wszystkich usług, interwał 30s od 2026-07-15 | `fragments/uptime-kuma-compose.yml` |
+| Beszel | ✅ monitoring zasobów per-kontener | `fragments/beszel-compose.yml` |
 | Sieci Docker segmentowane (`edge`/`internal`/`data`) | ❌ brak — jedna płaska sieć; `file-renderer-service` (pierwszy customowy `build:` w tym compose) dziś na niej, bez opublikowanego portu — wystarcza, izolacja `internal` nadal odłożona | — |
 | `file-renderer-service` (generyczny renderer PPTX/DOCX, FAZA 8) | ✅ kod + wpięcie w compose gotowe (`fragments/file-renderer-service.yml`); ❌ tabele `document_templates`/`offers`, `NC_CRM_BASE_ID`, pierwszy szablon i import W9 jeszcze do zrobienia na żywej bazie | `file-renderer-service/`, `docs/archive/fable/W9_generate_offer.json` |
 

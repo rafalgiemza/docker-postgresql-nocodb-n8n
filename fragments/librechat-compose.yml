@@ -1,6 +1,6 @@
 services:
   librechat:
-    image: ghcr.io/danny-avila/librechat:${LIBRECHAT_VERSION}
+    image: ghcr.io/danny-avila/librechat:v0.8.7
     restart: unless-stopped
     labels:
       - autoheal=true
@@ -24,7 +24,7 @@ services:
       - OPENROUTER_KEY=${OPENROUTER_API_KEY}
       - NO_INDEX=true
     ports:
-      # Loopback-only (see fragments/postgres.yml).
+      # Loopback-only (see fragments/postgres-compose.yml).
       - "127.0.0.1:3080:3080"
     volumes:
       - ../librechat.yaml:/app/librechat.yaml:ro

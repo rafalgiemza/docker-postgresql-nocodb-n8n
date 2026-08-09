@@ -2,7 +2,7 @@
 
 ## Context
 
-Klient ma skrzynki pocztowe w domenie `coaction.pl`. Potrzebny jest self-service reset hasła dla użytkowników LibreChat (dziś: rejestracja domenowo ograniczona do `coaction.pl` w `librechat.yaml`, `ALLOW_REGISTRATION=true`, brak jakiejkolwiek konfiguracji mailowej w `.env.example`/`fragments/librechat.yml` — potwierdzone grepem, zero `EMAIL_*`/`SMTP` w repo). Dziś jedyna ścieżka to ręczny reset przez `docker exec ... mongosh` (patrz `docs/librechat-users-manage.md`), co nie skaluje się poza Rafała.
+Klient ma skrzynki pocztowe w domenie `coaction.pl`. Potrzebny jest self-service reset hasła dla użytkowników LibreChat (dziś: rejestracja domenowo ograniczona do `coaction.pl` w `librechat.yaml`, `ALLOW_REGISTRATION=true`, brak jakiejkolwiek konfiguracji mailowej w `.env.example`/`fragments/librechat-compose.yml` — potwierdzone grepem, zero `EMAIL_*`/`SMTP` w repo). Dziś jedyna ścieżka to ręczny reset przez `docker exec ... mongosh` (patrz `docs/librechat-users-manage.md`), co nie skaluje się poza Rafała.
 
 ## Decyzja
 
@@ -17,16 +17,16 @@ Czy mamy dane SMTP do skrzynki na `coaction.pl` (host/port/login/hasło) do uży
 ## Zadania (do wykonania po potwierdzeniu SMTP)
 
 - [ ] Potwierdzić dane SMTP dla skrzynki nadawczej `coaction.pl` (host, port, encryption, login, hasło) — od klienta/dostawcy hostingu poczty.
-- [ ] Zweryfikować dokładne nazwy zmiennych `EMAIL_*` obsługiwane przez wersję LibreChat wpiętą w projekcie (`LIBRECHAT_VERSION` w `.env.example`) — sprawdzić upstream docs/`.env.example` LibreChat dla tego tagu, nie zakładać z pamięci.
+- [ ] Zweryfikować dokładne nazwy zmiennych `EMAIL_*` obsługiwane przez wersję LibreChat wpiętą w projekcie (tag przypięty w `image:` w `fragments/librechat-compose.yml`) — sprawdzić upstream docs/`.env.example` LibreChat dla tego tagu, nie zakładać z pamięci.
 - [ ] Dodać `EMAIL_*` (host/port/username/password/from/from_name) do `.env.example` (placeholdery) i `.env`/`.env.prod` (realne wartości, ręcznie — patrz zasada „nie modyfikować .env.* automatycznie").
-- [ ] Zrebindować `EMAIL_*` w `environment:` serwisu `librechat` w `fragments/librechat.yml`, analogicznie do istniejącego wzorca (`OPENROUTER_KEY=${OPENROUTER_API_KEY}`).
+- [ ] Zrebindować `EMAIL_*` w `environment:` serwisu `librechat` w `fragments/librechat-compose.yml`, analogicznie do istniejącego wzorca (`OPENROUTER_KEY=${OPENROUTER_API_KEY}`).
 - [ ] Sprawdzić, czy trzeba dodatkowo ustawić flagę włączającą reset hasła (do zweryfikowania w docs dla przypiętej wersji — w części wersji LibreChat jest to zawsze aktywne, gdy `EMAIL_*` skonfigurowane).
 - [ ] `make down && make up`, przetestować end-to-end: „Forgot password" na `LIBRECHAT_URL` → mail dociera → link resetuje hasło → logowanie nowym hasłem działa.
 - [ ] Zaktualizować `docs/librechat.md` o sekcję resetu hasła (gotcha z nazwą zmiennej env, jeśli jakaś wystąpi, analogicznie do gotchy z `OPENROUTER_KEY`).
 
 ## Pliki do zmiany
 
-`.env.example`, `.env`/`.env.prod` (ręcznie), `fragments/librechat.yml`, `docs/librechat.md`.
+`.env.example`, `.env`/`.env.prod` (ręcznie), `fragments/librechat-compose.yml`, `docs/librechat.md`.
 
 ## Weryfikacja
 

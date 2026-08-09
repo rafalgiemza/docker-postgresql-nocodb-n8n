@@ -49,7 +49,7 @@ idzie przez Caddy na 80/443. Pozostałe komendy: `make help`.
 
 `make backup` dumpuje wszystkie bazy (`n8n`/`nocodb`/`appdata` + role),
 wolumen SeaweedFS (attachments/offers/templates/recordings/transcripts — patrz
-`NC_S3_*` w `fragments/nocodb.yml`), wolumen NocoDB (app-internal cache, nie
+`NC_S3_*` w `fragments/nocodb-compose.yml`), wolumen NocoDB (app-internal cache, nie
 załączniki) i Mongo do `./backups/`, a następnie pushuje ten katalog
 offsite przez `restic` (dedup, incremental) — patrz
 [`backup/backup.sh`](backup/backup.sh). Sekrety offsite (`RESTIC_PASSWORD`,

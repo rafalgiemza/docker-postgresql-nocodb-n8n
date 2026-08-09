@@ -1,6 +1,6 @@
 services:
   n8n:
-    image: docker.n8n.io/n8nio/n8n:${N8N_VERSION}
+    image: docker.n8n.io/n8nio/n8n:2.30.7
     restart: unless-stopped
     labels:
       - autoheal=true
@@ -20,7 +20,7 @@ services:
       - WEBHOOK_URL=${WEBHOOK_URL}
       - N8N_DIAGNOSTICS_ENABLED=false
     ports:
-      # Loopback-only (see fragments/postgres.yml) — dev hits this directly;
+      # Loopback-only (see fragments/postgres-compose.yml) — dev hits this directly;
       # prod traffic goes through Caddy on 80/443 instead.
       - "127.0.0.1:5678:5678"
     volumes:

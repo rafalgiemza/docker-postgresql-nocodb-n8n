@@ -4,7 +4,11 @@
 # AUTOHEAL_INTERVAL seconds, closing that gap (post-mortem/tasks.md Task 3).
 services:
   autoheal:
-    image: willfarrell/autoheal:latest
+    # Upstream hasn't cut a versioned tag since 1.2.0 (2021) — only `latest`
+    # is maintained, so there's no semver to pin to. Digest-pinned instead:
+    # Dependabot still opens a PR whenever upstream rebuilds `latest`, just
+    # keyed on digest rather than a version bump.
+    image: willfarrell/autoheal:latest@sha256:54d39df356bdb907e095d2207ee23849d4eebd9be432dc3ec880caf76ed133f3
     restart: unless-stopped
     environment:
       - AUTOHEAL_CONTAINER_LABEL=autoheal

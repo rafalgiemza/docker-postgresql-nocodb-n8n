@@ -21,13 +21,9 @@ jest próbą jego spłaty u źródła.
 
 Maintainerzy zamykają zgłoszenia, które tego nie mają.
 
-**1. Sprawdź wersję, na której to obserwujesz.** Mamy `NOCODB_VERSION=latest`,
-więc trzeba odczytać realny numer:
-
-```bash
-docker exec docker-nocodb-1 sh -c 'cat /usr/src/app/package.json | grep -m1 version' \
-  || curl -s http://localhost:8081/api/v1/version
-```
+**1. Sprawdź wersję, na której to obserwujesz.** Wersja jest teraz literalnie
+przypięta w `fragments/nocodb-compose.yml` (`image: nocodb/nocodb:...`,
+zarządzana przez Dependabot — patrz `.github/dependabot.yml`).
 
 Jeśli to nie jest najnowszy release — zaktualizuj i powtórz repro **przed**
 zgłoszeniem. Bug zgłoszony na starej wersji dostaje "please retry on latest".

@@ -17,7 +17,7 @@ python3 -c "import requests" 2>/dev/null || {
   exit 1
 }
 
-# NocoDB healthcheck (fragments/nocodb.yml) daje mu do ~100s na start
+# NocoDB healthcheck (fragments/nocodb-compose.yml) daje mu do ~100s na start
 # (interval 10s * retries 10) - zaraz po `make up` kontener bywa jeszcze
 # "health: starting" i skrypt niżej pada z ConnectionError zamiast poczekać.
 NC_URL="${NC_LOCAL_URL:-http://localhost:8081}"

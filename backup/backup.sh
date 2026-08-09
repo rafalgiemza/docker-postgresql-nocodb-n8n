@@ -52,7 +52,7 @@ docker exec "$POSTGRES_CONTAINER" pg_dump -U postgres -d "$APP_DB" > "$BACKUP_DI
     || fail "pg_dump $APP_DB failed"
 # NocoDB's own volume (/usr/app/data) — app-internal cache/config, NOT
 # attachments. Attachments/offers/recordings/transcripts live in SeaweedFS
-# (see NC_S3_* in fragments/nocodb.yml) and are backed up via
+# (see NC_S3_* in fragments/nocodb-compose.yml) and are backed up via
 # SEAWEEDFS_VOLUME below.
 docker run --rm -v "$NOCODB_VOLUME":/data:ro -v "$BACKUP_DIR":/backup alpine \
     tar -czf "/backup/nocodb_data_$TS.tar.gz" -C /data . \

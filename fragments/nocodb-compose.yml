@@ -1,6 +1,6 @@
 services:
   nocodb:
-    image: nocodb/nocodb:${NOCODB_VERSION}
+    image: nocodb/nocodb:2026.07.0
     restart: unless-stopped
     labels:
       - autoheal=true
@@ -8,6 +8,7 @@ services:
       - NC_DB=pg://postgres:5432?u=${NC_DB_USER}&p=${NC_DB_PASSWORD}&d=${NC_DB}
       - NC_DISABLE_TELE=true
       - NC_ALLOW_LOCAL_EXTERNAL_DBS=${NC_ALLOW_LOCAL_EXTERNAL_DBS}
+      - NC_ATTACHMENT_FIELD_SIZE=${NC_ATTACHMENT_FIELD_SIZE}
       - NC_S3_BUCKET_NAME=${SEAWEEDFS_BUCKET_ATTACHMENTS}
       - NC_S3_REGION=us-east-1
       - NC_S3_ACCESS_KEY=${NOCODB_SEAWEEDFS_ACCESS_KEY}
@@ -15,7 +16,7 @@ services:
       - NC_S3_ENDPOINT=${SEAWEEDFS_ENDPOINT}
       - NC_S3_FORCE_PATH_STYLE=true
     ports:
-      # Loopback-only (see fragments/postgres.yml). Host port 8081 (not 8080)
+      # Loopback-only (see fragments/postgres-compose.yml). Host port 8081 (not 8080)
       # to avoid clashing with other local services on 8080.
       - "127.0.0.1:8081:8080"
     volumes:

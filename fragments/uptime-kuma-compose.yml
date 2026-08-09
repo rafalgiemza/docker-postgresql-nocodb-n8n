@@ -12,7 +12,7 @@ services:
     labels:
       - autoheal=true
     ports:
-      # Loopback-only (see fragments/postgres.yml).
+      # Loopback-only (see fragments/postgres-compose.yml).
       - "127.0.0.1:3001:3001"
     volumes:
       - kuma_storage:/app/data

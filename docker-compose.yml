@@ -22,20 +22,20 @@
 name: docker
 
 include:
-  - fragments/postgres.yml
-  - fragments/n8n.yml
-  - fragments/n8n-runner.yml
-  - fragments/nocodb.yml
+  - fragments/postgres-compose.yml
+  - fragments/n8n-compose.yml
+  - fragments/n8n-runner-compose.yml
+  - fragments/nocodb-compose.yml
   - fragments/file-renderer-service.yml
   - fragments/seed-service.yml
-  - fragments/seaweedfs.yml
-  - fragments/seaweedfs-init.yml
-  - fragments/mongodb.yml
-  - fragments/librechat.yml
-  - fragments/uptime-kuma.yml
-  - fragments/beszel.yml
-  - fragments/caddy.yml
-  - fragments/autoheal.yml
+  - fragments/seaweedfs-compose.yml
+  - fragments/seaweedfs-init-compose.yml
+  - fragments/mongodb-compose.yml
+  - fragments/librechat-compose.yml
+  - fragments/uptime-kuma-compose.yml
+  - fragments/beszel-compose.yml
+  - fragments/caddy-compose.yml
+  - fragments/autoheal-compose.yml
 
 volumes:
   db_storage:

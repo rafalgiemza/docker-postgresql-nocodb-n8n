@@ -19,7 +19,7 @@ diff <(grep -oE '^[A-Z_]+=' .env.example | sort) <(grep -oE '^[A-Z_]+=' .env | s
 
 Zmienne do dodania (wzorzec w `.env.example` sekcja "SeaweedFS"):
 
-- `SEAWEEDFS_VERSION`, `SEAWEEDFS_ROOT_ACCESS_KEY`, `SEAWEEDFS_ROOT_SECRET_KEY` — sekret **inny** niż placeholder `changeSeaweedfsRootSecretKey`
+- `SEAWEEDFS_ROOT_ACCESS_KEY`, `SEAWEEDFS_ROOT_SECRET_KEY` — sekret **inny** niż placeholder `changeSeaweedfsRootSecretKey` (wersja obrazu nie jest już w `.env` — jest literałem w `fragments/seaweedfs-compose.yml`)
 - `SEAWEEDFS_HOST` — subdomena, np. `minio.giemza.dev` (nazwa subdomeny celowo nie zmieniona przy migracji z MinIO — zero DNS/cert churn, patrz decyzja w `.ai/migrate-from-minio-to-SeaweedFS.md` §5)
 - `SEAWEEDFS_ENDPOINT=https://minio.giemza.dev` — musi być tym samym publicznym hostem co `SEAWEEDFS_HOST` (patrz gotcha niżej)
 - `SEAWEEDFS_BUCKET_ATTACHMENTS`, `SEAWEEDFS_BUCKET_OFFERS`, `SEAWEEDFS_BUCKET_TEMPLATES`, `SEAWEEDFS_BUCKET_RECORDINGS`, `SEAWEEDFS_BUCKET_TRANSCRIPTS`, `SEAWEEDFS_BUCKET_BACKUPS`

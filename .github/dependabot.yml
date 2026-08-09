@@ -1,0 +1,56 @@
+# Version updates for the third-party images pinned in fragments/*-compose.yml
+# (n8n, NocoDB, MongoDB, LibreChat, SeaweedFS, Uptime Kuma, Beszel, autoheal,
+# Caddy, Postgres, minio/mc). Each image gets its own PR — deliberately not
+# grouped, so a routine patch bump (e.g. Caddy) doesn't get held up review of
+# a riskier one (e.g. Mongo, see the ignore rule below) — except n8n +
+# n8nio/runners, which are grouped since they must be bumped together.
+#
+# Dependabot's docker-compose file discovery only looks at files whose name
+# contains "compose" (hardcoded in dependabot-core, not configurable here) —
+# that's why fragments/ files are named *-compose.yml, not <service>.yml.
+# It also can't resolve versions set via `${VAR}` from .env — every image tag
+# in fragments/ must stay a literal string for this to see it.
+version: 2
+updates:
+  - package-ecosystem: "docker-compose"
+    directory: "/fragments"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "docker"
+    groups:
+      # n8n and n8nio/runners must stay on the same version (task-runner
+      # -launcher protocol compat, see fragments/n8n-runner-compose.yml) —
+      # one PR bumping both, instead of two PRs that could be merged
+      # independently and drift.
+      n8n:
+        patterns: ["*n8n*"]
+    ignore:
+      # Mongo is pinned to match LibreChat's own tested pairing (see the
+      # comment next to the image: line in fragments/mongodb-compose.yml) —
+      # a major bump needs a manual compat check first, not an auto-PR merge.
+      - dependency-name: "mongo"
+        update-types: ["version-update:semver-major"]
+
+  # Base images for the two custom-built (Dockerfile) services — not covered
+  # by the docker-compose entry above since they're built locally, not
+  # pulled by tag in a compose file.
+  - package-ecosystem: "docker"
+    directory: "/file-renderer-service"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  - package-ecosystem: "docker"
+    directory: "/seed-service"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "docker"

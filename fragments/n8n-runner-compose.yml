@@ -1,6 +1,8 @@
 services:
   n8n-runner:
-    image: n8nio/runners:${N8N_VERSION}
+    # Must stay in lockstep with n8n's version in fragments/n8n-compose.yml
+    # (task-runner-launcher protocol compatibility) — bump both together.
+    image: n8nio/runners:2.30.7
     restart: unless-stopped
     labels:
       - autoheal=true
