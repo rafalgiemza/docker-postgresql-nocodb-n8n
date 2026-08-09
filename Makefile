@@ -8,7 +8,7 @@ DC_CMD = docker compose -f docker-compose.yml
 LATEST_TS := $(shell ls -1t ./backups/appdata_*.sql 2>/dev/null | head -n 1 | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}')
 RESTORE_TS ?= $(LATEST_TS)
 
-.PHONY: help init init-env config up down restart pull ps versions logs migrate dump-appdata-schema seed seed-demo seed-extra backup backup-prune restore wire-apps init-schema upgrade-links init-data init-appdata-db add-rag-db
+.PHONY: help init init-env config up down restart pull ps versions logs migrate dump-appdata-schema seed seed-demo seed-extra backup backup-prune restore wire-apps init-schema upgrade-links dump-crm-schema init-data init-appdata-db add-rag-db
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -77,6 +77,12 @@ init-schema: ## Create the full CRM schema (16 tables + relations) in NocoDB —
 # ale zrób `make backup` przed pierwszym uruchomieniem na produkcji.
 upgrade-links: ## Upgrade CRM relation fields from Links v1 to LinkToAnotherRecord v3 — 2nd step after init-schema
 	./scripts/upgrade-links.sh
+
+# Zrzuca id tabel/pol + cele relacji zywego schematu CRM do JSON - potrzebne
+# do rekonstrukcji workflowow n8n (np. W9) po migracji na v3, patrz naglowek
+# scripts/dump-crm-schema.py.
+dump-crm-schema: ## Dump live CRM table/field ids + relation targets to fable/schema_map.json
+	./scripts/dump-crm-schema.sh
 
 init-data:
 	 # 1. Sanity check - serwis widzi plik i ma NC_API_TOKEN/NC_CRM_BASE_ID?
