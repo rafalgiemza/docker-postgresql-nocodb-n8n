@@ -49,16 +49,18 @@ dostają tabelę łączącą od razu. TODO: znaleźć parametr API wymuszający 
 typ od razu — inaczej ten sam klikany krok wraca przy każdym odtworzeniu.
 
 GDZIE LĄDUJĄ TABELE (najważniejsze): baza NocoDB ma domyślne źródło = własna
-baza metadanych NocoDB (`NC_DB`, czyli `nocodb`). `appdata` jest podpięta jako
-OSOBNE źródło (`make wire-apps` / `scripts/crm-wire-init.sh`). Bez wskazania
-`source_id` tabele powstają w bazie `nocodb` — poza źródłem prawdy, poza
-`make backup` i poza zasięgiem `n8n_crm_user`. Skrypt wykrywa zewnętrzne
-źródło automatycznie (`resolve_source()`); override: `NC_CRM_SOURCE_ID`.
-WYMÓG: `make wire-apps` PRZED tym skryptem — inaczej nie ma czego wykryć.
-Po uruchomieniu zweryfikuj w Postgresie (`\dt crm.*`), nie tylko w UI.
+baza metadanych NocoDB (`NC_DB`, czyli `nocodb`). `appdata` musi być podpięta
+jako OSOBNE źródło (external Postgres source, alias np. "appdata (crm)",
+searchPath ["crm"]) — RĘCZNIE przez NocoDB UI, patrz docs/hard-reset.md
+Krok 0. Bez wskazania `source_id` tabele powstają w bazie `nocodb` — poza
+źródłem prawdy, poza `make backup` i poza zasięgiem `n8n_crm_user`. Skrypt
+wykrywa zewnętrzne źródło automatycznie (`resolve_source()`); override:
+`NC_CRM_SOURCE_ID`. WYMÓG: źródło musi już istnieć w bazie PRZED tym
+skryptem — inaczej nie ma czego wykryć. Po uruchomieniu zweryfikuj w
+Postgresie (`\dt crm.*`), nie tylko w UI.
 
-Alternatywa, której świadomie tu nie wybrano: napisać te 16 tabel jako SQL
-w `appdata/appdata_schema.sql` i puścić `make migrate` + `meta-diff/apply`.
+Alternatywa, której świadomie tu nie wybrano: napisać te 16 tabel jako
+ręcznie utrzymywany SQL DDL i puścić go przez psql + `meta-diff/apply`.
 Byłoby deterministyczne i wersjonowane w gicie, ale kolumny `Links` to nie
 czysty SQL — NocoDB trzyma dla nich własne metadane (i tabele `_nc_m2m_*`),
 więc po samym SQL-u relacje trzeba by i tak odtwarzać w NocoDB. Stąd API.
@@ -132,11 +134,12 @@ def resolve_source():
     """Zwraca id ZEWNĘTRZNEGO źródła (appdata/crm), nie wewnętrznej bazy NocoDB.
 
     KRYTYCZNE: baza NocoDB ma domyślne źródło = własna baza metadanych NocoDB
-    (`NC_DB`, czyli `nocodb`). `appdata` jest podpięta jako OSOBNE źródło
-    (`scripts/crm-wire-init.sh`: alias "appdata (crm)", type pg,
-    searchPath ["crm"]). Tworzenie tabel bez wskazania source_id ląduje
-    w bazie `nocodb` zamiast w `appdata` - czyli poza źródłem prawdy,
-    poza `make backup` i poza zasięgiem `n8n_crm_user`.
+    (`NC_DB`, czyli `nocodb`). `appdata` musi być podpięta jako OSOBNE źródło
+    (ręcznie przez UI: alias np. "appdata (crm)", type pg,
+    searchPath ["crm"] — patrz docs/hard-reset.md Krok 0). Tworzenie tabel
+    bez wskazania source_id ląduje w bazie `nocodb` zamiast w `appdata` -
+    czyli poza źródłem prawdy, poza `make backup` i poza zasięgiem
+    `n8n_crm_user`.
     """
     if SOURCE_ID:
         print(f"źródło: {SOURCE_ID} (z NC_CRM_SOURCE_ID)")

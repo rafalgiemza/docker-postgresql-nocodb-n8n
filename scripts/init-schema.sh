@@ -6,7 +6,8 @@ set -e
 
 # Tworzy CAŁY schemat CRM (16 tabel + relacje) w NocoDB przez Meta API v3/v2 —
 # pełny kontekst, wymogi i to, co zostaje do wyklikania ręcznie, patrz nagłówek
-# scripts/init-schema.py. Wymaga uprzedniego `make wire-apps`.
+# scripts/init-schema.py. Wymaga uprzedniego ręcznego podłączenia źródła
+# appdata/crm w NocoDB UI (docs/hard-reset.md, Krok 0).
 command -v python3 >/dev/null 2>&1 || {
   echo "❌ Brak 'python3' w PATH."
   exit 1

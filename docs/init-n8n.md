@@ -1,4 +1,14 @@
-# Podłączenie n8n do Postgresa (node PostgreSQL)
+# Podłączenie n8n do Postgresa (node PostgreSQL) — częściowo nieaktualne
+
+> **§3 poniżej jest historyczne, nieaktualne** (analogicznie do banneru w
+> `.ai/PRD.md` i `docs/offer-builder.md`): opisuje credential do
+> `crm.v_offer_builder`/`n8n-workflows/wf1..wf6*.json` z architektury
+> porzuconej 2026-07-17/18 (folder `n8n-workflows/` już nie istnieje w repo).
+> `scripts/crm-wire-init.sh`/`make wire-apps`, które ten credential tworzyły
+> automatycznie, zostały usunięte. Obecne workflowy CRM (`docs/archive/fable/W*.json`)
+> łączą się z NocoDB przez jego REST API, nie przez bezpośredni credential
+> Postgres do `appdata`/`crm`. §1/§2 (credential do własnej bazy n8n) zostają
+> aktualne.
 
 n8n nigdy nie łączy się jako superuser — używa osobnej, ograniczonej roli. **Są dwa różne credentiale do dwóch różnych baz — łatwo je pomylić:**
 

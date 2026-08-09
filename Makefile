@@ -8,7 +8,7 @@ DC_CMD = docker compose -f docker-compose.yml
 LATEST_TS := $(shell ls -1t ./backups/appdata_*.sql 2>/dev/null | head -n 1 | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}')
 RESTORE_TS ?= $(LATEST_TS)
 
-.PHONY: help init init-env config up down restart pull ps versions logs migrate dump-appdata-schema seed seed-demo seed-extra backup backup-prune restore wire-apps init-schema upgrade-links dump-crm-schema init-data init-appdata-db add-rag-db
+.PHONY: help init init-env config up down restart pull ps versions logs dump-appdata-schema seed-extra backup backup-prune restore init-schema upgrade-links dump-crm-schema init-data init-appdata-db add-rag-db
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -43,29 +43,18 @@ versions: ## Print actual running versions of all services (not just .env tags)
 logs: ## Tail logs for all services (Ctrl+C to stop)
 	$(DC_CMD) logs -f
 
-migrate: ## Apply appdata/appdata_schema.sql to appdata (see app_migrate.sh)
-	./scripts/app_migrate.sh
-
 dump-appdata-schema: ## Dump current schema of a running appdata DB into appdata/appdata_schema.sql
 	docker exec -i docker-postgres-1 pg_dump -U $(POSTGRES_USER) -d $(APP_DB) --schema-only > ./appdata/appdata_schema.sql
 	@echo "✅ Zapisano appdata/appdata_schema.sql"
 
-seed: ## Load reference data (pricing tiers, testimonials, users)
-	./scripts/app_seed.sh
-
-seed-demo: ## Load one demo offer end-to-end (re-runnable)
-	./scripts/app_seed_demo.sh
-
-# Podłącza NocoDB (source appdata/crm + widoki) i n8n (credential appdata) —
-# wymaga NC_API_TOKEN/N8N_API_KEY w .env (Krok 0 ręcznego bootstrapu, patrz
-# docs/init-nocodb.md). Uruchom po `make migrate && make seed`.
-wire-apps: ## Wire NocoDB/n8n to appdata/crm after a hard-reset
-	./scripts/crm-wire-init.sh
-
-# Tworzy 16 tabel CRM + relacje w NocoDB przez Meta API — wymaga `make wire-apps`
-# najpierw. Patrz naglowek scripts/init-schema.py po pelny kontekst.
-init-schema: ## Create the full CRM schema (16 tables + relations) in NocoDB — run after wire-apps
+# Tworzy 16 tabel CRM + relacje w NocoDB przez Meta API, potem od razu
+# naprawia pola relacji do formatu v3 (patrz upgrade-links niżej) — jedna
+# komenda, dwa kroki. Wymaga Kroku 0 (NC_API_TOKEN w .env, patrz
+# docs/hard-reset.md) najpierw. Patrz naglowek scripts/init-schema.py po
+# pelny kontekst.
+init-schema: ## Create the full CRM schema (16 tables + relations) in NocoDB, then upgrade links to v3
 	./scripts/init-schema.sh
+	./scripts/upgrade-links.sh
 
 # Naprawia pola relacji utworzone przez init-schema.py: NocoDB tworzy je w
 # starym formacie "Link to another record" v1 (bez fizycznej tabeli łączącej
@@ -73,9 +62,11 @@ init-schema: ## Create the full CRM schema (16 tables + relations) in NocoDB —
 # request convertLinkToV2), plus usuwa/przemianowuje pola powstałe przy
 # okazji (stare pole -> Rollup do skasowania, nowe "LTAR_<tytuł>" -> zmiana
 # nazwy na oryginalny tytuł). Patrz nagłówek scripts/upgrade-links.py.
-# Wymaga `make init-schema` najpierw. Prawdziwe DDL na appdata - idempotentny,
-# ale zrób `make backup` przed pierwszym uruchomieniem na produkcji.
-upgrade-links: ## Upgrade CRM relation fields from Links v1 to LinkToAnotherRecord v3 — 2nd step after init-schema
+# Uruchamiane automatycznie na końcu `make init-schema` — osobny target
+# zostaje dla bezpiecznego (idempotentnego) ponownego odpalenia samodzielnie,
+# jeśli poprzedni przebieg padł w połowie. Prawdziwe DDL na appdata - zrób
+# `make backup` przed pierwszym uruchomieniem na produkcji.
+upgrade-links: ## Re-run the Links v1 -> LinkToAnotherRecord v3 upgrade standalone (already runs as part of init-schema)
 	./scripts/upgrade-links.sh
 
 # Zrzuca id tabel/pol + cele relacji zywego schematu CRM do JSON - potrzebne

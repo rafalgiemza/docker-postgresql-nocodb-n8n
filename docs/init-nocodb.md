@@ -1,17 +1,16 @@
-# Podłączenie NocoDB do appdata (external database)
+# Podłączenie NocoDB do appdata (external database) — NIEAKTUALNE
+
+> **Historyczne, nieaktualne** (analogicznie do banneru w `.ai/PRD.md` i
+> `docs/offer-builder.md`): ten dokument opisuje debugowanie widoków
+> `crm.v_*` (z triggerami `INSTEAD OF`) z architektury porzuconej
+> 2026-07-17/18 — `scripts/crm-wire-init.sh`/`make wire-apps`, na których
+> opierał się ten runbook, zostały usunięte. Jednorazowy bootstrap konta
+> NocoDB (Sign Up + ręczne podłączenie źródła `appdata`/`crm` + wygenerowanie
+> `NC_API_TOKEN`), wciąż potrzebny w obecnym modelu (tabele v3 tworzone przez
+> `make init-schema`), jest teraz opisany na bieżąco w `docs/hard-reset.md`
+> (Krok 0). Zostawione niżej jako materiał historyczny, nie do wykonywania.
 
 NocoDB nigdy nie łączy się jako superuser i nie widzi surowych tabel — używa osobnej, ograniczonej roli ograniczonej wyłącznie do schematu `crm` (widoki `v_*`).
-
-**To podłączenie jest teraz w większości zautomatyzowane** przez `scripts/crm-wire-init.sh` (`make wire-apps`, uruchamiane po `make migrate && make seed`) — tworzy source, syncuje tabele, dodaje widoki Kanban/Grid/Calendar. Zostają dwa manualne kroki, bo są jednorazowym bootstrapem konta (patrz "Krok 0" niżej): założenie super-admina i wygenerowanie `NC_API_TOKEN`. Instrukcje poniżej to (a) opis Kroku 0, i (b) ścieżka debugowania/ręcznego odtworzenia, gdy `scripts/crm-wire-init.sh` zawiedzie.
-
-## Krok 0 — jednorazowy bootstrap (ręcznie, raz na hard-reset)
-
-1. Otwórz NocoDB UI → **Sign Up** (pierwsza osoba, która się zaloguje, zostaje super-adminem).
-2. Podłącz źródło ręcznie wg kroków 1-2 poniżej — **to jednocześnie test, który rozstrzyga, czy widoki `crm.v_*` (z triggerami INSTEAD OF) w ogóle dają się edytować w gridzie NocoDB**. Zmień dowolną edytowalną kolumnę (np. `next_action` w `v_pipeline`), zapisz, i sprawdź w Postgresie, że zmiana faktycznie doszła do `appdata.opportunities`. Jeśli komórka jest zablokowana/read-only mimo poprawnych grantów — to ograniczenie NocoDB dla widoków z INSTEAD OF, nie coś do naprawienia w schemacie; zgłoś to, zanim ktokolwiek zacznie polegać na automatyzacji widoków.
-3. Sprawdź też, jak renderuje się kolumna `stage` w `v_pipeline` — jako Single Select (nadaje się do grupowania w Kanban) czy zwykły tekst. Jeśli tekst, kolumnę trzeba będzie ręcznie przestawić na Single Select z opcjami odpowiadającymi `appdata.opp_stage`, zanim Kanban z `scripts/crm-wire-init.sh` będzie miał sens.
-4. Wygeneruj token: ikona konta → **API Tokens** → utwórz → wklej jako `NC_API_TOKEN` w `.env`.
-
-Po tym możesz skasować ręcznie podłączone źródło (albo zostawić — `scripts/crm-wire-init.sh` znajdzie je po nazwie i nie zduplikuje) i uruchomić `make wire-apps`, które odtworzy/dopełni resztę (Kanban, widoki per-osoba, widok notatek) automatycznie.
 
 ## 1. Pobranie danych logowania
 

@@ -61,7 +61,7 @@ echo
 echo "Gotowe. Te placeholdery zostają do ręcznego wypełnienia — wymagają, żeby"
 echo "stack już działał, więc nie da się ich wygenerować teraz:"
 echo "  - BESZEL_AGENT_KEY — wklej po pierwszym zalogowaniu do Beszel hub (Add System)"
-echo "  - NC_API_TOKEN, N8N_API_KEY — patrz docs/init-nocodb.md, potem 'make wire-apps'"
+echo "  - NC_API_TOKEN — patrz docs/hard-reset.md (Krok 0), potem 'make init-schema'"
 echo "Uruchom ./scripts/fill-env-secrets.sh, żeby wypełnić je interaktywnie, gdy będą gotowe."
 echo
 echo "Następny krok: ustaw powyższe DNS, poczekaj na propagację, potem 'make up'"
