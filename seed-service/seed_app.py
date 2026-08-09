@@ -325,7 +325,7 @@ def build_lead_data(excel_data):
         "loss_note": loss_raw or None,
         "deal_value": excel_data.get("Szansa sprzedaży Wartość") or None,
         "label": mapped(excel_data.get("Szansa sprzedaży Etykieta"), LABEL_MAP, "Etykieta"),
-        "legacy_id": str(excel_data.get("ID") or "").strip() or None,
+        "legacy_id": int(excel_data["ID"]) if str(excel_data.get("ID") or "").strip() else None,
         "industry": mapped(excel_data.get("Branża"), INDUSTRY_MAP, "Branża"),
         "offer_sent_at": parse_date(excel_data.get("Data wysłania oferty")),
         "contract_sent_at": parse_date(excel_data.get("Data wysłania umowy")),
@@ -431,9 +431,9 @@ def seed_records(records, token, url, base_id):
     for idx, rec in enumerate(records, 1):
         contact_name = (rec.get("Nazwa klienta") or "").strip()
         try:
-            legacy_id = str(rec.get("ID") or "").strip()
+            legacy_id = int(rec["ID"]) if str(rec.get("ID") or "").strip() else None
 
-            if legacy_id:
+            if legacy_id is not None:
                 existing = api("GET", f"/api/v2/tables/{tables['leads']}/records",
                              token, url, params={"where": f"(legacy_id,eq,{legacy_id})"})
                 if existing.get("list"):

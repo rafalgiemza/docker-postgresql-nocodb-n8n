@@ -342,7 +342,9 @@ TABLES = [
             {"title": "contract_sent_at", "type": "Date"},
             {"title": "closed_at", "type": "Date"},
             # v3 §1 - `lead_id` z v2 mialo mylaca nazwe (pole lead_id w tabeli leads)
-            {"title": "legacy_id", "type": "SingleLineText"},
+            # Number, nie SingleLineText - inaczej sortowanie/porownania sa
+            # leksykograficzne (a-z), np. "1000" < "999".
+            {"title": "legacy_id", "type": "Number"},
         ],
     },
     {
