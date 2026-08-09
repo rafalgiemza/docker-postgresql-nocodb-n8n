@@ -233,7 +233,7 @@ def build_lead_data(excel_data):
         "deal_value": excel_data.get("Szansa sprzedaży Wartość") or None,
         "label": map_value(excel_data.get("Szansa sprzedaży Etykieta"),
                           {"Gorąca": "hot", "Oferta specjalna": "oferta_specjalna"}),
-        "legacy_id": str(excel_data.get("Spr. ID") or "").strip() or None,
+        "legacy_id": str(excel_data.get("ID") or "").strip() or None,
         "industry": mapped(excel_data.get("Branża"), INDUSTRY_MAP, "Branża"),
         "offer_sent_at": parse_date(excel_data.get("Data wysłania oferty")),
         "contract_sent_at": parse_date(excel_data.get("Data wysłania umowy")),
@@ -301,7 +301,7 @@ def seed_records(records, token, url, base_id):
     for idx, rec in enumerate(records, 1):
         contact_name = (rec.get("Nazwa klienta") or "").strip()
         try:
-            legacy_id = str(rec.get("Spr. ID") or "").strip()
+            legacy_id = str(rec.get("ID") or "").strip()
 
             if legacy_id:
                 existing = api("GET", f"/api/v2/tables/{tables['leads']}/records",
