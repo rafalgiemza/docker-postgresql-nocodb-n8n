@@ -8,7 +8,7 @@ DC_CMD = docker compose -f docker-compose.yml
 LATEST_TS := $(shell ls -1t ./backups/appdata_*.sql 2>/dev/null | head -n 1 | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}')
 RESTORE_TS ?= $(LATEST_TS)
 
-.PHONY: help init init-env config up down restart pull ps versions logs migrate dump-appdata-schema seed seed-demo backup backup-prune restore wire-apps init-schema upgrade-links init-appdata-db add-rag-db
+.PHONY: help init init-env config up down restart pull ps versions logs migrate dump-appdata-schema seed seed-demo seed-extra backup backup-prune restore wire-apps init-schema upgrade-links init-data init-appdata-db add-rag-db
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -78,7 +78,7 @@ init-schema: ## Create the full CRM schema (16 tables + relations) in NocoDB —
 upgrade-links: ## Upgrade CRM relation fields from Links v1 to LinkToAnotherRecord v3 — 2nd step after init-schema
 	./scripts/upgrade-links.sh
 
-init-data: 
+init-data:
 	 # 1. Sanity check - serwis widzi plik i ma NC_API_TOKEN/NC_CRM_BASE_ID?
 	curl -s http://localhost:8001/health
 
@@ -87,6 +87,14 @@ init-data:
 
 	# 3. Właściwy seed
 	curl -s -X POST "http://localhost:8001/seed?dry_run=false"
+
+# Seeduje przez NocoDB REST API 13 tabel CRM poza leads/companies/participants
+# (te idą przez `make init-data` z Excela) - meetings/assessments/recommendations/
+# offers/tasks/activities wpięte pod istniejące leady + dane referencyjne
+# (pricing/testimonials/training_descriptions/...). NIE do produkcji (zablokowane
+# przy ENV=prod). Patrz naglowek scripts/seed-extra.py po pelny kontekst i flagi.
+seed-extra: ## Seed the remaining 13 CRM tables via NocoDB API (test data, needs leads from init-data first)
+	./scripts/seed-extra.sh
 
 # Jednorazowe (re)utworzenie bazy appdata + ról appdata_owner/nocodb_crm_user/
 # n8n_crm_user + pustego schematu crm — to samo co init-data.sh robi na

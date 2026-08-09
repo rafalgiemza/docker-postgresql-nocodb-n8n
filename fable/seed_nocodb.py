@@ -8,28 +8,38 @@ every relation type:
   many-to-many: leads <-> testimonials
 
 Usage:
-  1. Fill in CONFIG below (URL, API token, base id, team emails).
-  2. pip install requests
-  3. python3 seed_nocodb.py
+  set -a; source .env; set +a
+  pip install requests
+  python3 fable/seed_nocodb.py
 Re-running creates duplicates - wipe the tables first if you re-seed.
+
+Wymaga w środowisku (patrz .env.example): NC_API_TOKEN, NC_CRM_BASE_ID.
+Opcjonalnie: NC_LOCAL_URL (default http://localhost:8081), SEED_TEAM_EMAILS
+(comma-separated - bez tego pola User w seedowanych rekordach zostają puste,
+zamiast wpisywać na sztywno czyjś prywatny e-mail).
 """
+import os
 import sys
 from datetime import date, datetime, timedelta
 
 import requests
 
 # ----------------------------------------------------------------- CONFIG
+BASE = os.environ.get("NC_LOCAL_URL", "http://localhost:8081").rstrip("/")
+TOKEN = os.environ.get("NC_API_TOKEN")
+BASE_ID = os.environ.get("NC_CRM_BASE_ID")
+if not TOKEN or not BASE_ID:
+    sys.exit("Brak NC_API_TOKEN / NC_CRM_BASE_ID w środowisku - patrz .env.example.")
+
+_team_emails = [e.strip() for e in os.environ.get("SEED_TEAM_EMAILS", "").split(",") if e.strip()]
+_roles = ["przemek", "dorota", "aleksandra", "paulina", "kasia"]
 CONFIG = {
-    "url": "https://back-office-coaction-test.giemza.dev",      # no trailing slash
-    "token": "nc_pat_GhrICdSDdIorjyw3EKiEu0fNXenf3BtUOQmqDCC2",
-    "base_id": "p0faehtfzhvzfh2",             # p... id, visible in the base URL
-    "emails": {
-        "przemek": "rafalgiemza@gmail.com",
-        "dorota": "rafalgiemza@gmail.com",
-        "aleksandra": "rafalgiemza@gmail.com",
-        "paulina": "rafalgiemza@gmail.com",
-        "kasia": "rafalgiemza@gmail.com",
-    },
+    "url": BASE,
+    "token": TOKEN,
+    "base_id": BASE_ID,
+    # Bez SEED_TEAM_EMAILS każda rola dostaje None (pole User zostaje puste).
+    "emails": {role: (_team_emails[i % len(_team_emails)] if _team_emails else None)
+               for i, role in enumerate(_roles)},
 }
 # Table titles as created in NocoDB (case-insensitive match):
 TABLES = ["companies", "leads", "participants", "meetings",
@@ -37,7 +47,6 @@ TABLES = ["companies", "leads", "participants", "meetings",
 
 S = requests.Session()
 S.headers.update({"xc-token": CONFIG["token"], "Content-Type": "application/json"})
-BASE = CONFIG["url"].rstrip("/")
 
 
 def api(method, path, **kw):
