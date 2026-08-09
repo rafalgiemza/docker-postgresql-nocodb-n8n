@@ -716,7 +716,12 @@ def to_v2_column(f):
         col["description"] = f["description"]
     opts = f.get("options") or {}
     if t in ("SingleSelect", "MultiSelect"):
-        # v2 trzyma opcje jako 'a','b','c' w jednym polu dtxp, nie jako liste
+        # ZWERYFIKOWANE NA ŻYWO 2026-08-09: `dtxp` (styl MySQL ENUM) tworzy
+        # pole poprawnego typu, ale na źródle Postgres jest po cichu
+        # IGNOROWANY - kolumna powstaje z PUSTĄ listą opcji w UI. Zostawiony
+        # tu jako nieszkodliwy no-op (na wypadek innego typu źródła); realne
+        # opcje ustawia dopiero sync_select_options() niżej, osobnym
+        # `PATCH .../meta/columns/{id}` z `colOptions.options`.
         col["dtxp"] = ",".join("'%s'" % c["title"] for c in opts["choices"])
     elif t == "Currency":
         col["meta"] = {"currency_locale": opts.get("locale", "en-US"),
@@ -739,6 +744,50 @@ def existing_tables():
 def existing_fields(table_id):
     return {c["title"].strip().lower()
             for c in api("GET", f"/api/v2/meta/tables/{table_id}").get("columns", [])}
+
+
+def table_columns(table_id):
+    return {c["title"].strip().lower(): c
+            for c in api("GET", f"/api/v2/meta/tables/{table_id}").get("columns", [])}
+
+
+# Paleta kolorów opcji SingleSelect/MultiSelect - podzbiór domyślnej palety
+# NocoDB, cyklicznie po indeksie opcji. `color` w colOptions.options nie jest
+# udokumentowany jako opcjonalny, więc zawsze go wysyłamy - nie polegamy na
+# domyślnym przypisaniu po stronie API.
+SELECT_COLORS = ["#cfdffe", "#d0f1fd", "#c2f5e9", "#d4f7e0", "#ffefdb",
+                  "#fee2d5", "#ffdaf6", "#ffdce5", "#eeeefe", "#e5e5e9"]
+
+
+def sync_select_options(ids, dry_run):
+    """Dobija opcje SingleSelect/MultiSelect osobnym PATCH-em per pole.
+
+    ZWERYFIKOWANE NA ŻYWO 2026-08-09: `POST .../tables` z `dtxp` (patrz
+    to_v2_column) tworzy te pola z pusta lista opcji na źródle Postgres -
+    trzeba je dopiero uzupełnić przez `PATCH /api/v2/meta/columns/{id}`
+    z `colOptions.options`. Bezwarunkowe (nie sprawdza, czy opcje już są) -
+    PATCH tą samą listą jest tani i idempotentny, więc leczy też tabele
+    utworzone wcześniejszym (zepsutym) przebiegiem tego skryptu.
+    """
+    for t in TABLES:
+        table_id = ids.get(t["title"].lower())
+        if not table_id:
+            continue
+        for f in t["fields"]:
+            if f["type"] not in ("SingleSelect", "MultiSelect"):
+                continue
+            choices = [c["title"] for c in f["options"]["choices"]]
+            print(f"~  {t['title']}.{f['title']}: {len(choices)} opcji")
+            if dry_run:
+                continue
+            col = table_columns(table_id).get(f["title"].lower())
+            if not col:
+                print(f"!  {t['title']}.{f['title']}: pole nie istnieje, pomijam")
+                continue
+            options = [{"title": c, "color": SELECT_COLORS[i % len(SELECT_COLORS)]}
+                       for i, c in enumerate(choices)]
+            api("PATCH", f"/api/v2/meta/columns/{col['id']}",
+                json={"colOptions": {"options": options}})
 
 
 def create_tables(dry_run, source_id):
@@ -814,6 +863,8 @@ if __name__ == "__main__":
     ids = create_tables(args.dry_run, source_id)
     print(f"\n--- relacje ({len(RELATIONS)}) ---")
     create_relations(ids, args.dry_run)
+    print(f"\n--- opcje SingleSelect/MultiSelect ---")
+    sync_select_options(ids, args.dry_run)
     print("\nSPRAWDŹ NAJPIERW: czy tabele powstały w appdata, a nie w bazie NocoDB:")
     print("  docker exec docker-postgres-1 psql -U postgres -d appdata \\")
     print("    -c \"\\dt crm.*\"")
