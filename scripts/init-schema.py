@@ -687,6 +687,11 @@ RELATIONS = [
     ("leads", "selected_testimonials", "mm", "testimonials"),
     # self-link: sugestia duplikatu (W5/W4v2 nigdy nie scala automatycznie)
     ("leads", "possible_duplicate", "mm", "leads"),
+    # --- wybor szablonu per oferta: czlowiek linkuje konkretny szablon do
+    # konkretnej oferty; `document_templates.active` zostaje jako podpowiedz
+    # dla czlowieka ("ten szablon jest aktualny"), W9 juz go NIE uzywa do
+    # wyboru - czyta wprost link z offers (patrz W9 "Fetch active template").
+    ("document_templates", "offers", "hm", "offers"),
     # --- trzy poziomy merytoryczne (v3 "Architektura tabel")
     ("participants", "assessments", "hm", "assessments"),
     ("participants", "recommendations", "hm", "recommendations"),
