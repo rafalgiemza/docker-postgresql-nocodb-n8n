@@ -78,9 +78,10 @@ listę wymaganych zmiennych.
 - [`.ai/IMPLEMENTATION_PLAN.md`](.ai/IMPLEMENTATION_PLAN.md) — stan wdrożenia, kolejność faz
 - [`docs/docker.md`](docs/docker.md) — komendy operacyjne, restart/healthcheck audit
 - [`docs/postgresql.md`](docs/postgresql.md) — model baz/ról w Postgresie
-- [`docs/init-n8n.md`](docs/init-n8n.md), [`docs/init-nocodb.md`](docs/init-nocodb.md), [`docs/init-seaweedfs.md`](docs/init-seaweedfs.md) — bootstrap credentiali/dostępu per usługa
+- [`docs/init-seaweedfs.md`](docs/init-seaweedfs.md) — bootstrap credentiali/dostępu SeaweedFS
+- [`docs/init-n8n.md`](docs/init-n8n.md), [`docs/init-nocodb.md`](docs/init-nocodb.md) — częściowo/w większości nieaktualne (architektura porzucona 2026-07-17/18), patrz bannery w plikach; aktualny bootstrap NocoDB/n8n jest w `docs/hard-reset.md` (Krok 0)
 - [`docs/librechat.md`](docs/librechat.md) — LibreChat gotchas, migracja na zewnętrzny Mongo
-- [`docs/offer-builder.md`](docs/offer-builder.md), [`docs/pipeline.md`](docs/pipeline.md) — runbooki n8n/NocoDB (FAZA 3/5)
+- [`docs/offer-builder.md`](docs/offer-builder.md), [`docs/pipeline.md`](docs/pipeline.md) — **nieaktualne**, historyczne runbooki FAZY 3/5 (architektura porzucona 2026-07-17/18), patrz bannery w plikach
 - [`docs/hard-reset.md`](docs/hard-reset.md) — odtworzenie środowiska od zera
 - [`.ai/migrate-from-minio-to-SeaweedFS.md`](.ai/migrate-from-minio-to-SeaweedFS.md) — migracja MinIO → SeaweedFS (decyzja, plan, status)
 - [`post-mortem/`](post-mortem/) — incydenty i follow-upy (monitoring, autoheal, healthchecki)

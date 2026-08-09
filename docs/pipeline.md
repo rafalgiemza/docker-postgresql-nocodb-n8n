@@ -1,4 +1,18 @@
-# FAZA 5 — Reszta pipeline'u: WF-1…WF-5 (lead → rekomendacja)
+# FAZA 5 — Reszta pipeline'u: WF-1…WF-5 (lead → rekomendacja) — NIEAKTUALNE
+
+> **Historyczne, nieaktualne** (analogicznie do banneru w `.ai/PRD.md` i
+> `docs/offer-builder.md`): ten dokument opisuje architekturę porzuconą
+> 2026-07-17/18 — workflowy `n8n-workflows/wf1..wf5*.json` (folder już nie
+> istnieje w repo), pisanie wprost do `appdata.*` przez credential Postgres
+> `n8n_crm_user`, i `schema.sql`, który też już nie istnieje. Zastąpione
+> modelem NocoDB-native (`.ai/PRD.md` §5): odpowiedniki tej funkcjonalności
+> (intake leada, zmiana etapu, powiadomienia o taskach, dedup firm, pipeline
+> AI ze spotkania) żyją teraz jako `docs/archive/fable/W1_recurring_tasks.json`,
+> `W2_stage_change.json`, `W3_task_notifications.json`, `W4_new_lead_intake.json`
+> (+ `W4v2_intake_matching.json`), `W5_company_dedup.json`, `W6a_meeting_ai_pipeline.json`,
+> `W6b_offer_pipeline.json` — łączą się z NocoDB przez jego REST API (node
+> `nocoDb`/`httpRequest`), nie przez credential Postgres. Zostawione niżej
+> jako materiał historyczny, nie do wykonywania.
 
 Pięć workflowów uzupełniających pipeline przed WF-6 (`n8n-workflows/wf1-nowy-lead.json` … `wf5-rekomendacja-draft.json`). Każdy to samodzielny `Webhook → Postgres → Respond` (WF-1/WF-2/WF-4) albo `Webhook → Postgres → HTTP (OpenRouter) → Postgres → Respond` z osobną gałęzią błędu (WF-3/WF-5), analogicznie do WF-6 (patrz [`offer-builder.md`](offer-builder.md)). Zweryfikowane lokalnie: `n8n import:workflow` importuje wszystkie sześć plików bez ostrzeżeń, a każde zapytanie SQL przetestowane bezpośrednio jako `n8n_crm_user` (patrz granty niżej) na fixture z `make seed-demo`.
 
