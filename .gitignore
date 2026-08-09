@@ -6,4 +6,5 @@ docs/archive/fable/szablon_na_baze_rekomendacj_1638.pptx
 workshop/evaluation.md
 workshop/note.md
 __pycache__/
+*.pyc
 .claude/
