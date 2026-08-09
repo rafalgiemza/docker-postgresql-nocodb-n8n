@@ -67,6 +67,16 @@ wire-apps: ## Wire NocoDB/n8n to appdata/crm after a hard-reset
 init-schema: ## Create the full CRM schema (16 tables + relations) in NocoDB — run after wire-apps
 	./scripts/init-schema.sh
 
+init-data: 
+	 # 1. Sanity check - serwis widzi plik i ma NC_API_TOKEN/NC_CRM_BASE_ID?
+	curl -s http://localhost:8001/health
+
+	# 2. Dry-run - tylko liczba rekordów, bez zapisu
+	curl -s -X POST "http://localhost:8001/seed?dry_run=true"
+
+	# 3. Właściwy seed
+	curl -s -X POST "http://localhost:8001/seed?dry_run=false"
+
 # Jednorazowe (re)utworzenie bazy appdata + ról appdata_owner/nocodb_crm_user/
 # n8n_crm_user + pustego schematu crm — to samo co init-data.sh robi na
 # świeżym wolumenie Postgresa, ale ręcznie, na już działającej instancji
