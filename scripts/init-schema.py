@@ -684,14 +684,18 @@ RELATIONS = [
     ("leads", "tasks", "hm", "tasks"),
     ("leads", "activities", "hm", "activities"),
     ("leads", "offers", "hm", "offers"),
-    ("leads", "selected_testimonials", "mm", "testimonials"),
     # self-link: sugestia duplikatu (W5/W4v2 nigdy nie scala automatycznie)
     ("leads", "possible_duplicate", "mm", "leads"),
-    # --- wybor szablonu per oferta: czlowiek linkuje konkretny szablon do
-    # konkretnej oferty; `document_templates.active` zostaje jako podpowiedz
-    # dla czlowieka ("ten szablon jest aktualny"), W9 juz go NIE uzywa do
-    # wyboru - czyta wprost link z offers (patrz W9 "Fetch active template").
+    # --- wybor szablonu i testimoniali per oferta: to samo rozumowanie co
+    # przy price/hours/template - jeden lead moze miec wiele ofert (wersji),
+    # wiec to co rozni sie per-oferta zyje na offers, nie na leads.
+    # `document_templates.active` zostaje jako podpowiedz dla czlowieka ("ten
+    # szablon jest aktualny"), W9 juz go NIE uzywa do wyboru - czyta wprost
+    # link z offers (patrz W9 "Get offer template").
     ("document_templates", "offers", "hm", "offers"),
+    # przeniesione z leads (byla tam do 2026-08-10) - dwie oferty dla tego
+    # samego leada moga chciec innych referencji w wygenerowanym dokumencie.
+    ("offers", "selected_testimonials", "mm", "testimonials"),
     # --- trzy poziomy merytoryczne (v3 "Architektura tabel")
     ("participants", "assessments", "hm", "assessments"),
     ("participants", "recommendations", "hm", "recommendations"),
