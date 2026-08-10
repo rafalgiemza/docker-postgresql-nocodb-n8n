@@ -319,6 +319,18 @@
     },
     {
       "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Call offer-service nie ustawia Content-Disposition, a URL /render nie ma\n// nazwy pliku - n8n zapisuje binarke bez fileName/rozszerzenia. Ustawiamy je\n// tu recznie, biorac rozszerzenie z szablonu (file[0].title), zeby wgrany\n// plik mial to samo rozszerzenie co szablon (pptx/docx), nie zadne.\nconst offerRow = $('Button: Generate offer').first().json.body.data.rows[0];\nconst templateFile = ($('Get offer template').first().json.file || [])[0];\nconst nameOrUrl = templateFile?.title || templateFile?.url || '';\nconst ext = (nameOrUrl.split('.').pop() || 'pptx').toLowerCase();\nconst safeTitle = (offerRow.title || `offer-${offerRow.Id}`).replace(/[^\\w\\-. ]+/g, '_');\nconst fileName = `${safeTitle}.${ext}`;\n\nconst items = $input.all();\nfor (const item of items) {\n  if (item.binary?.offer) {\n    item.binary.offer.fileName = fileName;\n  }\n}\nreturn items;"
+      },
+      "id": "a1b1c1d1-0010-4001-8001-000000000010",
+      "name": "Set offer filename",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-448, 384]
+    },
+    {
+      "parameters": {
         "authentication": "nocoDbApiToken",
         "operation": "create",
         "workspaceId": "ws8amqq9",
@@ -618,9 +630,12 @@
     },
     "Call offer-service": {
       "main": [
-        [{ "node": "Upload offer file", "type": "main", "index": 0 }],
+        [{ "node": "Set offer filename", "type": "main", "index": 0 }],
         [{ "node": "Task: generation failed", "type": "main", "index": 0 }]
       ]
+    },
+    "Set offer filename": {
+      "main": [[{ "node": "Upload offer file", "type": "main", "index": 0 }]]
     },
     "Task: generation failed": {
       "main": [[{ "node": "Log error", "type": "main", "index": 0 }]]
