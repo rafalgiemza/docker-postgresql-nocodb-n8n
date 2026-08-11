@@ -627,10 +627,6 @@ TABLES = [
             {"title": "client_name", "type": "SingleLineText"},
             # v3 §9 - szablon PPTX uzywa {{testimonial.position}}
             {"title": "position", "type": "SingleLineText"},
-            {"title": "company_name", "type": "SingleLineText"},
-            {"title": "company_size", "type": "SingleSelect",
-             "options": select("<10", "10-50", "51-250", "250+")},
-            {"title": "industry", "type": "SingleSelect", "options": select(*INDUSTRY)},
             {"title": "type", "type": "SingleSelect",
              "options": select("testimonial", "case_study")},
             {"title": "content", "type": "LongText"},
@@ -743,6 +739,10 @@ RELATIONS = [
     # --- firma
     ("companies", "leads", "hm", "leads"),
     ("companies", "participants", "hm", "participants"),
+    # jedna opinia = jedna osoba w jednej firmie w danym momencie - hm, nie mm
+    # (jak wyzej: wiele testimoniali moze naleziec do jednej firmy, ale nie
+    # odwrotnie). industry/size czytane przez link, nie duplikowane na testimonials.
+    ("companies", "testimonials", "hm", "testimonials"),
     # --- lead jako centrum
     ("leads", "participants", "hm", "participants"),
     ("leads", "meetings", "hm", "meetings"),
