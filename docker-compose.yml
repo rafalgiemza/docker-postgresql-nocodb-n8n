@@ -28,6 +28,7 @@ include:
   - fragments/nocodb-compose.yml
   - fragments/file-renderer-service.yml
   - fragments/seed-service.yml
+  - fragments/testimonials-import.yml
   - fragments/seaweedfs-compose.yml
   - fragments/seaweedfs-init-compose.yml
   - fragments/mongodb-compose.yml

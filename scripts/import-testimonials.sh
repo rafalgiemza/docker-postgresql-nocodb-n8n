@@ -4,14 +4,12 @@ set -e
 # `source` here - patrz komentarz w seed-extra.sh.
 
 # Etap 1/2 importu referencji klienta: testimonials.xlsx -> tabela
-# testimonials + link do companies. Pełny kontekst: nagłówek
-# scripts/import-testimonials.py.
-command -v python3 >/dev/null 2>&1 || {
-  echo "❌ Brak 'python3' w PATH."
-  exit 1
-}
-python3 -c "import requests, openpyxl" 2>/dev/null || {
-  echo "❌ Brak modułów dla python3 — zainstaluj: pip3 install -r init-data/requirements.txt"
+# testimonials + link do companies. Uruchamiane w kontenerze
+# testimonials-import (nie na hosta python3) - patrz
+# testimonials-import/README.md dlaczego (PEP 668 externally-managed-environment
+# na hoście). Pełny kontekst skryptu: nagłówek scripts/import-testimonials.py.
+command -v docker >/dev/null 2>&1 || {
+  echo "❌ Brak 'docker' w PATH."
   exit 1
 }
 
@@ -26,4 +24,5 @@ for attempt in $(seq 1 30); do
   sleep 2
 done
 
-python3 scripts/import-testimonials.py "$@"
+docker compose -f docker-compose.yml run --rm testimonials-import \
+  python3 scripts/import-testimonials.py "$@"

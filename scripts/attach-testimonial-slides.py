@@ -40,10 +40,15 @@ ponownego uploadu przy kolejnym przebiegu).
 Wymaga w środowisku (patrz .env.example): NC_API_TOKEN, NC_CRM_BASE_ID.
 Opcjonalnie: NC_LOCAL_URL (default http://localhost:8081).
 
-Usage:
-  set -a; source .env; set +a
-  python3 scripts/attach-testimonial-slides.py --dry-run   # ZAWSZE najpierw
-  python3 scripts/attach-testimonial-slides.py [--pptx PATH]
+Usage (przez kontener testimonials-import - patrz jego README, tam też
+tesseract-ocr; PEP 668 na hoście robi z gołego `pip install` problem):
+  make init-data
+  # albo bezpośrednio:
+  ./scripts/attach-testimonial-slides.sh --dry-run   # ZAWSZE najpierw
+  ./scripts/attach-testimonial-slides.sh [--pptx PATH]
+
+  Ten plik da się też odpalić bezpośrednio (python3 scripts/attach-testimonial-slides.py),
+  jeśli masz gdzieś już zainstalowane init-data/requirements.txt + tesseract-ocr.
 """
 import argparse
 import io

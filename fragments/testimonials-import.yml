@@ -1,0 +1,27 @@
+# Jednorazowe narzędzie (nie serwis) dla import-testimonials.py /
+# attach-testimonial-slides.py - patrz testimonials-import/README.md.
+# profiles: ["tools"] - NIE startuje z `docker compose up`, tylko przez
+# `docker compose run --rm testimonials-import ...` (wołane z
+# scripts/import-testimonials.sh / scripts/attach-testimonial-slides.sh).
+services:
+  testimonials-import:
+    build:
+      context: ..
+      dockerfile: testimonials-import/Dockerfile
+    container_name: coaction-testimonials-import
+    profiles: ["tools"]
+    working_dir: /app
+    environment:
+      # Wewnątrz Dockera NocoDB mówi na 8080 (8081 to mapowanie na localhost)
+      NC_LOCAL_URL: http://nocodb:8080
+      NC_API_TOKEN: ${NC_API_TOKEN}
+      NC_CRM_BASE_ID: ${NC_CRM_BASE_ID}
+    volumes:
+      - ../scripts:/app/scripts:ro
+      - ../init-data:/app/init-data:ro
+      # Podglądy "medium"/niejednoznacznych dopasowań z --dry-run (patrz
+      # DRY_RUN_PREVIEW_DIR w attach-testimonial-slides.py) - bez tego
+      # wolumenu ginęłyby razem z kontenerem po `--rm`.
+      - /tmp/testimonial-slide-preview:/tmp/testimonial-slide-preview
+    depends_on:
+      - nocodb

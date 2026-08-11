@@ -6,17 +6,12 @@ set -e
 # Etap 2/2 importu referencji klienta: dociąga pojedyncze slajdy z
 # testimonials.pptx (OCR-dopasowanie) do rekordów utworzonych przez
 # import-testimonials.py (etap 1 - MUSI być uruchomiony jako pierwszy).
-# Pełny kontekst: nagłówek scripts/attach-testimonial-slides.py.
-command -v python3 >/dev/null 2>&1 || {
-  echo "❌ Brak 'python3' w PATH."
-  exit 1
-}
-command -v tesseract >/dev/null 2>&1 || {
-  echo "❌ Brak binarki 'tesseract' — zainstaluj: apt install tesseract-ocr tesseract-ocr-pol"
-  exit 1
-}
-python3 -c "import requests, openpyxl, pytesseract, PIL, pptx" 2>/dev/null || {
-  echo "❌ Brak modułów dla python3 — zainstaluj: pip3 install -r init-data/requirements.txt"
+# Uruchamiane w kontenerze testimonials-import (nie na hosta python3) -
+# patrz testimonials-import/README.md dlaczego (PEP 668, tesseract-ocr
+# bez zaśmiecania hosta). Pełny kontekst: nagłówek
+# scripts/attach-testimonial-slides.py.
+command -v docker >/dev/null 2>&1 || {
+  echo "❌ Brak 'docker' w PATH."
   exit 1
 }
 
@@ -31,4 +26,5 @@ for attempt in $(seq 1 30); do
   sleep 2
 done
 
-python3 scripts/attach-testimonial-slides.py "$@"
+docker compose -f docker-compose.yml run --rm testimonials-import \
+  python3 scripts/attach-testimonial-slides.py "$@"

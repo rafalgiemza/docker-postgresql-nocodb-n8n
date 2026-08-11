@@ -31,10 +31,15 @@ zdublowany w obrębie samego xlsx) jest pomijany.
 Wymaga w środowisku (patrz .env.example): NC_API_TOKEN, NC_CRM_BASE_ID.
 Opcjonalnie: NC_LOCAL_URL (default http://localhost:8081).
 
-Usage:
-  set -a; source .env; set +a
-  python3 scripts/import-testimonials.py --dry-run   # ZAWSZE najpierw
-  python3 scripts/import-testimonials.py [--xlsx PATH]
+Usage (przez kontener testimonials-import - patrz jego README, PEP 668 na
+hoście robi z gołego `pip install` problem):
+  make init-data
+  # albo bezpośrednio:
+  ./scripts/import-testimonials.sh --dry-run   # ZAWSZE najpierw
+  ./scripts/import-testimonials.sh [--xlsx PATH]
+
+  Ten plik da się też odpalić bezpośrednio (python3 scripts/import-testimonials.py),
+  jeśli masz gdzieś już zainstalowane init-data/requirements.txt (np. venv).
 """
 import argparse
 import os
