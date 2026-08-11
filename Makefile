@@ -75,6 +75,12 @@ upgrade-links: ## Re-run the Links v1 -> LinkToAnotherRecord v3 upgrade standalo
 dump-crm-schema: ## Dump live CRM table/field ids + relation targets to docs/archive/fable/schema_map.json
 	./scripts/dump-crm-schema.sh
 
+# Kroki 1-3: leady/firmy z init-data/source/leads.xlsx przez seed-service.
+# Kroki 4-5: referencje klienta z init-data/source/testimonials.{xlsx,pptx} -
+# MUSZĄ iść PO krokach 1-3 (dopasowanie firmy po nazwie i dociągnięcie
+# slajdów działają na już istniejących leadach/firmach/testimonialach).
+# Pełny kontekst: nagłówki scripts/import-testimonials.py i
+# scripts/attach-testimonial-slides.py.
 init-data:
 	 # 1. Sanity check - serwis widzi plik i ma NC_API_TOKEN/NC_CRM_BASE_ID?
 	curl -s http://localhost:8001/health
@@ -84,6 +90,12 @@ init-data:
 
 	# 3. Właściwy seed
 	curl -s -X POST "http://localhost:8001/seed?dry_run=false"
+
+	# 4. Testimonials.xlsx -> tabela testimonials + link do companies
+	./scripts/import-testimonials.sh
+
+	# 5. Testimonials.pptx -> dociągnięcie pojedynczych slajdów (OCR-dopasowanie)
+	./scripts/attach-testimonial-slides.sh
 
 # Seeduje przez NocoDB REST API 13 tabel CRM poza leads/companies/participants
 # (te idą przez `make init-data` z Excela) - meetings/assessments/recommendations/

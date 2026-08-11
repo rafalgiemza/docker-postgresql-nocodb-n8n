@@ -640,14 +640,21 @@ TABLES = [
             {"title": "buyer_persona", "type": "SingleLineText"},
             {"title": "refers_to", "type": "SingleLineText"},
             # klient: "Czy mozemy uzywac (SM, www, ofertowanie, zdjecie z
-            # nazwiskiem, nazwa firmy)" - jedna kolumna, wiele zgod naraz.
-            {"title": "usage_consent", "type": "MultiSelect",
-             "options": select("sm", "www", "ofertowanie",
-                               "zdjecie_z_nazwiskiem", "nazwa_firmy"),
-             "description": "Na co klient zgodzil sie przy tej referencji: sm "
-                            "(social media), www (strona), ofertowanie "
-                            "(uzycie w ofertach), zdjecie_z_nazwiskiem, "
-                            "nazwa_firmy."},
+            # nazwiskiem, nazwa firmy)" - realne dane w tej kolumnie (sprawdzone
+            # 2026-08-11 na dostarczonym xlsx) to NIE lista kanalow, tylko
+            # mieszanka TAK / puste / "-" / "???" i pelnych zdan z zastrzezeniami
+            # ("jedynie do ofert", "to nie jest nasz student", linki). SingleSelect
+            # (nie MultiSelect - yes/no/partially wykluczaja sie wzajemnie).
+            {"title": "usage_consent", "type": "SingleSelect",
+             "options": select("yes", "no", "partially"),
+             "description": "Czy mozna uzywac tej referencji (SM, www, "
+                            "ofertowanie, zdjecie z nazwiskiem, nazwa firmy) - "
+                            "ogolna klasyfikacja. Szczegoly/zastrzezenia "
+                            "(np. 'jedynie do ofert') w usage_limitations."},
+            {"title": "usage_limitations", "type": "LongText",
+             "description": "Pelny, surowy tekst zrodlowej kolumny zgody - "
+                            "zastrzezenia, konteksty, linki, ktorych "
+                            "usage_consent (yes/no/partially) nie odda."},
             {"title": "in_source_pptx", "type": "Checkbox", "default_value": False,
              "description": "Zaznaczone, jesli ta referencja byla juz obecna "
                             "jako gotowy slajd w pliku pptx dostarczonym "
