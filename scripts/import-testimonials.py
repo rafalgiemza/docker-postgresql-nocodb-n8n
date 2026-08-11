@@ -124,13 +124,16 @@ def resolve_meta():
 
 
 def existing_testimonial_keys(tid):
-    rows = api("GET", f"/api/v2/tables/{tid}/records"
-                       "?fields=client_name,content&limit=1000").get("list", [])
+    # Bez `fields=` - `fields` w NocoDB v2 to allowlist, NIE dokleja Id
+    # automatycznie (zweryfikowane na żywo: `?fields=name` gubi Id, mimo że
+    # dokumentacja tego nie mowi wprost). Tabele male (setki rekordow), wiec
+    # pobranie pelnych rekordow jest tanie i odporne na te niespodzianke.
+    rows = api("GET", f"/api/v2/tables/{tid}/records?limit=1000").get("list", [])
     return {(fold(r.get("client_name")), fold(r.get("content"))) for r in rows}
 
 
 def existing_company_map(cid):
-    rows = api("GET", f"/api/v2/tables/{cid}/records?fields=name&limit=1000").get("list", [])
+    rows = api("GET", f"/api/v2/tables/{cid}/records?limit=1000").get("list", [])
     out = {}
     for r in rows:
         k = fold(r.get("name"))

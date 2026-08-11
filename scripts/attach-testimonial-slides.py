@@ -149,9 +149,13 @@ def resolve_meta():
 
 
 def existing_records(tid):
-    """key(fold(client_name), fold(content)) -> {"Id":..., "has_slide": bool}."""
-    rows = api("GET", f"/api/v2/tables/{tid}/records"
-                       "?fields=client_name,content,slide_file&limit=1000").get("list", [])
+    """key(fold(client_name), fold(content)) -> {"Id":..., "has_slide": bool}.
+
+    Bez `fields=` - `fields` w NocoDB v2 to allowlist, NIE dokleja Id
+    automatycznie (patrz ten sam fix w import-testimonials.py). Tabela mala,
+    pelne rekordy sa tanie.
+    """
+    rows = api("GET", f"/api/v2/tables/{tid}/records?limit=1000").get("list", [])
     out = {}
     for r in rows:
         key = (fold(r.get("client_name")), fold(r.get("content")))
