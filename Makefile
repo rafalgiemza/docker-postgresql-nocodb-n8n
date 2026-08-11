@@ -79,8 +79,11 @@ dump-crm-schema: ## Dump live CRM table/field ids + relation targets to docs/arc
 # Kroki 4-5: referencje klienta z init-data/source/testimonials.{xlsx,pptx} -
 # MUSZĄ iść PO krokach 1-3 (dopasowanie firmy po nazwie i dociągnięcie
 # slajdów działają na już istniejących leadach/firmach/testimonialach).
-# Pełny kontekst: nagłówki scripts/import-testimonials.py i
-# scripts/attach-testimonial-slides.py.
+# Kroki 6-7: cennik i warianty pakietów - niezależne od 1-5 (pricing/
+# package_variants nie linkują do leads/companies), kolejność wobec nich
+# bez znaczenia. Pełny kontekst: nagłówki scripts/import-testimonials.py,
+# scripts/attach-testimonial-slides.py, scripts/import-pricing.py,
+# scripts/import-packages.py.
 init-data:
 	 # 1. Sanity check - serwis widzi plik i ma NC_API_TOKEN/NC_CRM_BASE_ID?
 	curl -s http://localhost:8001/health
@@ -96,6 +99,13 @@ init-data:
 
 	# 5. Testimonials.pptx -> dociągnięcie pojedynczych slajdów (OCR-dopasowanie)
 	./scripts/attach-testimonial-slides.sh
+
+	# 6. cennik.xlsx -> tabela pricing (UPSERT - bezpieczne re-uruchomienie,
+	#    gdy plik na VPS zostanie podmieniony na wersję z realnymi cenami)
+	./scripts/import-pricing.sh
+
+	# 7. warianty_slajd_4.txt -> tabela package_variants
+	./scripts/import-packages.sh
 
 # Seeduje przez NocoDB REST API 13 tabel CRM poza leads/companies/participants
 # (te idą przez `make init-data` z Excela) - meetings/assessments/recommendations/

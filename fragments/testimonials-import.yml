@@ -1,8 +1,8 @@
 # Jednorazowe narzędzie (nie serwis) dla import-testimonials.py /
-# attach-testimonial-slides.py - patrz testimonials-import/README.md.
-# profiles: ["tools"] - NIE startuje z `docker compose up`, tylko przez
-# `docker compose run --rm testimonials-import ...` (wołane z
-# scripts/import-testimonials.sh / scripts/attach-testimonial-slides.sh).
+# attach-testimonial-slides.py / import-pricing.py / import-packages.py -
+# patrz testimonials-import/README.md. profiles: ["tools"] - NIE startuje z
+# `docker compose up`, tylko przez `docker compose run --rm
+# testimonials-import ...` (wołane z odpowiednich scripts/*.sh).
 services:
   testimonials-import:
     build:

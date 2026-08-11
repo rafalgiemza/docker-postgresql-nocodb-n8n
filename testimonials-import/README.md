@@ -1,16 +1,23 @@
 # testimonials-import
 
-Jednorazowy kontener-narzędzie, nie serwis. Daje `python3` + `tesseract-ocr`
-(+ pakiet językowy polski) + zależności pythonowe potrzebne przez dwa
-skrypty w `../scripts/`:
+Jednorazowy kontener-narzędzie, nie serwis (nazwa zostaje historyczna -
+pierwotnie tylko dla testimoniali, dziś obsługuje wszystkie importy
+"plik od klientki -> tabela NocoDB", bo wszystkie potrzebują tego samego
+runtime'u). Daje `python3` + `tesseract-ocr` (+ pakiet językowy polski) +
+zależności pythonowe potrzebne przez skrypty w `../scripts/`:
 
 - `import-testimonials.py` — `init-data/source/testimonials.xlsx` →
   tabela `testimonials` + link do `companies` po nazwie firmy.
 - `attach-testimonial-slides.py` — `init-data/source/testimonials.pptx` →
   OCR każdego slajdu (to płaskie obrazki, nie tekst), dopasowanie do wiersza
   po imieniu/firmie, wycięcie pojedynczego slajdu i upload do `slide_file`.
+- `import-pricing.py` — `init-data/source/cennik.xlsx` → tabela `pricing`
+  (UPSERT po strukturze segment/hours/tryb, nie po cenach - bezpieczne
+  ponowne uruchomienie po podmianie pliku na wersję z realnymi stawkami).
+- `import-packages.py` — `init-data/source/warianty_slajd_4.txt` → tabela
+  `package_variants` (parsuje prozaiczny tekst, nie arkusz).
 
-Pełny kontekst i mechanika: nagłówki obu skryptów.
+Pełny kontekst i mechanika: nagłówki poszczególnych skryptów.
 
 ## Dlaczego kontener, nie `pip install` na hoście
 

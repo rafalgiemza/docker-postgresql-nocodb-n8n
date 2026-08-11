@@ -8,3 +8,6 @@ workshop/note.md
 __pycache__/
 *.pyc
 .claude/
+# Realne dane klienta (leady, testimoniale, cennik...) do importu przez
+# make init-data / scripts/import-*.py - nie do repo.
+init-data/source/
