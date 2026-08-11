@@ -65,7 +65,7 @@ Upload file + seeding z dowolnym serwerem NocoDB.
 
 ```bash
 curl -X POST \
-  -F "file=@Statusy_z_CRM_filled.xlsx" \
+  -F "file=@leads.xlsx" \
   -F "nc_url=http://nocodb:8080" \
   -F "nc_token=YOUR_TOKEN" \
   -F "nc_base_id=YOUR_BASE_ID" \
@@ -213,7 +213,7 @@ Klient może:
 
 ## Data Volume
 
-Excel (`Statusy_z_CRM_filled.xlsx`) montowany z:
+Excel (`source/leads.xlsx`) montowany z:
 ```
 ./init-data:/data
 ```

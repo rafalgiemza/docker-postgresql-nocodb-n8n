@@ -26,7 +26,7 @@ app = FastAPI(title="NocoDB CRM Seed Service", version="1.0.0")
 DEFAULT_NC_URL = os.environ.get("NC_LOCAL_URL", "http://localhost:8081").rstrip("/")
 DEFAULT_NC_TOKEN = os.environ.get("NC_API_TOKEN", "")
 DEFAULT_NC_BASE_ID = os.environ.get("NC_CRM_BASE_ID", "")
-DEFAULT_EXCEL_PATH = Path("/data/Statusy_z_CRM_filled.xlsx")
+DEFAULT_EXCEL_PATH = Path("/data/source/leads.xlsx")
 
 
 def api(method, path, token, url, **kw):
