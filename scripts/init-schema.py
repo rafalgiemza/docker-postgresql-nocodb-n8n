@@ -66,10 +66,14 @@ czysty SQL — NocoDB trzyma dla nich własne metadane (i tabele `_nc_m2m_*`),
 więc po samym SQL-u relacje trzeba by i tak odtwarzać w NocoDB. Stąd API.
 
 CZEGO TEN SKRYPT NIE ROBI (do wyklikania ręcznie po uruchomieniu):
-  1. Pól typu Button ("generuj ofertę" na `offers`, "generuj analizę" na
-     `meetings`, "generuj needs summary" na `assessments`, "generuj slajd" i
-     "generuj obrazek" na `testimonials`) — wymagają ID istniejącego
-     webhooka, którego przed importem workflowów jeszcze nie ma.
+  1. Dokończenia pól typu Button (`offers` "generuj ofertę", `meetings`
+     "Generuj analizę", `assessments` "Generuj needs summary", `testimonials`
+     "generuj slajd" i "generuj obrazek") — create_buttons() tworzy je już
+     jako placeholder akcji "Open URL" z formułą `NOW()` (nie wymaga
+     webhooka), bo akcja "Run Webhook" wymaga ID istniejącego webhooka
+     n8n, którego przed importem workflowów jeszcze nie ma. Po imporcie
+     workflowów: otwórz pole w UI, zmień akcję na "Run Webhook", wklej
+     webhook.
   2. Widoków (Kanban/Calendar/Grid per osoba) — patrz v2 "Widoki".
   3. Nazw pól zwrotnych, które NocoDB samo nadaje dla relacji `hm` — nie są
      udokumentowane, sprawdź i popraw w UI.
@@ -784,6 +788,31 @@ RELATIONS = [
     ("task_templates", "tasks", "hm", "tasks"),
 ]
 
+# Placeholdery dla 5 pol Button, ktorych ten skrypt swiadomie nie tworzy w
+# pelni (patrz naglowek, "CZEGO TEN SKRYPT NIE ROBI" #1) - akcja "Run
+# Webhook" wymaga ID istniejacego webhooka n8n, ktorego przed importem
+# workflowow jeszcze nie ma. Zamiast zostawiac te pola do recznego
+# stworzenia od zera, create_buttons() nizej tworzy je juz teraz jako
+# Button/"Open URL" z formula NOW() (placeholder, niewymagajacy webhooka ani
+# referencji do innych pol) - po imporcie workflowow zostaje tylko otworzyc
+# pole w UI i przelaczyc akcje na "Run Webhook". Etykiety 1:1 z tekstem juz
+# obecnym w opisach pol (ai_status_field/gen_status_field), zeby "kliknij
+# przycisk X" w opisie wskazywalo na pole o tej samej nazwie.
+BUTTONS = [
+    ("offers", "generuj ofertę"),
+    ("meetings", "Generuj analizę"),
+    ("assessments", "Generuj needs summary"),
+    ("testimonials", "generuj slajd"),
+    ("testimonials", "generuj obrazek"),
+]
+
+BUTTON_PLACEHOLDER_NOTE = (
+    'PLACEHOLDER utworzony przez init-schema.py: akcja "Open URL" z formula '
+    'NOW() (nieuzywana, tylko zeby pole bylo poprawne). Po imporcie '
+    'workflowa n8n: otworz to pole w UI, zmien akcje na "Run Webhook", '
+    'wybierz/wklej wlasciwy webhook, zapisz.'
+)
+
 
 # --------------------------------------------------------- v3 -> v2 translacja
 # Definicje TABLES wyzej sa pisane w czytelnym stylu v3 (type/options), bo
@@ -938,6 +967,38 @@ def create_relations(ids, dry_run):
         })
 
 
+def create_buttons(ids, dry_run):
+    """Placeholdery Button/"Open URL" dla BUTTONS - patrz komentarz przy
+    definicji listy. Osobny przebieg po utworzeniu tabel (jak
+    create_relations/sync_select_options), bo bulk table-create po cichu
+    ignoruje/psuje niektore rzeczy (patrz dtxp w to_v2_column) - kontrakt dla
+    pojedynczego POST-a na kolumne NIEZWERYFIKOWANY NA ZYWO w tej sesji,
+    sprawdz po pierwszym uruchomieniu.
+    """
+    for table, label in BUTTONS:
+        table_id = ids.get(table)
+        if not table_id:
+            print(f"!  pomijam przycisk {table}.{label}: brak id tabeli ({table}={table_id})")
+            continue
+        if not dry_run and label.lower() in existing_fields(table_id):
+            print(f"=  {table}.{label}: przycisk juz istnieje, pomijam")
+            continue
+        print(f"+  {table}.{label}: przycisk (placeholder Open URL / NOW())")
+        if dry_run:
+            continue
+        api("POST", f"/api/v2/meta/tables/{table_id}/columns", json={
+            "title": label,
+            "column_name": label,
+            "uidt": "Button",
+            "type": "url",
+            "formula_raw": "NOW()",
+            "label": label,
+            "theme": "solid",
+            "color": "brand",
+            "description": BUTTON_PLACEHOLDER_NOTE,
+        })
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true",
@@ -958,15 +1019,19 @@ if __name__ == "__main__":
     create_relations(ids, args.dry_run)
     print(f"\n--- opcje SingleSelect/MultiSelect ---")
     sync_select_options(ids, args.dry_run)
+    print(f"\n--- przyciski (placeholder Open URL / NOW()) ---")
+    create_buttons(ids, args.dry_run)
     print("\nSPRAWDŹ NAJPIERW: czy tabele powstały w appdata, a nie w bazie NocoDB:")
     print("  docker exec docker-postgres-1 psql -U postgres -d appdata \\")
     print("    -c \"\\dt crm.*\"")
     print("Jeśli ich tam nie ma, a są widoczne w UI - poszły do wewnętrznej bazy")
     print("NocoDB (patrz resolve_source() w tym pliku); usuń je i popraw source_id.")
     print("\nDo wyklikania recznie (patrz naglowek skryptu):")
-    print("  1. Pola Button: offers 'generuj oferte', meetings 'generuj analize',")
-    print("     assessments 'generuj needs summary', testimonials 'generuj slajd'")
-    print("     i 'generuj obrazek' - po imporcie workflowow.")
+    print("  1. Pola Button juz istnieja jako placeholder (Open URL / NOW()) -")
+    print("     po imporcie workflowow otworz kazde w UI, zmien akcje na")
+    print("     'Run Webhook', wklej webhook: offers 'generuj oferte', meetings")
+    print("     'Generuj analize', assessments 'Generuj needs summary',")
+    print("     testimonials 'generuj slajd' i 'generuj obrazek'.")
     print("  2. Widoki: Kanban po leads.stage, Calendar po tasks.due_date,")
     print("     'moje taski' per osoba (patrz nocodb_crm_schema_v2.md).")
     print("  3. Sprawdz display value kazdej tabeli i nazwy pol zwrotnych relacji.")

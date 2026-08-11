@@ -417,8 +417,11 @@ Przeszła na żywo na VPS-B 2026-08-03. Efekt: 36 tabel w `appdata`, schemat
    > data" czyta `_nc_m2m_Leads_Participants[].Participants`). Krytyczne
    > minimum to `leads.participants`.
 8. **Pola Button** (`offers` „generuj ofertę", `meetings` „generuj analizę",
-   `assessments` „generuj needs summary") — dopiero po imporcie workflowów,
-   bo potrzebują ID istniejącego webhooka.
+   `assessments` „generuj needs summary", `testimonials` „generuj slajd" i
+   „generuj obrazek") — `init-schema.py` je już tworzy jako placeholder
+   akcji „Open URL" z formułą `NOW()` (nie wymaga webhooka). Dopiero po
+   imporcie workflowów: otwórz każde w UI, zmień akcję na „Run Webhook",
+   wklej webhook.
 9. **Widoki** (Kanban po `leads.stage`, Calendar po `tasks.due_date`, „moje
    taski" per osoba) — patrz `nocodb_crm_schema_v2.md`, sekcja Widoki.
 
