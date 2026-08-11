@@ -67,8 +67,9 @@ więc po samym SQL-u relacje trzeba by i tak odtwarzać w NocoDB. Stąd API.
 
 CZEGO TEN SKRYPT NIE ROBI (do wyklikania ręcznie po uruchomieniu):
   1. Pól typu Button ("generuj ofertę" na `offers`, "generuj analizę" na
-     `meetings`, "generuj needs summary" na `assessments`) — wymagają ID
-     istniejącego webhooka, którego przed importem workflowów jeszcze nie ma.
+     `meetings`, "generuj needs summary" na `assessments`, "generuj slajd" i
+     "generuj obrazek" na `testimonials`) — wymagają ID istniejącego
+     webhooka, którego przed importem workflowów jeszcze nie ma.
   2. Widoków (Kanban/Calendar/Grid per osoba) — patrz v2 "Widoki".
   3. Nazw pól zwrotnych, które NocoDB samo nadaje dla relacji `hm` — nie są
      udokumentowane, sprawdź i popraw w UI.
@@ -231,6 +232,29 @@ def ai_status_field(action=None):
                 "jest jeszcze podpieta, do ustalenia")
     return {"title": "ai_status", "type": "SingleSelect", "options": select(*AI_STATUS),
             "description": base + note + "."}
+
+
+# testimonials 2026-08-11: import 140+ referencji z pptx klienta + generowanie
+# per-testimonial slajdu i jego zrzutu do obrazka. Inny cykl niz ai_status_field
+# (tam: szkic -> akceptacja czlowieka; tu: pojedyncze zdarzenie "wygeneruj
+# plik", stad osobna, prostsza lista statusow). Dwa niezalezne kroki (slajd,
+# potem obrazek) => prefiksowane pola, bo NocoDB nie pozwoli na dwa pola
+# "n8n_status" w jednej tabeli.
+GEN_STATUS = ("generating", "done", "error")
+
+
+def gen_status_field(prefix, action):
+    return {"title": f"{prefix}_status", "type": "SingleSelect",
+            "options": select(*GEN_STATUS),
+            "description": f'Status automatyzacji n8n po kliknieciu "{action}": '
+                           f'generating (w trakcie) -> done (gotowe) -> error '
+                           f'(szczegoly w {prefix}_note).'}
+
+
+def gen_note_field(prefix, action):
+    return {"title": f"{prefix}_note", "type": "LongText",
+            "description": f'Blad zwrocony przez n8n przy "{action}" - '
+                           f'wypelniane tylko gdy {prefix}_status = error.'}
 
 
 # --------------------------------------------------------------- definicje tabel
@@ -583,7 +607,7 @@ TABLES = [
         "fields": [
             {"title": "name", "type": "SingleLineText"},
             {"title": "kind", "type": "SingleSelect",
-             "options": select("offer", "audit_report", "inne")},
+             "options": select("offer", "audit_report", "testimonial_slide", "inne")},
             {"title": "file", "type": "Attachment"},
             {"title": "active", "type": "Checkbox", "default_value": False},
             {"title": "notes", "type": "LongText"},
@@ -593,19 +617,60 @@ TABLES = [
         "title": "testimonials",
         "description": "Biblioteka referencji - analityk linkuje z biblioteki "
                        "zamiast wklejac do oferty, wiec ta sama referencja jest "
-                       "reuzywalna i wiadomo, gdzie byla uzyta.",
+                       "reuzywalna i wiadomo, gdzie byla uzyta. 2026-08-11: "
+                       "rozszerzone pod import 140+ referencji z pliku pptx "
+                       "klienta, plus generowanie per-testimonial slajdu "
+                       "(szablon w document_templates, kind=testimonial_slide) "
+                       "i jego zrzutu do obrazka - patrz slide_*/image_* nizej.",
         "fields": [
             {"title": "title", "type": "SingleLineText"},
             {"title": "client_name", "type": "SingleLineText"},
             # v3 §9 - szablon PPTX uzywa {{testimonial.position}}
             {"title": "position", "type": "SingleLineText"},
+            {"title": "company_name", "type": "SingleLineText"},
+            {"title": "company_size", "type": "SingleSelect",
+             "options": select("<10", "10-50", "51-250", "250+")},
             {"title": "industry", "type": "SingleSelect", "options": select(*INDUSTRY)},
             {"title": "type", "type": "SingleSelect",
              "options": select("testimonial", "case_study")},
             {"title": "content", "type": "LongText"},
+            {"title": "translation", "type": "LongText"},
             {"title": "variant", "type": "MultiSelect",
              "options": select("business_english", "english_for_it",
                                "english_business_skills")},
+            # klient (2026-08-11): brak dzis ustalonej listy person/tematow -
+            # wolny tekst, zamienic na SingleSelect gdy pojawi sie kanoniczna
+            # lista wartosci (jak przy INDUSTRY).
+            {"title": "buyer_persona", "type": "SingleLineText"},
+            {"title": "refers_to", "type": "SingleLineText"},
+            # klient: "Czy mozemy uzywac (SM, www, ofertowanie, zdjecie z
+            # nazwiskiem, nazwa firmy)" - jedna kolumna, wiele zgod naraz.
+            {"title": "usage_consent", "type": "MultiSelect",
+             "options": select("sm", "www", "ofertowanie",
+                               "zdjecie_z_nazwiskiem", "nazwa_firmy"),
+             "description": "Na co klient zgodzil sie przy tej referencji: sm "
+                            "(social media), www (strona), ofertowanie "
+                            "(uzycie w ofertach), zdjecie_z_nazwiskiem, "
+                            "nazwa_firmy."},
+            {"title": "in_source_pptx", "type": "Checkbox", "default_value": False,
+             "description": "Zaznaczone, jesli ta referencja byla juz obecna "
+                            "jako gotowy slajd w pliku pptx dostarczonym "
+                            "przez klienta (zamiast bycia tylko tekstem)."},
+            {"title": "notes", "type": "LongText"},
+            {"title": "company_logo", "type": "Attachment"},
+            {"title": "avatar", "type": "Attachment"},
+            {"title": "slide_file", "type": "Attachment",
+             "description": "Wygenerowany pojedynczy slajd pptx (przycisk "
+                            "'generuj slajd'). Czlowiek sprawdza, moze "
+                            "poprawic i nadpisac tym polem przed kliknieciem "
+                            "'generuj obrazek'."},
+            gen_status_field("slide", "generuj slajd"),
+            gen_note_field("slide", "generuj slajd"),
+            {"title": "image", "type": "Attachment",
+             "description": "Zrzut slide_file do obrazka - wynik przycisku "
+                            "'generuj obrazek'."},
+            gen_status_field("image", "generuj obrazek"),
+            gen_note_field("image", "generuj obrazek"),
             {"title": "active", "type": "Checkbox", "default_value": True},
         ],
     },
@@ -893,7 +958,8 @@ if __name__ == "__main__":
     print("NocoDB (patrz resolve_source() w tym pliku); usuń je i popraw source_id.")
     print("\nDo wyklikania recznie (patrz naglowek skryptu):")
     print("  1. Pola Button: offers 'generuj oferte', meetings 'generuj analize',")
-    print("     assessments 'generuj needs summary' - po imporcie workflowow.")
+    print("     assessments 'generuj needs summary', testimonials 'generuj slajd'")
+    print("     i 'generuj obrazek' - po imporcie workflowow.")
     print("  2. Widoki: Kanban po leads.stage, Calendar po tasks.due_date,")
     print("     'moje taski' per osoba (patrz nocodb_crm_schema_v2.md).")
     print("  3. Sprawdz display value kazdej tabeli i nazwy pol zwrotnych relacji.")

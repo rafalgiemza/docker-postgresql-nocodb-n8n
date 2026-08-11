@@ -1,0 +1,788 @@
+{
+  "name": "W10 - Meetings calendar sync (MS Bookings)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "w10-01",
+      "name": "Every 15 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// -7 / +60 dni od teraz - okno synchronizacji kalendarza.\nconst now = new Date();\nconst start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);\nconst end = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);\nreturn [{ json: { startDateTime: start.toISOString(), endDateTime: end.toISOString() } }];"
+      },
+      "id": "w10-02",
+      "name": "Build date window",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.microsoft.com/v1.0/me/calendarView?startDateTime={{ $json.startDateTime }}&endDateTime={{ $json.endDateTime }}&$top=999&$orderby=start/dateTime",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftOutlookOAuth2Api",
+        "options": {},
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "outlook.timezone=\"UTC\""
+            }
+          ]
+        }
+      },
+      "id": "w10-03",
+      "name": "Fetch Outlook events",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2000,
+        0
+      ],
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": null,
+          "name": "Microsoft Outlook OAuth2 API"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "operation": "getAll",
+        "workspaceId": "ws8amqq9",
+        "projectId": "p0faehtfzhvzfh2",
+        "table": "m8pkrf46jhxi1us",
+        "returnAll": true,
+        "options": {}
+      },
+      "id": "w10-04",
+      "name": "Fetch existing meetings",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        -1800,
+        0
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "fuKl7juoVU9L7ZqE",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Nowe wydarzenia z kalendarza MS Bookings: odsiej anulowane i juz zsynchronizowane\n// (po external_id = Graph event id). Znany uproszczenie: nie obslugujemy tu odswiezania\n// juz zsynchronizowanych spotkan przy zmianie godziny/tytulu w kalendarzu ani propagacji\n// anulowania - patrz README sekcja \"Znane uproszczenia\".\nconst events = ($('Fetch Outlook events').first().json.value) || [];\nconst existingIds = new Set($input.all().map(i => i.json.external_id).filter(Boolean));\n\nconst out = [];\nfor (const ev of events) {\n  if (ev.isCancelled) continue;\n  if (!ev.id || existingIds.has(ev.id)) continue;\n\n  const attendee = (ev.attendees || [])[0] || {};\n  const email = String((attendee.emailAddress && attendee.emailAddress.address) || '').trim().toLowerCase();\n  const name = (attendee.emailAddress && attendee.emailAddress.name) || email || '';\n  const location = ev.location && ev.location.displayName ? `\\nLokalizacja: ${ev.location.displayName}` : '';\n  const teamsLink = ev.onlineMeeting && ev.onlineMeeting.joinUrl ? `\\nLink: ${ev.onlineMeeting.joinUrl}` : '';\n\n  out.push({ json: {\n    external_id: ev.id,\n    title: ev.subject || `Spotkanie z ${name || 'nieznanym kontaktem'}`,\n    starts_at: ev.start && ev.start.dateTime ? ev.start.dateTime + 'Z' : null,\n    ends_at: ev.end && ev.end.dateTime ? ev.end.dateTime + 'Z' : null,\n    customer_name: name,\n    customer_email: email,\n    notes: `Zsynchronizowano z MS Bookings (kalendarz p.fidzina@coaction.com).\\n` +\n           `Klient: ${name}${email ? ' <' + email + '>' : ''}${location}${teamsLink}\\n\\n` +\n           `${ev.bodyPreview || ''}`,\n  } });\n}\nreturn out;"
+      },
+      "id": "w10-05",
+      "name": "Filter new events",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/m8dyut5qe47dda8/records?where=(contact_email,eq,{{ $json.customer_email }})&limit=5",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "w10-06",
+      "name": "Find matching lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1400,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "fuKl7juoVU9L7ZqE",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/ma2cve4ke7aetig/records?where=(email,eq,{{ $('Filter new events').item.json.customer_email }})&limit=5",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "w10-07",
+      "name": "Find matching participant",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1200,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "fuKl7juoVU9L7ZqE",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "// Laczenie zdarzenia kalendarza z ewentualnym dopasowaniem w leads/participants.\n// Przy kilku trafieniach bierzemy najnowszy rekord (najwyzsze Id), tak jak w W9/W5.\nconst ev = $('Filter new events').item.json;\nconst leadMatches = ($('Find matching lead').item.json.list) || [];\nconst participantMatches = ($('Find matching participant').item.json.list) || [];\n\nconst lead = leadMatches.slice().sort((a, b) => b.Id - a.Id)[0] || null;\nconst participant = participantMatches.slice().sort((a, b) => b.Id - a.Id)[0] || null;\n\nreturn { json: {\n  ...ev,\n  lead_id: lead ? lead.Id : null,\n  lead_name: lead ? lead.lead_name : null,\n  participant_id: participant ? participant.Id : null,\n  participant_name: participant ? participant.full_name : null,\n  has_lead: !!lead,\n  has_participant: !!participant,\n} };"
+      },
+      "id": "w10-08",
+      "name": "Assemble meeting payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1000,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "operation": "create",
+        "workspaceId": "ws8amqq9",
+        "projectId": "p0faehtfzhvzfh2",
+        "table": "m8pkrf46jhxi1us",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "={{ $json.title }}"
+            },
+            {
+              "fieldName": "starts_at",
+              "fieldValue": "={{ $json.starts_at }}"
+            },
+            {
+              "fieldName": "ends_at",
+              "fieldValue": "={{ $json.ends_at }}"
+            },
+            {
+              "fieldName": "notes",
+              "fieldValue": "={{ $json.notes }}"
+            },
+            {
+              "fieldName": "external_id",
+              "fieldValue": "={{ $json.external_id }}"
+            }
+          ]
+        }
+      },
+      "id": "w10-09",
+      "name": "Create meeting",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        -800,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "fuKl7juoVU9L7ZqE",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Assemble meeting payload').item.json.has_lead }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "w10-10",
+      "name": "Has lead match?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/m8pkrf46jhxi1us/links/cxtknj0fa4whm1w/records/{{ $('Create meeting').item.json.Id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Assemble meeting payload').item.json.lead_id }]) }}"
+      },
+      "id": "w10-11",
+      "name": "Link meeting -> lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -400,
+        -150
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "fuKl7juoVU9L7ZqE",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Assemble meeting payload').item.json.has_participant }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "w10-12",
+      "name": "Has participant match?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/m8pkrf46jhxi1us/links/c2kp7f968ob22p8/records/{{ $('Create meeting').item.json.Id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Assemble meeting payload').item.json.participant_id }]) }}"
+      },
+      "id": "w10-13",
+      "name": "Link meeting -> participant",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        -150
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "fuKl7juoVU9L7ZqE",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "operation": "create",
+        "workspaceId": "ws8amqq9",
+        "projectId": "p0faehtfzhvzfh2",
+        "table": "mt8hbqxcj1vx1lx",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "summary",
+              "fieldValue": "={{ 'Spotkanie zsynchronizowane z MS Bookings: ' + $('Assemble meeting payload').item.json.title }}"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "meeting_created"
+            },
+            {
+              "fieldName": "flow",
+              "fieldValue": "W10"
+            },
+            {
+              "fieldName": "triggered_by",
+              "fieldValue": "system"
+            },
+            {
+              "fieldName": "payload",
+              "fieldValue": "={{ JSON.stringify({ meeting_id: $('Create meeting').item.json.Id, external_id: $('Assemble meeting payload').item.json.external_id, lead_id: $('Assemble meeting payload').item.json.lead_id, participant_id: $('Assemble meeting payload').item.json.participant_id }) }}"
+            }
+          ]
+        }
+      },
+      "id": "w10-14",
+      "name": "Log activity",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        200,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "fuKl7juoVU9L7ZqE",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/mt8hbqxcj1vx1lx/links/cizounak7t19peo/records/{{ $json.Id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Create meeting').item.json.Id }]) }}"
+      },
+      "id": "w10-15",
+      "name": "Link activity -> meeting",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "fuKl7juoVU9L7ZqE",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Assemble meeting payload').item.json.has_lead }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "w10-16",
+      "name": "Link activity to lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/mt8hbqxcj1vx1lx/links/c34sla5hxlrxyuq/records/{{ $('Log activity').item.json.Id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Assemble meeting payload').item.json.lead_id }]) }}"
+      },
+      "id": "w10-17",
+      "name": "Link activity -> lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        -150
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "fuKl7juoVU9L7ZqE",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "operation": "create",
+        "workspaceId": "ws8amqq9",
+        "projectId": "p0faehtfzhvzfh2",
+        "table": "mapceobgbrx9ir3",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "BŁĄD synchronizacji kalendarza MS Bookings (W10)"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "todo"
+            },
+            {
+              "fieldName": "priority",
+              "fieldValue": "high"
+            },
+            {
+              "fieldName": "assignee",
+              "fieldValue": "rafalgiemza@gmail.com"
+            },
+            {
+              "fieldName": "created_by_flow",
+              "fieldValue": "W10"
+            },
+            {
+              "fieldName": "description",
+              "fieldValue": "={{ 'Błąd pobierania wydarzeń z Microsoft Graph (kalendarz p.fidzina@coaction.com).\\n' + JSON.stringify($json).slice(0,500) }}"
+            }
+          ]
+        }
+      },
+      "id": "w10-18",
+      "name": "Task: sync failed",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        -2000,
+        250
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "fuKl7juoVU9L7ZqE",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "operation": "create",
+        "workspaceId": "ws8amqq9",
+        "projectId": "p0faehtfzhvzfh2",
+        "table": "mt8hbqxcj1vx1lx",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "summary",
+              "fieldValue": "Synchronizacja kalendarza MS Bookings nieudana (W10)"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "automation_error"
+            },
+            {
+              "fieldName": "flow",
+              "fieldValue": "W10"
+            },
+            {
+              "fieldName": "triggered_by",
+              "fieldValue": "system"
+            },
+            {
+              "fieldName": "payload",
+              "fieldValue": "={{ JSON.stringify({ task_id: $json.Id }) }}"
+            }
+          ]
+        }
+      },
+      "id": "w10-19",
+      "name": "Log error activity",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        -1800,
+        250
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "fuKl7juoVU9L7ZqE",
+          "name": "NocoDB Token account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 15 min": {
+      "main": [
+        [
+          {
+            "node": "Build date window",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build date window": {
+      "main": [
+        [
+          {
+            "node": "Fetch Outlook events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch existing meetings": {
+      "main": [
+        [
+          {
+            "node": "Filter new events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter new events": {
+      "main": [
+        [
+          {
+            "node": "Find matching lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find matching lead": {
+      "main": [
+        [
+          {
+            "node": "Find matching participant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find matching participant": {
+      "main": [
+        [
+          {
+            "node": "Assemble meeting payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble meeting payload": {
+      "main": [
+        [
+          {
+            "node": "Create meeting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create meeting": {
+      "main": [
+        [
+          {
+            "node": "Has lead match?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has lead match?": {
+      "main": [
+        [
+          {
+            "node": "Link meeting -> lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Has participant match?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link meeting -> lead": {
+      "main": [
+        [
+          {
+            "node": "Has participant match?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has participant match?": {
+      "main": [
+        [
+          {
+            "node": "Link meeting -> participant",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link meeting -> participant": {
+      "main": [
+        [
+          {
+            "node": "Log activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log activity": {
+      "main": [
+        [
+          {
+            "node": "Link activity -> meeting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link activity -> meeting": {
+      "main": [
+        [
+          {
+            "node": "Link activity to lead?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Task: sync failed": {
+      "main": [
+        [
+          {
+            "node": "Log error activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Outlook events": {
+      "main": [
+        [
+          {
+            "node": "Fetch existing meetings",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Task: sync failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link activity to lead?": {
+      "main": [
+        [
+          {
+            "node": "Link activity -> lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}
