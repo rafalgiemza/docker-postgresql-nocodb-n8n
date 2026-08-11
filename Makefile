@@ -47,12 +47,12 @@ dump-appdata-schema: ## Dump current schema of a running appdata DB into appdata
 	docker exec -i docker-postgres-1 pg_dump -U $(POSTGRES_USER) -d $(APP_DB) --schema-only > ./appdata/appdata_schema.sql
 	@echo "✅ Zapisano appdata/appdata_schema.sql"
 
-# Tworzy 16 tabel CRM + relacje w NocoDB przez Meta API, potem od razu
+# Tworzy 17 tabel CRM + relacje w NocoDB przez Meta API, potem od razu
 # naprawia pola relacji do formatu v3 (patrz upgrade-links niżej) — jedna
 # komenda, dwa kroki. Wymaga Kroku 0 (NC_API_TOKEN w .env, patrz
 # docs/hard-reset.md) najpierw. Patrz naglowek scripts/init-schema.py po
 # pelny kontekst.
-init-schema: ## Create the full CRM schema (16 tables + relations) in NocoDB, then upgrade links to v3
+init-schema: ## Create the full CRM schema (17 tables + relations) in NocoDB, then upgrade links to v3
 	./scripts/init-schema.sh
 	./scripts/upgrade-links.sh
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-r"""Tworzy CAŁY schemat CRM (16 tabel + relacje) w pustej bazie NocoDB przez
+r"""Tworzy CAŁY schemat CRM (17 tabel + relacje) w pustej bazie NocoDB przez
 Meta API v3 — pod wdrożenie produkcji od zera.
 
 Źródło prawdy: `docs/archive/fable/nocodb_crm_schema_v3.md` (decyzje projektowe i tabele
@@ -59,7 +59,7 @@ wykrywa zewnętrzne źródło automatycznie (`resolve_source()`); override:
 skryptem — inaczej nie ma czego wykryć. Po uruchomieniu zweryfikuj w
 Postgresie (`\dt crm.*`), nie tylko w UI.
 
-Alternatywa, której świadomie tu nie wybrano: napisać te 16 tabel jako
+Alternatywa, której świadomie tu nie wybrano: napisać te 17 tabel jako
 ręcznie utrzymywany SQL DDL i puścić go przez psql + `meta-diff/apply`.
 Byłoby deterministyczne i wersjonowane w gicie, ale kolumny `Links` to nie
 czysty SQL — NocoDB trzyma dla nich własne metadane (i tabele `_nc_m2m_*`),
@@ -88,7 +88,14 @@ CZEGO TEN SKRYPT NIE ROBI (do wyklikania ręcznie po uruchomieniu):
      opcji do istniejących SingleSelect/description — te tabele po prostu
      zostaną pominięte jako "już istnieje". Zmiany trzeba nanieść ręcznie w
      UI NocoDB (rename tabeli/pola zachowuje Id i dane) albo osobnym
-     skryptem migracyjnym (PATCH po Id) — TABLES/RELATIONS niżej to teraz
+     skryptem migracyjnym (PATCH po Id). Ten sam problem dotyczy zmian z
+     2026-08-11 (cennik.xlsx): nowe pola dopisane do `pricing` (segment,
+     rabat, bonusowe godziny, ceny za h) NIE powstaną same na już wdrożonej
+     tabeli `pricing` — dodaj je ręcznie w UI, dokładnie pod tymi nazwami i
+     typami co w TABLES niżej. Tabela `package_variants` jest NOWA (tytuł
+     jeszcze nie istnieje), więc ją `make init-schema` utworzy automatycznie
+     — tak samo relację `offers`↔`pricing` (RELATIONS, mm).
+     TABLES/RELATIONS niżej to teraz
      aktualny stan docelowy, nie automatyczny diff.
 
 Idempotentny: tabele i pola-relacje o istniejącym tytule są pomijane.
@@ -214,6 +221,9 @@ INDUSTRY = ("Agriculture", "AI", "Automation", "Automotive", "Banking", "Clothin
             "Retail", "Software Development", "Tech Product", "Telecommunication",
             "Tourism", "Training", "Transport/Logistics", "Housing", "Space",
             "Manufacturing", "Education", "CyberSec")
+# cennik.xlsx (2026-08-11) kolumna "Liczba kursow" - prog wolumenowy klienta
+# (ile kursow juz kupil), rozne stawki w pricing wg wielkosci wspolpracy.
+CUSTOMER_SEGMENT = ("A) <10", "B) 10-19", "C) >19")
 
 
 def ai_status_field(action=None):
@@ -548,22 +558,104 @@ TABLES = [
     },
     {
         "title": "pricing",
-        "description": "Cennik wersjonowany. SWIADOMIE bez relacji do ofert - "
-                       "tabela referencyjna, z ktorej czlowiek odczytuje stawke. "
-                       "`product` == offers.product_type, `training_group_size` == "
+        "description": "Cennik wersjonowany, jeden wiersz = jedna kombinacja "
+                       "segment x hours x tryb. `product` == "
+                       "offers.product_type, `training_group_size` == "
                        "recommendation_packages.training_group_size (wspolne "
-                       "stale w skrypcie: VARIANT / MODE).",
+                       "stale w skrypcie: VARIANT / MODE). cennik.xlsx "
+                       "(2026-08-11): rozszerzone o pelna strukture cen z "
+                       "arkusza klientki (segment, rabat, bonusowe godziny, "
+                       "ceny za h) - patrz opisy pol nizej; offers.pricing "
+                       "(RELATIONS, mm) linkuje oferte do konkretnego wiersza "
+                       "uzytego przy total_price - v3 zakladalo brak relacji "
+                       "do ofert, to swiadoma zmiana wobec tamtego zapisu.",
         "fields": [
             # feedback-tables-1.md: segment -> product
             {"title": "product", "type": "SingleSelect", "options": select(*VARIANT)},
+            # cennik.xlsx kolumna "Liczba kursow"
+            {"title": "customer_segment", "type": "SingleSelect",
+             "options": select(*CUSTOMER_SEGMENT),
+             "description": "Prog wolumenowy klienta wg liczby wczesniej "
+                            "zakupionych kursow (cennik.xlsx 'Liczba "
+                            "kursow'). Wplywa na stawke w tym wierszu."},
             # feedback-tables-1.md: mode -> Training_Group_Size
             {"title": "training_group_size", "type": "SingleSelect", "options": select(*MODE)},
             {"title": "hours", "type": "Number"},
+            # cennik.xlsx kolumna "Kontynuacja czy nowy kurs?" - caly
+            # dostarczony arkusz dotyczyl wylacznie kontynuacji; pole
+            # zostawione, zeby przyszly cennik dla nowych kursow mogl zyc w
+            # tej samej tabeli zamiast w kolejnej rownoleglej.
+            {"title": "course_type", "type": "SingleSelect",
+             "options": select("kontynuacja", "nowy_kurs"),
+             "description": "Czy stawka dotyczy kontynuacji istniejacego "
+                            "kursu, czy nowego kursu od zera (cennik.xlsx "
+                            "'Kontynuacja czy nowy kurs?')."},
+            {"title": "continuation_bonus_hours", "type": "Number",
+             "description": "Dodatkowe godziny doliczane przy kontynuacji "
+                            "(cennik.xlsx 'Dodatkowe godziny za "
+                            "kontynuacje')."},
+            {"title": "upfront_payment_bonus", "type": "Checkbox", "default_value": False,
+             "description": "Czy klient dostaje dodatkowa godzine za "
+                            "platnosc z gory (cennik.xlsx 'Dodatkowa h za "
+                            "platnosc z gory')."},
             # feedback-tables-1.md: price -> total_price (vs hourly price)
             {"title": "total_price", "type": "Currency",
-             "options": {"locale": "pl-PL", "code": "PLN"}},
+             "options": {"locale": "pl-PL", "code": "PLN"},
+             "description": "Standardowa cena za pakiet, przed rabatem "
+                            "(cennik.xlsx 'Standardowa cena za pakiet')."},
+            {"title": "discounted_price", "type": "Currency",
+             "options": {"locale": "pl-PL", "code": "PLN"},
+             "description": "Cena po rabacie, np. za platnosc z gory "
+                            "(cennik.xlsx 'Po rabacie')."},
+            {"title": "hours_with_bonus", "type": "Number",
+             "description": "Laczna liczba godzin w pakiecie po doliczeniu "
+                            "bonusow (cennik.xlsx 'Wielkosc pakietu z "
+                            "bonusowymi h')."},
+            {"title": "price_per_hour", "type": "Currency",
+             "options": {"locale": "pl-PL", "code": "PLN"},
+             "description": "cennik.xlsx 'Cena za godzine'."},
+            {"title": "group_size", "type": "Number",
+             "description": "Liczba osob w grupie dla tego wiersza (1 "
+                            "indywidualnie, 2 w parach, 4 grupowo) - "
+                            "cennik.xlsx 'Liczba osob w grupie'."},
+            {"title": "price_per_hour_per_person", "type": "Currency",
+             "options": {"locale": "pl-PL", "code": "PLN"},
+             "description": "cennik.xlsx 'Cena za godzine za osobe'."},
+            {"title": "price_per_hour_with_bonus", "type": "Currency",
+             "options": {"locale": "pl-PL", "code": "PLN"},
+             "description": "cennik.xlsx 'Cena za h z bonusami'."},
+            {"title": "price_per_hour_per_person_with_bonus", "type": "Currency",
+             "options": {"locale": "pl-PL", "code": "PLN"},
+             "description": "cennik.xlsx 'Cena za h za osobe z bonusami'."},
             {"title": "valid_from", "type": "Date"},
             {"title": "valid_to", "type": "Date"},
+        ],
+    },
+    {
+        "title": "package_variants",
+        "description": "Katalog gotowych pakietow (Business English, English "
+                       "for IT, English + Business Skills: ..., Job "
+                       "Interview) do krotkich opisow na slajdzie 'NASZA "
+                       "REKOMENDACJA' (warianty_slajd_4.txt, 2026-08-11). "
+                       "Inny byt niz training_descriptions: to gotowy "
+                       "PRODUKT pokazywany klientowi na slajdzie "
+                       "rekomendacji, nie pojedynczy modul do skladania "
+                       "sciezki ETAP 1/ETAP 2.",
+        "fields": [
+            {"title": "name", "type": "SingleLineText"},
+            {"title": "short_description", "type": "LongText",
+             "description": "Kilkuzdaniowy opis pakietu na slajd 'NASZA "
+                            "REKOMENDACJA' - {{package.shortdescription}}."},
+            {"title": "default_hours", "type": "Number",
+             "description": "Domyslna/typowa liczba godzin pakietu - "
+                            "{{package.hours}}."},
+            {"title": "lesson_frequency", "type": "Number",
+             "description": "Ile zajec tygodniowo w typowym harmonogramie - "
+                            "{{lessonfrequency}}."},
+            {"title": "lesson_minutes", "type": "Number",
+             "description": "Dlugosc pojedynczych zajec w minutach - "
+                            "{{lesson.minutes}}."},
+            {"title": "active", "type": "Checkbox", "default_value": True},
         ],
     },
     {
@@ -772,6 +864,12 @@ RELATIONS = [
     # przeniesione z leads (byla tam do 2026-08-10) - dwie oferty dla tego
     # samego leada moga chciec innych referencji w wygenerowanym dokumencie.
     ("offers", "selected_testimonials", "mm", "testimonials"),
+    # cennik.xlsx (2026-08-11): offers.product_type jest juz MultiSelect
+    # ("w jednej ofercie moze byc kilka roznych produktow naraz"), wiec
+    # jedna oferta moze objac kilka wierszy cennika (np. rozny hours/tryb
+    # per produkt) - stad mm, nie hm. Kazdy link wskazuje wiersz pricing,
+    # z ktorego wzieta zostala kwota w offers.total_price.
+    ("offers", "pricing", "mm", "pricing"),
     # --- trzy poziomy merytoryczne (v3 "Architektura tabel")
     ("participants", "assessments", "hm", "assessments"),
     ("participants", "recommendations", "hm", "recommendations"),
