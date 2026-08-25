@@ -101,7 +101,10 @@ CZEGO TEN SKRYPT NIE ROBI (do wyklikania ręcznie po uruchomieniu):
 Idempotentny: tabele i pola-relacje o istniejącym tytule są pomijane.
 
 Wymaga w środowisku (patrz .env.example): NC_API_TOKEN, NC_CRM_BASE_ID.
-Opcjonalnie NC_LOCAL_URL (domyślnie http://localhost:8081).
+Opcjonalnie NC_LOCAL_URL (domyślnie http://localhost:8081), NC_CRM_SOURCE_ID
+(override dla resolve_source()). NOCODB_CRM_USER/NOCODB_CRM_PASSWORD/APP_DB
+sluza tylko do zbudowania connection stringa w komunikacie bledu, gdy nawet
+listy zrodel nie da sie odczytac (ani v3, ani v2) - patrz resolve_source().
 
 Usage:
   make init-schema
@@ -121,6 +124,11 @@ TOKEN = os.environ.get("NC_API_TOKEN")
 BASE_ID = os.environ.get("NC_CRM_BASE_ID")
 # Opcjonalny override - normalnie wykrywany automatycznie, patrz resolve_source().
 SOURCE_ID = os.environ.get("NC_CRM_SOURCE_ID")
+# Uzywane tylko do zbudowania connection stringa w komunikacie bledu resolve_source(),
+# gdy nawet listy zrodel nie da sie odczytac - patrz tam.
+APP_DB = os.environ.get("APP_DB", "appdata")
+NOCODB_CRM_USER = os.environ.get("NOCODB_CRM_USER")
+NOCODB_CRM_PASSWORD = os.environ.get("NOCODB_CRM_PASSWORD")
 
 if not TOKEN or not BASE_ID:
     sys.exit("Brak NC_API_TOKEN / NC_CRM_BASE_ID w środowisku - patrz .env.example.")
@@ -187,9 +195,22 @@ def resolve_source():
         sys.exit(f"Baza {BASE_ID} ma {len(external)} zewnętrznych źródeł "
                  f"({[s.get('alias') for s in external]}) - wskaż jednoznacznie "
                  f"przez NC_CRM_SOURCE_ID.")
-    sys.exit("Nie moge odczytac listy zrodel bazy (ani v3, ani v2). "
-             "Podaj NC_CRM_SOURCE_ID recznie - id znajdziesz w UI: "
-             "Base → Data Sources.")
+    if NOCODB_CRM_USER and NOCODB_CRM_PASSWORD:
+        conn_str = (f"postgresql://{NOCODB_CRM_USER}:{NOCODB_CRM_PASSWORD}"
+                    f"@postgres:5432/{APP_DB}")
+        conn_hint = (f"Wklej ten connection string w NocoDB UI (Base → Data "
+                     f"Sources → New → Postgres → Connection String), a Schema "
+                     f"ustaw recznie na `crm` (nie wchodzi w connection string):\n"
+                     f"  {conn_str}\n")
+    else:
+        conn_hint = ("Brak NOCODB_CRM_USER / NOCODB_CRM_PASSWORD w środowisku - "
+                     "nie moge zbudowac connection stringa. Podepnij zrodlo "
+                     "recznie w NocoDB UI (Host=postgres Port=5432 "
+                     f"Database={APP_DB} Schema=crm, "
+                     "User/Password = NOCODB_CRM_USER / NOCODB_CRM_PASSWORD z .env).\n")
+    sys.exit("Nie moge odczytac listy zrodel bazy (ani v3, ani v2).\n" + conn_hint +
+             "Po podpieciu zrodla w UI odczytaj jego id (Base → Data Sources) "
+             "i podaj jako NC_CRM_SOURCE_ID w .env, potem uruchom ponownie.")
 
 
 def select(*titles):
