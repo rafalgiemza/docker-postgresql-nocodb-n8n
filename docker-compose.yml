@@ -1,5 +1,5 @@
 # =============================================================================
-# coaction — internal tooling stack (PostgreSQL, n8n, NocoDB, SeaweedFS, MongoDB,
+# coaction — internal tooling stack (PostgreSQL, n8n, NocoDB, MinIO, MongoDB,
 # LibreChat, Uptime Kuma, Caddy). Each service lives in its own file under
 # fragments/ — this file only wires them together (include:) plus the shared
 # network and named volumes. See README.md for the service table and
@@ -8,7 +8,7 @@
 # ONE file for both dev and prod — no override.yml/prod.yml overlays. Every
 # dev-vs-prod difference (hostnames, protocol, LibreChat's cookie domain) is
 # driven purely by `.env` values (see .env.example); the only structural
-# constant across both is that debug ports (postgres/n8n/nocodb/seaweedfs/
+# constant across both is that debug ports (postgres/n8n/nocodb/minio/
 # librechat/uptime-kuma) are bound to 127.0.0.1 — reachable on your Mac in
 # dev, and on the VPS only via SSH/exec in prod, never from the network.
 # Caddy alone publishes on all interfaces (80/443), same in both.
@@ -29,8 +29,8 @@ include:
   - fragments/file-renderer-service.yml
   - fragments/seed-service.yml
   - fragments/testimonials-import.yml
-  - fragments/seaweedfs-compose.yml
-  - fragments/seaweedfs-init-compose.yml
+  - fragments/minio-compose.yml
+  - fragments/minio-init-compose.yml
   - fragments/mongodb-compose.yml
   - fragments/librechat-compose.yml
   - fragments/uptime-kuma-compose.yml
@@ -47,9 +47,9 @@ volumes:
   # picked up Compose's ownership labels) — external: true stops Compose
   # from complaining every time it's touched. name: is required here since
   # external volumes skip the usual <project>_<key> prefixing.
-  seaweedfs_storage:
+  minio_storage:
     external: true
-    name: docker_seaweedfs_storage
+    name: docker_minio_storage
   mongo_storage:
   librechat_images:
   librechat_uploads:

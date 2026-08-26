@@ -6,7 +6,7 @@
 #
 # n8n/nocodb hold live connections to their own Postgres databases the moment
 # they're running, and DROP DATABASE blocks on any open connection — so this
-# explicitly stops them (and seaweedfs, whose volume gets overwritten in step
+# explicitly stops them (and minio, whose volume gets overwritten in step
 # 6) before touching Postgres, restores everything, then starts the rest of
 # the stack at the end. `docker compose up -d postgres mongodb` alone is NOT
 # enough — it only ensures those two are running, it does not stop whatever
@@ -31,7 +31,7 @@ DC_CMD="docker compose -f $REPO_ROOT/docker-compose.yml"
 POSTGRES_CONTAINER="docker-postgres-1"
 MONGO_CONTAINER="docker-mongodb-1"
 NOCODB_VOLUME="docker_nocodb_storage"
-SEAWEEDFS_VOLUME="docker_seaweedfs_storage"
+MINIO_VOLUME="docker_minio_storage"
 
 TS="${1:-}"
 
@@ -41,8 +41,8 @@ fail() { echo "❌ FAILURE: $*" >&2; exit 1; }
 
 echo "🚀 Rozpoczynam przywracanie z backupu: $TS"
 
-echo "📦 1/8 Zatrzymuję n8n/nocodb/seaweedfs (trzymają połączenia do Postgresa / uchwyty do wolumenów) i podnoszę tylko postgres/mongo..."
-$DC_CMD stop n8n nocodb seaweedfs
+echo "📦 1/8 Zatrzymuję n8n/nocodb/minio (trzymają połączenia do Postgresa / uchwyty do wolumenów) i podnoszę tylko postgres/mongo..."
+$DC_CMD stop n8n nocodb minio
 $DC_CMD up -d postgres mongodb
 echo "⏳ Czekam 15 sekund, aż bazy danych będą gotowe na przyjmowanie połączeń..."
 sleep 15
@@ -84,9 +84,9 @@ echo "📂 5/8 Wypakowuję wolumen NocoDB (cache/config, nie załączniki)..."
 docker run --rm -v "$NOCODB_VOLUME":/data -v "$BACKUP_DIR":/backup alpine \
     tar -xzf "/backup/nocodb_data_$TS.tar.gz" -C /data
 
-echo "📦 6/8 Wypakowuję wolumen SeaweedFS (attachments/offers/recordings/transcripts)..."
-docker run --rm -v "$SEAWEEDFS_VOLUME":/data -v "$BACKUP_DIR":/backup alpine \
-    tar -xzf "/backup/seaweedfs_$TS.tar.gz" -C /data
+echo "📦 6/8 Wypakowuję wolumen MinIO (attachments/offers/recordings/transcripts)..."
+docker run --rm -v "$MINIO_VOLUME":/data -v "$BACKUP_DIR":/backup alpine \
+    tar -xzf "/backup/minio_$TS.tar.gz" -C /data
 
 echo "🍃 7/8 Przywracanie bazy MongoDB (LibreChat)..."
 if [ -f "$BACKUP_DIR/mongo_$TS.archive" ]; then
@@ -96,7 +96,7 @@ else
     echo "   -> Brak pliku mongo_$TS.archive. Pomijam ten krok."
 fi
 
-echo "🔄 8/8 Podnoszę resztę stacka (n8n/nocodb/seaweedfs/...), by zaczytała przywrócone dane..."
+echo "🔄 8/8 Podnoszę resztę stacka (n8n/nocodb/minio/...), by zaczytała przywrócone dane..."
 # Postgres bywa chwilowo nieresponsywny na pg_isready tuż po dużym restore
 # (masowy COPY do 3 baz + dwa tar -x wolumenów zaraz obok, na tym samym
 # dysku) — znany, powtarzalny wzorzec I/O-stall na tym hoście, nie jednorazowy
@@ -111,7 +111,7 @@ for attempt in 1 2 3; do
     echo "⚠️  up -d nie powiodło się (próba $attempt/3) — Postgres pewnie jeszcze się domyka po restore, ponawiam za 5s..."
     sleep 5
 done
-# Caddy trzyma połączenie/DNS do starych IP n8n/nocodb/seaweedfs sprzed ich
+# Caddy trzyma połączenie/DNS do starych IP n8n/nocodb/minio sprzed ich
 # restartu powyżej i nie zawsze się sam odświeża — bez tego kolejny restore
 # kończy się 502 Bad Gateway, dopóki ktoś ręcznie nie zrestartuje Caddy
 # (potwierdzone na VPS-B).

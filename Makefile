@@ -141,7 +141,7 @@ add-rag-db: ## One-time: add the RAG database to an already-running Postgres
 	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "CREATE USER $(RAG_DB_USER) WITH PASSWORD '$(RAG_DB_PASSWORD)';" || true
 	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "CREATE DATABASE $(RAG_DB) OWNER $(RAG_DB_USER);" || true
 
-backup: ## Dump all DBs + NocoDB/SeaweedFS volumes to ./backups and push offsite via restic
+backup: ## Dump all DBs + NocoDB/MinIO volumes to ./backups and push offsite via restic
 	./backup/backup.sh
 
 backup-prune: ## Run backup + prune old restic snapshots (same as the daily cron job)

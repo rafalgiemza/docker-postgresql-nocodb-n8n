@@ -163,8 +163,8 @@ long-running container recovers on its own after a crash or host restart.
 
 - **Restart policy: already correct, no changes needed.** Every long-running
   service in `docker-compose.yml` already has `restart: unless-stopped`
-  (postgres, n8n, n8n-runner, nocodb, seaweedfs, mongodb, librechat, caddy).
-  `seaweedfs-init` is intentionally `restart: 'no'` — it's a one-shot bucket
+  (postgres, n8n, n8n-runner, nocodb, minio, mongodb, librechat, caddy).
+  `minio-init` is intentionally `restart: 'no'` — it's a one-shot bucket/user
   provisioning job, not a long-running service.
 - **The real gap was missing healthchecks**, not restart policy: `caddy` and
   `n8n-runner` had none, so `docker compose ps` couldn't tell you they were

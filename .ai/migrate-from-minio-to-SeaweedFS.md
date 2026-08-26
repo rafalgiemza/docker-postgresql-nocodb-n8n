@@ -1,4 +1,12 @@
-# Migracja: MinIO → SeaweedFS
+# Migracja: MinIO → SeaweedFS — WYCOFANE
+
+> **Historyczne, wycofane (2026-08-26).** Ten plan został wykonany
+> (2026-08-08), a następnie cofnięty — stack wrócił do MinIO OSS, zamrożonego
+> na ostatnim release (patrz `fragments/minio-compose.yml`,
+> `post-mortem/mikrus/vps-migration-decision.md` sekcja "Aktualizacja
+> (2026-08-26)"). Reszta tego dokumentu to zapis oryginalnej decyzji i
+> wykonania z 2026-08-08 — zostaje jako historyczny kontekst, nie jako
+> aktualny stan repo. Bieżący bootstrap MinIO: `docs/init-minio.md`.
 
 ## 0. Kontekst i decyzja
 

@@ -69,15 +69,17 @@ Zastąpiły Mikr.us 4.1 (powtarzające się stalle dysku I/O, `post-mortem/logs.
   (brak `host-passthrough`), nie realny limit fizycznego CPU — zgłoszone i naprawione
   przez Sferahost. Do potwierdzenia: czy `host-passthrough` przetrwa ewentualną
   migrację VM między hostami klastra dostawcy.
-- **MinIO OSS było martwe od 2026-04** (upstream `minio/minio` zarchiwizowany
-  na stałe, firma przeszła na płatny AIStor) — **zmigrowano na SeaweedFS
-  (2026-08-08)**, decyzja zamknięta. Apache 2.0, aktywnie rozwijany, pełny
-  parytet funkcji (wersjonowanie bucketów, lifecycle policies) — Garage
-  odpadł jako kandydat, bo nie wspiera wersjonowania bucketów wymaganego przez
-  `offers`/`templates`. Pełne uzasadnienie i plan wykonania:
-  [`.ai/migrate-from-minio-to-SeaweedFS.md`](migrate-from-minio-to-SeaweedFS.md).
+- **MinIO OSS jest martwe od 2026-04** (upstream `minio/minio` zarchiwizowany
+  na stałe, firma przeszła na płatny AIStor) — migracja na SeaweedFS została
+  **wypróbowana i wycofana** (2026-08-08 → 2026-08-26, powód wycofania: brak
+  czasu na dopięcie tej migracji teraz — do rozważenia ponownie w przyszłości,
+  jeśli pojawi się na to czas). Z powrotem na MinIO, zamrożone na ostatnim OSS release
+  (`RELEASE.2025-10-15T17-29-55Z`, patrz `fragments/minio-compose.yml`) — decyzja
+  "zamrożone na stałe" ponownie aktualna. Pełny zapis próby migracji:
+  [`.ai/migrate-from-minio-to-SeaweedFS.md`](migrate-from-minio-to-SeaweedFS.md)
+  (oznaczony jako wycofany), `post-mortem/mikrus/vps-migration-decision.md`.
 - Stack (docker compose, `include:` z `fragments/*.yml`): `postgres`, `nocodb`,
-  `n8n` + `n8n-runner`, `seaweedfs` + `seaweedfs-init`, `mongodb` (tylko dla LibreChat),
+  `n8n` + `n8n-runner`, `minio` + `minio-init`, `mongodb` (tylko dla LibreChat),
   `librechat`, `uptime-kuma`, `beszel` + `beszel-agent`, `autoheal`, `caddy` (80/443, TLS) — kontenery
   aplikacyjne bez publikowanych portów, ruch tylko przez Caddy.
 - Ruch wewnętrzny po nazwach serwisów: n8n→NocoDB `http://nocodb:8080`,
@@ -271,9 +273,10 @@ komponentów (`scripts/`, `wordpress/`), nie jako artefakt sesji Fable.
 5. Wiązanie tasków pipeline'ów markerami w opisie — nie edytować ręcznie.
 6. Seed i import nie są transakcyjne — seed tworzy duplikaty przy re-runie
    (importer nie, dzięki `legacy_id`).
-7. **CPU passthrough i status MinIO OSS** — patrz §4; oba udokumentowane i
-   rozwiązane (passthrough naprawiony przez Sferahost, MinIO zmigrowane na
-   SeaweedFS 2026-08-08).
+7. **CPU passthrough i status MinIO OSS** — patrz §4; passthrough naprawiony
+   przez Sferahost. MinIO OSS: próba migracji na SeaweedFS wycofana
+   2026-08-26, z powrotem zamrożone na ostatnim OSS release — świadoma
+   decyzja, nie otwarty temat.
 
 ## 12. Backlog (faza 2)
 
@@ -336,7 +339,8 @@ NocoDB-native, prostsze:
    transkrybowane zamiast ręcznego wklejania) — Deepgram / AssemblyAI / OpenAI
    Whisper API?
 4. ~~**MinIO OSS: zamrożone na stałe czy migracja**~~ — **rozstrzygnięte
-   2026-08-08: migracja na SeaweedFS.** Patrz §4/§11 pkt 7 i
+   2026-08-08: migracja na SeaweedFS. Wycofane 2026-08-26: z powrotem
+   zamrożone MinIO OSS.** Patrz §4/§11 pkt 7 i
    [`.ai/migrate-from-minio-to-SeaweedFS.md`](migrate-from-minio-to-SeaweedFS.md).
 5. **Kto dostaje taski poza już zamodelowanymi rolami** — role Kasi (marketing)
    i Pauliny (finanse) są w §2, ale nie były jeszcze przetestowane na żywych

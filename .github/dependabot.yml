@@ -1,5 +1,5 @@
 # Version updates for the third-party images pinned in fragments/*-compose.yml
-# (n8n, NocoDB, MongoDB, LibreChat, SeaweedFS, Uptime Kuma, Beszel, autoheal,
+# (n8n, NocoDB, MongoDB, LibreChat, MinIO, Uptime Kuma, Beszel, autoheal,
 # Caddy, Postgres, minio/mc). Each image gets its own PR — deliberately not
 # grouped, so a routine patch bump (e.g. Caddy) doesn't get held up review of
 # a riskier one (e.g. Mongo, see the ignore rule below) — except n8n +

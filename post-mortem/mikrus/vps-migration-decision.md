@@ -63,5 +63,13 @@ Pierwszy deploy na VPS PRO od razu ujawnił nowy problem: `mongodb` (`MongoDB 5.
 
 ### Do zrobienia (dopisane)
 
-- [x] Zdecydować docelowo: zamrożone MinIO OSS czy migracja na Garage/SeaweedFS — **rozstrzygnięte 2026-08-08: migracja na SeaweedFS** (Garage odpadł, brak wersjonowania bucketów). Pełny plan i wykonanie: [`.ai/migrate-from-minio-to-SeaweedFS.md`](../../.ai/migrate-from-minio-to-SeaweedFS.md).
+- [x] Zdecydować docelowo: zamrożone MinIO OSS czy migracja na Garage/SeaweedFS — **rozstrzygnięte 2026-08-08: migracja na SeaweedFS** (Garage odpadł, brak wersjonowania bucketów). Pełny plan i wykonanie: [`.ai/migrate-from-minio-to-SeaweedFS.md`](../../.ai/migrate-from-minio-to-SeaweedFS.md). **Wycofane 2026-08-26** — patrz aktualizacja niżej.
 - [ ] Potwierdzić u Sferahost, że `host-passthrough` przetrwa ewentualny restart/migrację VM między hostami w ich klastrze (nie tylko jednorazowa zmiana).
+
+## Aktualizacja (2026-08-26): migracja na SeaweedFS wycofana, powrót do MinIO
+
+Migracja z 2026-08-08 (`.ai/migrate-from-minio-to-SeaweedFS.md`) została cofnięta w repo — stack wraca do MinIO OSS, zamrożonego na ostatnim release (`RELEASE.2025-10-15T17-29-55Z`, patrz `fragments/minio-compose.yml`). Powód wycofania: brak czasu na dopięcie tej migracji teraz (dokończenie configu na żywym serwerze, weryfikacja CPU, migracja danych) — SeaweedFS zostaje opcją do rozważenia ponownie w przyszłości, jeśli pojawi się na to czas.
+
+Zakres cofnięcia: kod/config w repo (compose fragmenty, `.env.example`, `Caddyfile`, `backup.sh`/`restore.sh`, `Makefile`, dokumentacja) — patrz `docs/init-minio.md`. **Żadne dane na żywym serwerze nie zostały przeniesione** jako część tej zmiany — VPS-A (prod, live od 2026-08-10) i VPS-B nadal mają realny wolumen `seaweedfs_storage` z danymi wgranymi od migracji; przełączenie na `minio_storage` na żywym serwerze wymaga osobnego planu migracji danych (nie tylko `git pull` + `make up`) zanim ten kod trafi na VPS.
+
+Ryzyko do sprawdzenia przed deployem na żywy serwer: `minio`'s ostatni OSS release wymaga `x86-64-v2` (patrz aktualizacja 2026-07-17 wyżej — to dokładnie ten obraz, który wtedy crash-loopował na domyślnym CPU QEMU). CPU passthrough został naprawiony przez Sferahost na obecnych VPS-A/VPS-B, ale warto ponownie zweryfikować (`lscpu | grep -o 'avx[0-9]*'`) przed pierwszym `make up` z MinIO na żywym serwerze.
