@@ -73,8 +73,10 @@ Zastąpiły Mikr.us 4.1 (powtarzające się stalle dysku I/O, `post-mortem/logs.
   na stałe, firma przeszła na płatny AIStor) — migracja na SeaweedFS została
   **wypróbowana i wycofana** (2026-08-08 → 2026-08-26, powód wycofania: brak
   czasu na dopięcie tej migracji teraz — do rozważenia ponownie w przyszłości,
-  jeśli pojawi się na to czas). Z powrotem na MinIO, zamrożone na ostatnim OSS release
-  (`RELEASE.2025-10-15T17-29-55Z`, patrz `fragments/minio-compose.yml`) — decyzja
+  jeśli pojawi się na to czas). Z powrotem na MinIO, zamrożone na ostatnim
+  zweryfikowanym-jako-pullable OSS release (patrz komentarz w
+  `fragments/minio-compose.yml` — poprzedni pin okazał się nie istnieć na
+  registry, wysadził `make up`) — decyzja
   "zamrożone na stałe" ponownie aktualna. Pełny zapis próby migracji:
   [`.ai/migrate-from-minio-to-SeaweedFS.md`](migrate-from-minio-to-SeaweedFS.md)
   (oznaczony jako wycofany), `post-mortem/mikrus/vps-migration-decision.md`.

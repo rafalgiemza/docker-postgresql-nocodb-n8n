@@ -1,12 +1,12 @@
 services:
   minio:
-    # Pinned, not `latest`: minio/minio was archived by MinIO Inc. in April
-    # 2026 (community edition end-of-life, folded into paid AIStor) — this is
-    # the final OSS build that will ever exist, so `latest` and this pin are
-    # now permanently the same image. Pinning makes that explicit instead of
-    # implicit. See post-mortem/mikrus/vps-migration-decision.md and
-    # .ai/PRD.md §4 for the SeaweedFS detour and why it was reverted.
-    image: quay.io/minio/minio:RELEASE.2025-10-15T17-29-55Z
+    # Pinned, not `latest`: minio/minio's OSS edition is effectively frozen
+    # (see post-mortem/mikrus/vps-migration-decision.md and .ai/PRD.md §4 for
+    # the SeaweedFS detour and why it was reverted). Verified pullable against
+    # quay.io on 2026-08-26 (`docker manifest inspect`) — the tag the previous
+    # migration had pinned here (RELEASE.2025-10-15T17-29-55Z) does NOT exist
+    # on the registry, broke `make up` outright. Re-verify before bumping.
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     restart: unless-stopped
     labels:
       - autoheal=true

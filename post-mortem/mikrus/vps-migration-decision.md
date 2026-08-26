@@ -68,7 +68,9 @@ Pierwszy deploy na VPS PRO od razu ujawnił nowy problem: `mongodb` (`MongoDB 5.
 
 ## Aktualizacja (2026-08-26): migracja na SeaweedFS wycofana, powrót do MinIO
 
-Migracja z 2026-08-08 (`.ai/migrate-from-minio-to-SeaweedFS.md`) została cofnięta w repo — stack wraca do MinIO OSS, zamrożonego na ostatnim release (`RELEASE.2025-10-15T17-29-55Z`, patrz `fragments/minio-compose.yml`). Powód wycofania: brak czasu na dopięcie tej migracji teraz (dokończenie configu na żywym serwerze, weryfikacja CPU, migracja danych) — SeaweedFS zostaje opcją do rozważenia ponownie w przyszłości, jeśli pojawi się na to czas.
+Migracja z 2026-08-08 (`.ai/migrate-from-minio-to-SeaweedFS.md`) została cofnięta w repo — stack wraca do MinIO OSS, zamrożonego na ostatnim release zweryfikowanym jako faktycznie pullable z quay.io (patrz komentarz w `fragments/minio-compose.yml`). Powód wycofania: brak czasu na dopięcie tej migracji teraz (dokończenie configu na żywym serwerze, weryfikacja CPU, migracja danych) — SeaweedFS zostaje opcją do rozważenia ponownie w przyszłości, jeśli pojawi się na to czas.
+
+**Korekta do wpisu z 2026-07-17 niżej:** `RELEASE.2025-10-15T17-29-55Z`, przypięty wtedy jako "ostatni release, jaki kiedykolwiek powstanie", **nie istnieje na registry** (`docker manifest inspect` 404, potwierdzone przy tym przywróceniu, 2026-08-26) — wysadziło to `make up` od razu po odtworzeniu configu MinIO. Nieznane, czy tag nigdy nie istniał, czy został później usunięty z quay.io. Aktualny pin: patrz `fragments/minio-compose.yml`, zweryfikowany jako pullable w dniu commitu.
 
 Zakres cofnięcia: kod/config w repo (compose fragmenty, `.env.example`, `Caddyfile`, `backup.sh`/`restore.sh`, `Makefile`, dokumentacja) — patrz `docs/init-minio.md`. **Żadne dane na żywym serwerze nie zostały przeniesione** jako część tej zmiany — VPS-A (prod, live od 2026-08-10) i VPS-B nadal mają realny wolumen `seaweedfs_storage` z danymi wgranymi od migracji; przełączenie na `minio_storage` na żywym serwerze wymaga osobnego planu migracji danych (nie tylko `git pull` + `make up`) zanim ten kod trafi na VPS.
 

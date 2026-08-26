@@ -56,7 +56,9 @@ Jeśli DNS dla `MINIO_HOST` nie jest jeszcze ustawiony: upload i tak zadziała (
 
 ## CPU: `minio` wymaga x86-64-v2
 
-Ostatni obraz OSS MinIO (`RELEASE.2025-10-15T17-29-55Z`, zob. komentarz w `fragments/minio-compose.yml`) crashuje (`Fatal glibc error: CPU does not support x86-64-v2`) na hoście bez `host-passthrough` — dokładnie to uderzyło przy pierwszym stawianiu VPS-A/VPS-B (2026-07-17, `post-mortem/mikrus/vps-migration-decision.md`). Przed `make up` na nowym serwerze sprawdź `lscpu | grep -o 'avx[0-9]*' | sort -u` (patrz `docs/staging-vps-fresh-setup.md` Krok 0) — pusty wynik oznacza brak AVX/x86-64-v2, zgłoś do supportu i czekaj na fix zanim pójdziesz dalej.
+Obrazy MinIO z tego okresu crashują (`Fatal glibc error: CPU does not support x86-64-v2`) na hoście bez `host-passthrough` — dokładnie to uderzyło przy pierwszym stawianiu VPS-A/VPS-B (2026-07-17, `post-mortem/mikrus/vps-migration-decision.md`). Przed `make up` na nowym serwerze sprawdź `lscpu | grep -o 'avx[0-9]*' | sort -u` (patrz `docs/staging-vps-fresh-setup.md` Krok 0) — pusty wynik oznacza brak AVX/x86-64-v2, zgłoś do supportu i czekaj na fix zanim pójdziesz dalej.
+
+Jeśli `host-passthrough` nie da się naprawić: quay.io ma dla części release'ów wariant `-cpuv1` (np. `RELEASE.2025-09-07T16-13-09Z-cpuv1`) zbudowany bez wymogu x86-64-v2 — niepotwierdzone lokalnie na tym stacku, ale warto sprawdzić zanim zejdzie się na SeaweedFS wyłącznie z tego powodu.
 
 ## Jeśli `minio-init` failuje
 
