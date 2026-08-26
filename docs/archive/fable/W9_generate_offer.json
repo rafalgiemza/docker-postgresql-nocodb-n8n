@@ -6,31 +6,35 @@
         "path": "w9-generate-offer",
         "options": {}
       },
-      "id": "129f2e03-722f-474f-928e-1b6954df927e",
+      "id": "6b783055-b66d-4a6d-a73b-46467e505f3a",
       "name": "Button: Generate offer",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [-2016, 96],
+      "position": [
+        768,
+        3200
+      ],
       "webhookId": "wh-w9-generate-offer"
     },
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "operation": "get",
-        "workspaceId": "ws8amqq9",
-        "projectId": "p0faehtfzhvzfh2",
-        "table": "m8dyut5qe47dda8",
-        "id": "={{ $json.body.data.rows[0].leads.Id }}",
-        "options": {}
+        "workspaceId": "wpgg1mff",
+        "projectId": "p6w78auzu6sjdoo",
+        "table": "me1m2pf6e5uvcan",
+        "id": "={{ $json.body.data.rows[0].leads.Id }}"
       },
-      "id": "a1b1c1d1-0001-4001-8001-000000000001",
+      "id": "9a3482da-5c93-439e-979c-12c29fc4f9ea",
       "name": "Get lead",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
-      "position": [-1792, 96],
+      "position": [
+        992,
+        2624
+      ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
+          "id": "9gq205HbXOk9D3Jm",
           "name": "NocoDB Token account"
         }
       }
@@ -38,45 +42,49 @@
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "operation": "get",
-        "workspaceId": "ws8amqq9",
-        "projectId": "p0faehtfzhvzfh2",
+        "workspaceId": "wpgg1mff",
+        "projectId": "p6w78auzu6sjdoo",
         "table": "mh9swgmt1uzqmqo",
-        "id": "={{ $json.companies?.Id }}",
-        "options": {}
+        "id": "={{ $json.companies?.Id }}"
       },
-      "id": "a1b1c1d1-0002-4001-8001-000000000002",
+      "id": "14dd01c4-f9e5-4440-af95-cfd583393bdd",
       "name": "Get company",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
-      "position": [-1568, 96],
-      "onError": "continueRegularOutput",
+      "position": [
+        1216,
+        2624
+      ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
+          "id": "9gq205HbXOk9D3Jm",
           "name": "NocoDB Token account"
         }
-      }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
         "operation": "getAll",
-        "workspaceId": "ws8amqq9",
-        "projectId": "p0faehtfzhvzfh2",
-        "table": "ma2cve4ke7aetig",
+        "workspaceId": "wpgg1mff",
+        "projectId": "p6w78auzu6sjdoo",
+        "table": "mpxle5is8zlryza",
         "returnAll": true,
         "options": {}
       },
-      "id": "a1b1c1d1-0003-4001-8001-000000000003",
+      "id": "f3a538d7-ebe9-490a-b59b-e289692b7c48",
       "name": "Fetch participants",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
-      "position": [-1792, 240],
+      "position": [
+        1216,
+        2816
+      ],
       "alwaysOutputData": true,
       "credentials": {
         "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
+          "id": "9gq205HbXOk9D3Jm",
           "name": "NocoDB Token account"
         }
       }
@@ -85,21 +93,24 @@
       "parameters": {
         "authentication": "nocoDbApiToken",
         "operation": "getAll",
-        "workspaceId": "ws8amqq9",
-        "projectId": "p0faehtfzhvzfh2",
-        "table": "m5gmr6pc0nls190",
+        "workspaceId": "wpgg1mff",
+        "projectId": "p6w78auzu6sjdoo",
+        "table": "m3b63s49ycn9ict",
         "returnAll": true,
         "options": {}
       },
-      "id": "b1e40833-987b-43f3-9727-3bdea20abc77",
+      "id": "595466ba-937e-435b-8fc8-f073ce67c9d3",
       "name": "Fetch assessments",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
-      "position": [-1792, 384],
+      "position": [
+        1216,
+        3008
+      ],
       "alwaysOutputData": true,
       "credentials": {
         "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
+          "id": "9gq205HbXOk9D3Jm",
           "name": "NocoDB Token account"
         }
       }
@@ -108,21 +119,24 @@
       "parameters": {
         "authentication": "nocoDbApiToken",
         "operation": "getAll",
-        "workspaceId": "ws8amqq9",
-        "projectId": "p0faehtfzhvzfh2",
-        "table": "mngov45ebwecugu",
+        "workspaceId": "wpgg1mff",
+        "projectId": "p6w78auzu6sjdoo",
+        "table": "mfe0mzhd17pe0tq",
         "returnAll": true,
         "options": {}
       },
-      "id": "a1b1c1d1-0004-4001-8001-000000000004",
+      "id": "ea8c7127-667d-4cf0-94e6-51349f684e43",
       "name": "Fetch recommendations",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
-      "position": [-1792, 528],
+      "position": [
+        1216,
+        3200
+      ],
       "alwaysOutputData": true,
       "credentials": {
         "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
+          "id": "9gq205HbXOk9D3Jm",
           "name": "NocoDB Token account"
         }
       }
@@ -131,21 +145,24 @@
       "parameters": {
         "authentication": "nocoDbApiToken",
         "operation": "getAll",
-        "workspaceId": "ws8amqq9",
-        "projectId": "p0faehtfzhvzfh2",
-        "table": "m13ny8aoyusyc46",
+        "workspaceId": "wpgg1mff",
+        "projectId": "p6w78auzu6sjdoo",
+        "table": "mh351lo8gz50g3h",
         "returnAll": true,
         "options": {}
       },
-      "id": "a1b1c1d1-0005-4001-8001-000000000005",
+      "id": "ece8b779-865e-4155-b14b-6eb182aec3a7",
       "name": "Fetch recommendation_packages",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
-      "position": [-1792, 672],
+      "position": [
+        1216,
+        3392
+      ],
       "alwaysOutputData": true,
       "credentials": {
         "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
+          "id": "9gq205HbXOk9D3Jm",
           "name": "NocoDB Token account"
         }
       }
@@ -154,21 +171,24 @@
       "parameters": {
         "authentication": "nocoDbApiToken",
         "operation": "getAll",
-        "workspaceId": "ws8amqq9",
-        "projectId": "p0faehtfzhvzfh2",
-        "table": "mb5qa8qtrnrs403",
+        "workspaceId": "wpgg1mff",
+        "projectId": "p6w78auzu6sjdoo",
+        "table": "mviwm7nphb9ylbi",
         "returnAll": true,
         "options": {}
       },
-      "id": "a1b1c1d1-0006-4001-8001-000000000006",
+      "id": "c384e4b6-afe8-4c06-92f5-e77e3fead53b",
       "name": "Fetch training_descriptions",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
-      "position": [-1792, 816],
+      "position": [
+        1216,
+        3584
+      ],
       "alwaysOutputData": true,
       "credentials": {
         "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
+          "id": "9gq205HbXOk9D3Jm",
           "name": "NocoDB Token account"
         }
       }
@@ -177,87 +197,73 @@
       "parameters": {
         "authentication": "nocoDbApiToken",
         "operation": "getAll",
-        "workspaceId": "ws8amqq9",
-        "projectId": "p0faehtfzhvzfh2",
-        "table": "m8pkrf46jhxi1us",
+        "workspaceId": "wpgg1mff",
+        "projectId": "p6w78auzu6sjdoo",
+        "table": "ml1qk102n0ddsq2",
         "returnAll": true,
         "options": {}
       },
-      "id": "a1b1c1d1-0007-4001-8001-000000000007",
+      "id": "d9779ac8-1864-41f2-85ca-3623992096a9",
       "name": "Fetch meetings",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
-      "position": [-1792, 960],
+      "position": [
+        1216,
+        3776
+      ],
       "alwaysOutputData": true,
       "credentials": {
         "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
+          "id": "9gq205HbXOk9D3Jm",
           "name": "NocoDB Token account"
         }
       }
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/m8dyut5qe47dda8/links/c8vz6xm01o11jvb/records/{{ $('Button: Generate offer').first().json.body.data.rows[0].leads.Id }}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "nocoDbApiToken",
-        "options": {}
+        "numberInputs": 7
       },
-      "id": "a1b1c1d1-0008-4001-8001-000000000008",
-      "name": "Fetch testimonials for lead",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [-1792, 1104],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "mode": "append",
-        "numberInputs": 8,
-        "options": {}
-      },
-      "id": "a1b1c1d1-0009-4001-8001-000000000009",
+      "id": "49101a59-d98b-49f9-a410-ee4b974cab4c",
       "name": "Merge fetches",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [-1344, 600]
+      "position": [
+        1440,
+        3120
+      ]
     },
     {
       "parameters": {
-        "mode": "runOnceForAllItems",
-        "language": "javaScript",
-        "jsCode": "const offerRow = $('Button: Generate offer').first().json.body.data.rows[0];\nconst offerId = offerRow.Id;\nconst leadId = offerRow.leads?.Id;\n\nconst lead = $('Get lead').first().json;\nconst company = $('Get company').first().json || {};\n\nconst allParticipants = $('Fetch participants').all().map(i => i.json);\nconst participants = allParticipants.filter(p => p.leads?.Id === leadId);\n\nconst allAssessments = $('Fetch assessments').all().map(i => i.json);\nconst allRecommendations = $('Fetch recommendations').all().map(i => i.json);\nconst allPackages = $('Fetch recommendation_packages').all().map(i => i.json);\nconst allTrainingDescriptions = $('Fetch training_descriptions').all().map(i => i.json);\nconst allMeetings = $('Fetch meetings').all().map(i => i.json);\nconst leadTestimonials = ($('Fetch testimonials for lead').first().json.list ?? []);\n\n// Najnowszy wg podanych pol (kolejnosc = priorytet), konwencja v3: sort=-UpdatedAt.\nconst latestBy = (rows, dateFields) => rows.slice().sort((a, b) => {\n  const av = dateFields.map(f => a[f]).find(v => v) ?? '';\n  const bv = dateFields.map(f => b[f]).find(v => v) ?? '';\n  return String(bv).localeCompare(String(av));\n})[0];\n\nconst leadMeetings = allMeetings.filter(m => m.leads?.Id === leadId);\nconst latestMeeting = latestBy(leadMeetings, ['starts_at', 'UpdatedAt', 'CreatedAt']) ?? {};\n\nconst participantData = participants.map(p => {\n  const asses = allAssessments.filter(a => a.participants?.Id === p.Id);\n  const a = latestBy(asses, ['UpdatedAt', 'CreatedAt']) ?? {};\n  const scores = { o: a.cefr_overall, r: a.cefr_range, a: a.cefr_accuracy, f: a.cefr_fluency, c: a.cefr_communication };\n\n  const recs = allRecommendations.filter(r => r.participants?.Id === p.Id);\n  const rec = latestBy(recs, ['UpdatedAt', 'CreatedAt']) ?? {};\n\n  return {\n    full_name: p.full_name,\n    position: p.position,\n    a: scores,\n    assessment: { ...scores, needs_summary: a.needs_summary, strengths: a.strengths, gaps: a.gaps, title: a.title },\n    recommendation: { type: rec.type, headline: rec.headline, rationale: rec.rationale, priority: rec.priority },\n    _recommendationId: rec.Id,\n  };\n});\n\n// Modul flat: repeat:module w szablonie nie obsluguje zagniezdzonych list -\n// jeden wiersz per (uczestnik, modul), patrz nocodb_crm_schema_v3.md \"Co sie zmienia w W9\".\nconst modules = [];\nfor (const p of participantData) {\n  if (p._recommendationId == null) continue;\n  const packages = allPackages\n    .filter(pkg => pkg.recommendations?.Id === p._recommendationId)\n    .sort((x, y) => (x.sort_order ?? 0) - (y.sort_order ?? 0));\n  for (const pkg of packages) {\n    const td = allTrainingDescriptions.find(t => t.Id === pkg.training_descriptions?.Id) ?? {};\n    modules.push({\n      sort_order: pkg.sort_order,\n      hours: pkg.hours_in_package,\n      mode: pkg.training_group_size,\n      title: td.title,\n      goal_statement: td.learning_goal,\n      participant_name: p.full_name,\n    });\n  }\n}\n\nconst participant = participantData.map(({ _recommendationId, ...rest }) => rest);\n\nconst data = {\n  lead: {\n    contact_name: lead.lead_name,\n    type: lead.lead_type,\n    contact_email: lead.contact_email,\n    contact_phone: lead.contact_phone,\n    industry: lead.industry,\n    notes: lead.notes,\n  },\n  company: {\n    name: company.name,\n    industry: company.industry,\n    notes: company.notes,\n    communication_processes: company.communication_processes,\n    business_impact: company.business_impact,\n  },\n  meeting: {\n    goals: latestMeeting.goals,\n    challenges: latestMeeting.challenges,\n    business_context: latestMeeting.business_context,\n    communication_situations: latestMeeting.communication_situations,\n  },\n  offer: {\n    date: $now.toFormat('dd.MM.yyyy'),\n    price: offerRow.total_price,\n    hours: offerRow.hours,\n    variant: offerRow.product_type ?? '',\n    participants_count: participant.length,\n  },\n  participant,\n  module: modules,\n  testimonial: leadTestimonials.map(t => ({ ...t, name: t.client_name })),\n};\n\nreturn [{ json: { offer_id: offerId, lead_id: leadId, data } }];"
+        "jsCode": "const offerRow = $('Button: Generate offer').first().json.body.data.rows[0];\nconst offerId = offerRow.Id;\nconst leadId = offerRow.leads?.Id;\n\nconst lead = $('Get lead').first().json;\nconst company = $('Get company').first().json || {};\n\nconst allParticipants = $('Fetch participants').all().map(i => i.json);\nconst participants = allParticipants.filter(p => p.leads?.Id === leadId);\n\nconst allAssessments = $('Fetch assessments').all().map(i => i.json);\nconst allRecommendations = $('Fetch recommendations').all().map(i => i.json);\nconst allPackages = $('Fetch recommendation_packages').all().map(i => i.json);\nconst allTrainingDescriptions = $('Fetch training_descriptions').all().map(i => i.json);\nconst allMeetings = $('Fetch meetings').all().map(i => i.json);\n\n// Najnowszy wg podanych pol (kolejnosc = priorytet), konwencja v3: sort=-UpdatedAt.\nconst latestBy = (rows, dateFields) => rows.slice().sort((a, b) => {\n  const av = dateFields.map(f => a[f]).find(v => v) ?? '';\n  const bv = dateFields.map(f => b[f]).find(v => v) ?? '';\n  return String(bv).localeCompare(String(av));\n})[0];\n\nconst leadMeetings = allMeetings.filter(m => m.leads?.Id === leadId);\nconst latestMeeting = latestBy(leadMeetings, ['starts_at', 'UpdatedAt', 'CreatedAt']) ?? {};\n\nconst participantData = participants.map(p => {\n  const asses = allAssessments.filter(a => a.participants?.Id === p.Id);\n  const a = latestBy(asses, ['UpdatedAt', 'CreatedAt']) ?? {};\n  const scores = { o: a.cefr_overall, r: a.cefr_range, a: a.cefr_accuracy, f: a.cefr_fluency, c: a.cefr_communication };\n\n  const recs = allRecommendations.filter(r => r.participants?.Id === p.Id);\n  const rec = latestBy(recs, ['UpdatedAt', 'CreatedAt']) ?? {};\n\n  return {\n    full_name: p.full_name,\n    position: p.position,\n    a: scores,\n    assessment: { ...scores, needs_summary: a.needs_summary, strengths: a.strengths, gaps: a.gaps, title: a.title },\n    recommendation: { type: rec.type, headline: rec.headline, rationale: rec.rationale, priority: rec.priority },\n    _recommendationId: rec.Id,\n  };\n});\n\n// Modul flat: repeat:module w szablonie nie obsluguje zagniezdzonych list -\n// jeden wiersz per (uczestnik, modul), patrz nocodb_crm_schema_v3.md \"Co sie zmienia w W9\".\nconst modules = [];\nfor (const p of participantData) {\n  if (p._recommendationId == null) continue;\n  const packages = allPackages\n    .filter(pkg => pkg.recommendations?.Id === p._recommendationId)\n    .sort((x, y) => (x.sort_order ?? 0) - (y.sort_order ?? 0));\n  for (const pkg of packages) {\n    const td = allTrainingDescriptions.find(t => t.Id === pkg.training_descriptions?.Id) ?? {};\n    modules.push({\n      sort_order: pkg.sort_order,\n      hours: pkg.hours_in_package,\n      mode: pkg.training_group_size,\n      title: td.title,\n      goal_statement: td.learning_goal,\n      participant_name: p.full_name,\n    });\n  }\n}\n\nconst participant = participantData.map(({ _recommendationId, ...rest }) => rest);\n\nconst data = {\n  lead: {\n    contact_name: lead.lead_name,\n    type: lead.lead_type,\n    contact_email: lead.contact_email,\n    contact_phone: lead.contact_phone,\n    industry: lead.industry,\n    notes: lead.notes,\n  },\n  company: {\n    name: company.name,\n    industry: company.industry,\n    notes: company.notes,\n    communication_processes: company.communication_processes,\n    business_impact: company.business_impact,\n  },\n  meeting: {\n    goals: latestMeeting.goals,\n    challenges: latestMeeting.challenges,\n    business_context: latestMeeting.business_context,\n    communication_situations: latestMeeting.communication_situations,\n  },\n  offer: {\n    date: $now.toFormat('dd.MM.yyyy'),\n    price: offerRow.total_price,\n    hours: offerRow.hours,\n    variant: offerRow.product_type ?? '',\n    participants_count: participant.length,\n  },\n  participant,\n  module: modules,\n};\n\nreturn [{ json: { offer_id: offerId, lead_id: leadId, data } }];"
       },
-      "id": "410ed9d3-54a7-455e-ac26-36ede4fcdc17",
+      "id": "772468fe-7f96-4c14-9eef-2e78b03df023",
       "name": "Assemble render data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-1120, 600]
+      "position": [
+        1664,
+        3200
+      ]
     },
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "operation": "get",
-        "workspaceId": "ws8amqq9",
-        "projectId": "p0faehtfzhvzfh2",
-        "table": "mqkv1evsugo7akc",
-        "id": "={{ $('Button: Generate offer').first().json.body.data.rows[0].document_templates.Id }}",
-        "options": {}
+        "workspaceId": "wpgg1mff",
+        "projectId": "p6w78auzu6sjdoo",
+        "table": "mzsdnu75tm5lgv1",
+        "id": "={{ $('Button: Generate offer').first().json.body.data.rows[0].document_templates.Id }}"
       },
-      "id": "5cdd7d9a-e0a2-44a4-ac6f-60802b059ed7",
+      "id": "2887589d-1f6c-4c46-9519-fc1bcb049e26",
       "name": "Get offer template",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
-      "position": [-1120, 600],
+      "position": [
+        1888,
+        3200
+      ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
+          "id": "9gq205HbXOk9D3Jm",
           "name": "NocoDB Token account"
         }
       }
@@ -274,11 +280,14 @@
           }
         }
       },
-      "id": "74077caf-bea9-4940-9476-e83a08c09477",
+      "id": "ac417ce6-6f9b-47f8-8d2e-75a8ad00c173",
       "name": "Download template file",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-896, 600]
+      "position": [
+        2112,
+        3200
+      ]
     },
     {
       "parameters": {
@@ -310,24 +319,28 @@
           "timeout": 120000
         }
       },
-      "id": "6cb248cb-b29f-453f-811b-9deba28c7dc4",
+      "id": "3d2ed1be-fb3d-4d74-aacf-2fc68da9b50b",
       "name": "Call offer-service",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-672, 600],
+      "position": [
+        2336,
+        3200
+      ],
       "onError": "continueErrorOutput"
     },
     {
       "parameters": {
-        "mode": "runOnceForAllItems",
-        "language": "javaScript",
         "jsCode": "// Call offer-service nie ustawia Content-Disposition, a URL /render nie ma\n// nazwy pliku - n8n zapisuje binarke bez fileName/rozszerzenia. Ustawiamy je\n// tu recznie, biorac rozszerzenie z szablonu (file[0].title), zeby wgrany\n// plik mial to samo rozszerzenie co szablon (pptx/docx), nie zadne.\nconst offerRow = $('Button: Generate offer').first().json.body.data.rows[0];\nconst templateFile = ($('Get offer template').first().json.file || [])[0];\nconst nameOrUrl = templateFile?.title || templateFile?.url || '';\nconst ext = (nameOrUrl.split('.').pop() || 'pptx').toLowerCase();\nconst safeTitle = (offerRow.title || `offer-${offerRow.Id}`).replace(/[^\\w\\-. ]+/g, '_');\nconst fileName = `${safeTitle}.${ext}`;\n\nconst items = $input.all();\nfor (const item of items) {\n  if (item.binary?.offer) {\n    item.binary.offer.fileName = fileName;\n  }\n}\nreturn items;"
       },
-      "id": "a1b1c1d1-0010-4001-8001-000000000010",
+      "id": "3047cf8c-064d-4512-9970-8de5733925d4",
       "name": "Set offer filename",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-448, 384]
+      "position": [
+        2560,
+        3104
+      ]
     },
     {
       "parameters": {
@@ -365,14 +378,17 @@
           ]
         }
       },
-      "id": "b0ad900f-d9da-4b8c-a64d-d761c3101c57",
+      "id": "0c52d2ee-f092-445b-a8fc-fc956c28422a",
       "name": "Task: generation failed",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
-      "position": [-448, 816],
+      "position": [
+        2560,
+        3296
+      ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
+          "id": "9gq205HbXOk9D3Jm",
           "name": "NocoDB Token account"
         }
       }
@@ -409,14 +425,17 @@
           ]
         }
       },
-      "id": "21ae3c44-35c1-4604-807d-953ef0866229",
+      "id": "6e7a139c-5088-4ae1-a5e4-b157289ea901",
       "name": "Log error",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
-      "position": [-224, 816],
+      "position": [
+        2784,
+        3296
+      ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
+          "id": "9gq205HbXOk9D3Jm",
           "name": "NocoDB Token account"
         }
       }
@@ -424,7 +443,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://back-office-coaction-test.giemza.dev/api/v2/storage/upload",
+        "url": "https://back-office.coaction.pl/api/v2/storage/upload",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "nocoDbApiToken",
         "sendBody": true,
@@ -446,14 +465,17 @@
           }
         }
       },
-      "id": "44be85fe-59d9-42d2-bd37-d37868d56c5e",
+      "id": "a5a187c7-3952-4fe4-a757-87337ee8ede7",
       "name": "Upload offer file",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-448, 528],
+      "position": [
+        2784,
+        3104
+      ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
+          "id": "9gq205HbXOk9D3Jm",
           "name": "NocoDB Token account"
         }
       }
@@ -461,7 +483,7 @@
     {
       "parameters": {
         "method": "PATCH",
-        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/m3smmhxworc3y12/records",
+        "url": "https://back-office.coaction.pl/api/v2/tables/mhd0t10w0bew9hd/records",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "nocoDbApiToken",
         "sendBody": true,
@@ -469,14 +491,17 @@
         "jsonBody": "={{ JSON.stringify([{ Id: $('Assemble render data').first().json.offer_id, file: $json.body, data_json: JSON.stringify($('Assemble render data').first().json.data), warnings: ($('Call offer-service').first().json.headers['x-warnings'] ?? '[]') }]) }}",
         "options": {}
       },
-      "id": "43ea4d25-6d6f-4de1-b6c6-3fdbafb0f1fb",
+      "id": "4a345c5e-3d3d-40bb-a3df-1d9b41c0a998",
       "name": "Update offer record",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-224, 528],
+      "position": [
+        3008,
+        3104
+      ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
+          "id": "9gq205HbXOk9D3Jm",
           "name": "NocoDB Token account"
         }
       }
@@ -485,9 +510,9 @@
       "parameters": {
         "authentication": "nocoDbApiToken",
         "operation": "create",
-        "workspaceId": "ws8amqq9",
-        "projectId": "p0faehtfzhvzfh2",
-        "table": "mapceobgbrx9ir3",
+        "workspaceId": "wpgg1mff",
+        "projectId": "p6w78auzu6sjdoo",
+        "table": "mwdsqjy29rg012v",
         "fieldsUi": {
           "fieldValues": [
             {
@@ -517,14 +542,17 @@
           ]
         }
       },
-      "id": "3ef1f065-cb71-4184-b045-60e6f2ea3f16",
+      "id": "a5264b45-21b7-4055-b85f-8fe47c8d9000",
       "name": "Task: review offer",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
-      "position": [0, 528],
+      "position": [
+        3232,
+        3104
+      ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
+          "id": "9gq205HbXOk9D3Jm",
           "name": "NocoDB Token account"
         }
       }
@@ -533,9 +561,9 @@
       "parameters": {
         "authentication": "nocoDbApiToken",
         "operation": "create",
-        "workspaceId": "ws8amqq9",
-        "projectId": "p0faehtfzhvzfh2",
-        "table": "mt8hbqxcj1vx1lx",
+        "workspaceId": "wpgg1mff",
+        "projectId": "p6w78auzu6sjdoo",
+        "table": "m60jz5se969gowx",
         "fieldsUi": {
           "fieldValues": [
             {
@@ -561,14 +589,17 @@
           ]
         }
       },
-      "id": "dbcefb9b-ccf7-4822-a05c-3d2a9add229b",
+      "id": "30c6cb6a-f2ff-4b60-8a44-0cf6ba52b678",
       "name": "Log activity",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
-      "position": [224, 528],
+      "position": [
+        3456,
+        3104
+      ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
+          "id": "9gq205HbXOk9D3Jm",
           "name": "NocoDB Token account"
         }
       }
@@ -578,81 +609,253 @@
     "Button: Generate offer": {
       "main": [
         [
-          { "node": "Get lead", "type": "main", "index": 0 },
-          { "node": "Fetch participants", "type": "main", "index": 0 },
-          { "node": "Fetch assessments", "type": "main", "index": 0 },
-          { "node": "Fetch recommendations", "type": "main", "index": 0 },
-          { "node": "Fetch recommendation_packages", "type": "main", "index": 0 },
-          { "node": "Fetch training_descriptions", "type": "main", "index": 0 },
-          { "node": "Fetch meetings", "type": "main", "index": 0 },
-          { "node": "Fetch testimonials for lead", "type": "main", "index": 0 }
+          {
+            "node": "Get lead",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch participants",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch assessments",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch recommendations",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch recommendation_packages",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch training_descriptions",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch meetings",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Get lead": {
-      "main": [[{ "node": "Get company", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Get company",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Get company": {
-      "main": [[{ "node": "Merge fetches", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Merge fetches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Fetch participants": {
-      "main": [[{ "node": "Merge fetches", "type": "main", "index": 1 }]]
+      "main": [
+        [
+          {
+            "node": "Merge fetches",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
     },
     "Fetch assessments": {
-      "main": [[{ "node": "Merge fetches", "type": "main", "index": 2 }]]
+      "main": [
+        [
+          {
+            "node": "Merge fetches",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
     },
     "Fetch recommendations": {
-      "main": [[{ "node": "Merge fetches", "type": "main", "index": 3 }]]
+      "main": [
+        [
+          {
+            "node": "Merge fetches",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
     },
     "Fetch recommendation_packages": {
-      "main": [[{ "node": "Merge fetches", "type": "main", "index": 4 }]]
+      "main": [
+        [
+          {
+            "node": "Merge fetches",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
     },
     "Fetch training_descriptions": {
-      "main": [[{ "node": "Merge fetches", "type": "main", "index": 5 }]]
+      "main": [
+        [
+          {
+            "node": "Merge fetches",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
     },
     "Fetch meetings": {
-      "main": [[{ "node": "Merge fetches", "type": "main", "index": 6 }]]
-    },
-    "Fetch testimonials for lead": {
-      "main": [[{ "node": "Merge fetches", "type": "main", "index": 7 }]]
+      "main": [
+        [
+          {
+            "node": "Merge fetches",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
     },
     "Merge fetches": {
-      "main": [[{ "node": "Assemble render data", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Assemble render data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Assemble render data": {
-      "main": [[{ "node": "Get offer template", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Get offer template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Get offer template": {
-      "main": [[{ "node": "Download template file", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Download template file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Download template file": {
-      "main": [[{ "node": "Call offer-service", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Call offer-service",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Call offer-service": {
       "main": [
-        [{ "node": "Set offer filename", "type": "main", "index": 0 }],
-        [{ "node": "Task: generation failed", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Set offer filename",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Task: generation failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Set offer filename": {
-      "main": [[{ "node": "Upload offer file", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Upload offer file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Task: generation failed": {
-      "main": [[{ "node": "Log error", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Log error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Upload offer file": {
-      "main": [[{ "node": "Update offer record", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Update offer record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Update offer record": {
-      "main": [[{ "node": "Task: review offer", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Task: review offer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Task: review offer": {
-      "main": [[{ "node": "Log activity", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Log activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "pinData": {},
   "meta": {
     "templateCredsSetupCompleted": true,
-    "instanceId": "1443a7a60bef01212a78b66184585703b5548cecbd2b0eb76384f07b7e397f1f"
+    "instanceId": "429e202ed2fd6bce58bf2c7e6fd66d0222fa48d863edbdd52b4193bfbb06e11e"
   }
 }
