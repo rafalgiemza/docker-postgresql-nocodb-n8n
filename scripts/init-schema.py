@@ -95,6 +95,11 @@ CZEGO TEN SKRYPT NIE ROBI (do wyklikania ręcznie po uruchomieniu):
      typami co w TABLES niżej. Tabela `package_variants` jest NOWA (tytuł
      jeszcze nie istnieje), więc ją `make init-schema` utworzy automatycznie
      — tak samo relację `offers`↔`pricing` (RELATIONS, mm).
+     Ten sam problem dotyczy zmiany z 2026-08-29: pole `position` dopisane
+     do `assessments` (SingleLineText, opcjonalne nadpisanie
+     `participants.position` — patrz `docs/archive/fable/W9_generate_offer.json`,
+     node "Assemble render data") NIE powstanie samo na już wdrożonej
+     tabeli — dodaj je ręcznie w UI pod tą nazwą i typem.
      TABLES/RELATIONS niżej to teraz
      aktualny stan docelowy, nie automatyczny diff.
 
@@ -296,6 +301,58 @@ def gen_note_field(prefix, action):
 # Kolejność pól ma znaczenie: pierwsze pole zostaje display value.
 TABLES = [
     {
+        "title": "activities",
+        "icon": "📜",
+        "description": "Log zdarzen, append-only - pisze WYLACZNIE n8n, ludzie "
+                       "tu tylko czytaja. Timeline leada + debug automatow.",
+        "fields": [
+            {"title": "summary", "type": "SingleLineText"},
+            {"title": "type", "type": "SingleSelect",
+             "options": select("lead_created", "stage_changed", "task_created",
+                               "task_completed", "meeting_created",
+                               "transcript_added", "ai_analysis_done",
+                               "ai_accepted", "goals_provided",
+                               "testimonials_provided", "offer_draft_ready",
+                               "company_match_suggested", "notification_sent",
+                               "automation_error")},
+            {"title": "triggered_by", "type": "SingleLineText"},
+            {"title": "flow", "type": "SingleLineText"},
+            {"title": "payload", "type": "LongText"},
+        ],
+    },
+    {
+        "title": "assessments",
+        "icon": "📝",
+        "description": "Historia ocen CEFR: jeden wiersz na audyt. Najnowsza "
+                       "ocena = sort=-UpdatedAt (pole systemowe), bez osobnej "
+                       "flagi 'aktualna'. Zastepuje plaskie participants.cefr_*.",
+        "fields": [
+            {"title": "title", "type": "SingleLineText"},
+            {"title": "assessed_at", "type": "Date"},
+            {"title": "position", "type": "SingleLineText",
+             "description": "Opcjonalne nadpisanie participants.position - "
+                            "wypelnij tylko gdy stanowisko na moment TEGO "
+                            "audytu rozni sie od aktualnego stanowiska "
+                            "uczestnika. W9 (Assemble render data) bierze "
+                            "position stad, jesli niepuste, w przeciwnym "
+                            "razie z participants."},
+            # skala z czesciami dziesietnymi (B2.4) - text, nie number
+            {"title": "cefr_overall", "type": "SingleLineText"},
+            {"title": "cefr_range", "type": "SingleLineText"},
+            {"title": "cefr_accuracy", "type": "SingleLineText"},
+            {"title": "cefr_fluency", "type": "SingleLineText"},
+            {"title": "cefr_communication", "type": "SingleLineText"},
+            {"title": "strengths", "type": "LongText"},
+            {"title": "gaps", "type": "LongText"},
+            {"title": "needs_summary", "type": "LongText"},
+            {"title": "auditor_notes", "type": "LongText"},
+            ai_status_field("Generuj needs summary"),
+            # v3 §12 - raport audytowy jako artefakt audytu, bez osobnej tabeli
+            {"title": "report_file", "type": "Attachment"},
+            {"title": "report_data_json", "type": "LongText"},
+        ],
+    },
+    {
         "title": "companies",
         "icon": "🏢",
         "description": "Firma jako byt trwaly - lead to pojedyncza szansa, "
@@ -321,6 +378,22 @@ TABLES = [
                             "firmie (np. utracone kontrakty, wolniejsza obsluga "
                             "klienta zagranicznego). Wypelnia AI na podstawie "
                             "transkryptu spotkania discovery, czlowiek poprawia."},
+        ],
+    },
+    {
+        "title": "document_templates",
+        "icon": "🗂️",
+        "description": "Biblioteka szablonow (.pptx/.docx). v3 §12: uogolnione "
+                       "z `offer_templates`, bo renderer jest generyczny i "
+                       "obsluzy tez raport audytowy. n8n bierze najnowszy "
+                       "rekord z active=true I pasujacym `kind`.",
+        "fields": [
+            {"title": "name", "type": "SingleLineText"},
+            {"title": "kind", "type": "SingleSelect",
+             "options": select("offer", "audit_report", "testimonial_slide", "inne")},
+            {"title": "file", "type": "Attachment"},
+            {"title": "active", "type": "Checkbox", "default_value": False},
+            {"title": "notes", "type": "LongText"},
         ],
     },
     {
@@ -412,27 +485,6 @@ TABLES = [
         ],
     },
     {
-        "title": "participants",
-        "icon": "🧑‍🎓",
-        "description": "Osoba szkolona (!= kupujacy). v3 §3: tworzymy ZAWSZE, "
-                       "takze dla B2C - inaczej nie ma gdzie trzymac oceny "
-                       "i rekomendacji, a generator oferty wyrenderuje pusto. "
-                       "Oceny CEFR mieszkaja w `assessments`, NIE tutaj.",
-        "fields": [
-            {"title": "full_name", "type": "SingleLineText"},
-            {"title": "position", "type": "SingleLineText"},
-            {"title": "linkedin_url", "type": "URL"},
-            {"title": "email", "type": "Email"},
-            # v3 §3 - "kontekst biznesowy" dla B2C, gdzie nie ma `companies`
-            {"title": "role_context", "type": "LongText"},
-            {"title": "frequency", "type": "SingleSelect",
-             "options": select("codziennie", "kilka_razy_w_tyg", "rzadko")},
-            {"title": "self_assessment", "type": "LongText"},
-            {"title": "manager_needs", "type": "LongText"},
-            {"title": "assigned_methodologist", "type": "User"},
-        ],
-    },
-    {
         "title": "meetings",
         "icon": "👋",
         "description": "Tylko prawdziwe spotkania (Calendar view). v3 §2: pola "
@@ -491,98 +543,89 @@ TABLES = [
         ],
     },
     {
-        "title": "assessments",
-        "icon": "📝",
-        "description": "Historia ocen CEFR: jeden wiersz na audyt. Najnowsza "
-                       "ocena = sort=-UpdatedAt (pole systemowe), bez osobnej "
-                       "flagi 'aktualna'. Zastepuje plaskie participants.cefr_*.",
+        "title": "offers",
+        "icon": "📄",
+        "description": "Jedna oferta = jeden wygenerowany dokument; wiele ofert "
+                       "na lead (wersje). `data_json` to zamrozony snapshot "
+                       "danych - realizacja wymogu 'historia ofert' (§10).",
         "fields": [
             {"title": "title", "type": "SingleLineText"},
-            {"title": "assessed_at", "type": "Date"},
-            # skala z czesciami dziesietnymi (B2.4) - text, nie number
-            {"title": "cefr_overall", "type": "SingleLineText"},
-            {"title": "cefr_range", "type": "SingleLineText"},
-            {"title": "cefr_accuracy", "type": "SingleLineText"},
-            {"title": "cefr_fluency", "type": "SingleLineText"},
-            {"title": "cefr_communication", "type": "SingleLineText"},
-            {"title": "strengths", "type": "LongText"},
-            {"title": "gaps", "type": "LongText"},
-            {"title": "needs_summary", "type": "LongText"},
-            {"title": "auditor_notes", "type": "LongText"},
-            ai_status_field("Generuj needs summary"),
-            # v3 §12 - raport audytowy jako artefakt audytu, bez osobnej tabeli
-            {"title": "report_file", "type": "Attachment"},
-            {"title": "report_data_json", "type": "LongText"},
+            {"title": "status", "type": "SingleSelect",
+             "options": select("draft", "sent", "accepted", "rejected")},
+            # feedback-tables-1.md: price -> total_price (vs hourly price)
+            {"title": "total_price", "type": "Currency",
+             "options": {"locale": "pl-PL", "code": "PLN"}},
+            {"title": "hours", "type": "Number"},
+            # feedback-tables-1.md: variant -> product_type, dodane Audyt
+            # jezykowy/Job Interview/Webinar (juz w VARIANT), MultiSelect bo
+            # "w jednej ofercie moze byc kilka roznych" produktow naraz
+            {"title": "product_type", "type": "MultiSelect", "options": select(*VARIANT)},
+            {"title": "version", "type": "Number"},
+            {"title": "template_name", "type": "SingleLineText"},
+            {"title": "file", "type": "Attachment"},
+            # feedback-tables-1.md: brakowalo opisu co tu wpisywac
+            {"title": "data_json", "type": "LongText",
+             "description": "Zamrozony zrzut danych (JSON), z ktorych "
+                            "zostal wygenerowany ten dokument - realizacja "
+                            "wymogu 'historia ofert'. Zapisywane AUTOMATYCZNIE "
+                            "przez automatyzacje przy generowaniu pliku - nie "
+                            "edytowac recznie."},
+            {"title": "warnings", "type": "LongText",
+             "description": "Ostrzezenia zwrocone automatycznie przez usluge "
+                            "generujaca plik oferty (np. brakujace dane w "
+                            "szablonie). Zapisywane AUTOMATYCZNIE - nie "
+                            "edytowac recznie."},
+            {"title": "sent_at", "type": "Date"},
+            {"title": "valid_until", "type": "Date"},
         ],
     },
     {
-        "title": "recommendations",
-        "icon": "🧭",
-        "description": "Co proponujemy TEJ osobie. Oddzielone od audytu, bo to "
-                       "inna decyzja, innego czlowieka i w innym momencie "
-                       "(Opis_procesu §7).",
+        "title": "package_variants",
+        "icon": "🎁",
+        "description": "Katalog gotowych pakietow (Business English, English "
+                       "for IT, English + Business Skills: ..., Job "
+                       "Interview) do krotkich opisow na slajdzie 'NASZA "
+                       "REKOMENDACJA' (warianty_slajd_4.txt, 2026-08-11). "
+                       "Inny byt niz training_descriptions: to gotowy "
+                       "PRODUKT pokazywany klientowi na slajdzie "
+                       "rekomendacji, nie pojedynczy modul do skladania "
+                       "sciezki ETAP 1/ETAP 2.",
         "fields": [
-            {"title": "title", "type": "SingleLineText"},
-            {"title": "type", "type": "SingleSelect",
-             "options": select("business_english", "english_plus_skills",
-                               "skills_only", "mieszana")},
-            {"title": "headline", "type": "SingleLineText"},
-            {"title": "rationale", "type": "LongText"},
-            # feedback-tables-1.md: brakowalo wyjasnienia CZEGO to priorytet
-            {"title": "priority", "type": "SingleSelect",
-             "options": select("wysoki", "sredni", "niski"),
-             "description": "Priorytet TEJ rekomendacji wzgledem innych "
-                            "rekomendacji dla tej samej osoby (jedna osoba "
-                            "moze miec kilka proponowanych sciezek) - pomaga "
-                            "wybrac, ktora sciezke pokazac jako glowna w "
-                            "ofercie."},
-            # brak potwierdzonego przycisku dla tej tabeli w skrypcie (patrz
-            # naglowek: Button jest tylko na offers/meetings/assessments) -
-            # ai_status_field() bez `action` pisze to wprost, zamiast zmyslac
-            ai_status_field(),
-        ],
-    },
-    {
-        # feedback-tables-1.md: nazwa tabeli TRAINING_MODULES -> Training_descriptions
-        # (znormalizowane do lowercase snake_case - konwencja calego pliku)
-        "title": "training_descriptions",
-        "icon": "📚",
-        "description": "Biblioteka modulow szkoleniowych (dzis istnieja tylko "
-                       "jako tekst zaszyty na slajdach ETAP 1/ETAP 2).",
-        "fields": [
-            {"title": "title", "type": "SingleLineText"},
-            # feedback-tables-1.md: category -> Training_Type
-            {"title": "training_type", "type": "SingleSelect",
-             "options": select("business_english", "english_for_it",
-                               "workshop_facylitacja", "workshop_negocjacje",
-                               "inne")},
-            # feedback-tables-1.md: goal_statement -> learning_goal
-            {"title": "learning_goal", "type": "LongText"},
-            {"title": "description", "type": "LongText"},
-            # feedback-tables-1.md wymienia "hours_in_package" pod ta tabela
-            # bez dodatkowego kontekstu; zalozenie: to rename default_hours,
-            # analogiczny do hours -> hours_in_package w recommendation_packages
-            # (patrz nizej) - do potwierdzenia, jesli chodzilo o cos innego.
-            {"title": "hours_in_package", "type": "Number"},
+            {"title": "name", "type": "SingleLineText"},
+            {"title": "short_description", "type": "LongText",
+             "description": "Kilkuzdaniowy opis pakietu na slajd 'NASZA "
+                            "REKOMENDACJA' - {{package.shortdescription}}."},
+            {"title": "default_hours", "type": "Number",
+             "description": "Domyslna/typowa liczba godzin pakietu - "
+                            "{{package.hours}}."},
+            {"title": "lesson_frequency", "type": "Number",
+             "description": "Ile zajec tygodniowo w typowym harmonogramie - "
+                            "{{lessonfrequency}}."},
+            {"title": "lesson_minutes", "type": "Number",
+             "description": "Dlugosc pojedynczych zajec w minutach - "
+                            "{{lesson.minutes}}."},
             {"title": "active", "type": "Checkbox", "default_value": True},
         ],
     },
     {
-        # feedback-tables-1.md: "Nazwa tabeli: recommendation_packages, a nie items"
-        "title": "recommendation_packages",
-        "icon": "📦",
-        "description": "Konkretna sciezka: ktore moduly, w jakiej kolejnosci, "
-                       "ile godzin, w jakim trybie. Zasila slajd repeat:module. "
-                       "`package_name` istnieje wylacznie po to, zeby display "
-                       "value nie byl liczba (sort_order) - patrz naglowek skryptu.",
+        "title": "participants",
+        "icon": "🧑‍🎓",
+        "description": "Osoba szkolona (!= kupujacy). v3 §3: tworzymy ZAWSZE, "
+                       "takze dla B2C - inaczej nie ma gdzie trzymac oceny "
+                       "i rekomendacji, a generator oferty wyrenderuje pusto. "
+                       "Oceny CEFR mieszkaja w `assessments`, NIE tutaj.",
         "fields": [
-            # feedback-tables-1.md: label -> package_name
-            {"title": "package_name", "type": "SingleLineText"},
-            {"title": "sort_order", "type": "Number"},
-            # feedback-tables-1.md: hours -> Hours_in_Package
-            {"title": "hours_in_package", "type": "Number"},
-            # feedback-tables-1.md: mode -> Training_Group_Size
-            {"title": "training_group_size", "type": "SingleSelect", "options": select(*MODE)},
+            {"title": "full_name", "type": "SingleLineText"},
+            {"title": "position", "type": "SingleLineText"},
+            {"title": "linkedin_url", "type": "URL"},
+            {"title": "email", "type": "Email"},
+            # v3 §3 - "kontekst biznesowy" dla B2C, gdzie nie ma `companies`
+            {"title": "role_context", "type": "LongText"},
+            {"title": "frequency", "type": "SingleSelect",
+             "options": select("codziennie", "kilka_razy_w_tyg", "rzadko")},
+            {"title": "self_assessment", "type": "LongText"},
+            {"title": "manager_needs", "type": "LongText"},
+            {"title": "assigned_methodologist", "type": "User"},
         ],
     },
     {
@@ -662,84 +705,90 @@ TABLES = [
         ],
     },
     {
-        "title": "package_variants",
-        "icon": "🎁",
-        "description": "Katalog gotowych pakietow (Business English, English "
-                       "for IT, English + Business Skills: ..., Job "
-                       "Interview) do krotkich opisow na slajdzie 'NASZA "
-                       "REKOMENDACJA' (warianty_slajd_4.txt, 2026-08-11). "
-                       "Inny byt niz training_descriptions: to gotowy "
-                       "PRODUKT pokazywany klientowi na slajdzie "
-                       "rekomendacji, nie pojedynczy modul do skladania "
-                       "sciezki ETAP 1/ETAP 2.",
+        "title": "projects",
+        "icon": "🚀",
+        "description": "Prosty slownik projektow dla taskow.",
         "fields": [
             {"title": "name", "type": "SingleLineText"},
-            {"title": "short_description", "type": "LongText",
-             "description": "Kilkuzdaniowy opis pakietu na slajd 'NASZA "
-                            "REKOMENDACJA' - {{package.shortdescription}}."},
-            {"title": "default_hours", "type": "Number",
-             "description": "Domyslna/typowa liczba godzin pakietu - "
-                            "{{package.hours}}."},
-            {"title": "lesson_frequency", "type": "Number",
-             "description": "Ile zajec tygodniowo w typowym harmonogramie - "
-                            "{{lessonfrequency}}."},
-            {"title": "lesson_minutes", "type": "Number",
-             "description": "Dlugosc pojedynczych zajec w minutach - "
-                            "{{lesson.minutes}}."},
+            {"title": "team", "type": "SingleSelect",
+             "options": select("marketing", "sales", "ops")},
             {"title": "active", "type": "Checkbox", "default_value": True},
         ],
     },
     {
-        "title": "offers",
-        "icon": "📄",
-        "description": "Jedna oferta = jeden wygenerowany dokument; wiele ofert "
-                       "na lead (wersje). `data_json` to zamrozony snapshot "
-                       "danych - realizacja wymogu 'historia ofert' (§10).",
+        # feedback-tables-1.md: "Nazwa tabeli: recommendation_packages, a nie items"
+        "title": "recommendation_packages",
+        "icon": "📦",
+        "description": "Konkretna sciezka: ktore moduly, w jakiej kolejnosci, "
+                       "ile godzin, w jakim trybie. Zasila slajd repeat:module. "
+                       "`package_name` istnieje wylacznie po to, zeby display "
+                       "value nie byl liczba (sort_order) - patrz naglowek skryptu.",
         "fields": [
-            {"title": "title", "type": "SingleLineText"},
-            {"title": "status", "type": "SingleSelect",
-             "options": select("draft", "sent", "accepted", "rejected")},
-            # feedback-tables-1.md: price -> total_price (vs hourly price)
-            {"title": "total_price", "type": "Currency",
-             "options": {"locale": "pl-PL", "code": "PLN"}},
-            {"title": "hours", "type": "Number"},
-            # feedback-tables-1.md: variant -> product_type, dodane Audyt
-            # jezykowy/Job Interview/Webinar (juz w VARIANT), MultiSelect bo
-            # "w jednej ofercie moze byc kilka roznych" produktow naraz
-            {"title": "product_type", "type": "MultiSelect", "options": select(*VARIANT)},
-            {"title": "version", "type": "Number"},
-            {"title": "template_name", "type": "SingleLineText"},
-            {"title": "file", "type": "Attachment"},
-            # feedback-tables-1.md: brakowalo opisu co tu wpisywac
-            {"title": "data_json", "type": "LongText",
-             "description": "Zamrozony zrzut danych (JSON), z ktorych "
-                            "zostal wygenerowany ten dokument - realizacja "
-                            "wymogu 'historia ofert'. Zapisywane AUTOMATYCZNIE "
-                            "przez automatyzacje przy generowaniu pliku - nie "
-                            "edytowac recznie."},
-            {"title": "warnings", "type": "LongText",
-             "description": "Ostrzezenia zwrocone automatycznie przez usluge "
-                            "generujaca plik oferty (np. brakujace dane w "
-                            "szablonie). Zapisywane AUTOMATYCZNIE - nie "
-                            "edytowac recznie."},
-            {"title": "sent_at", "type": "Date"},
-            {"title": "valid_until", "type": "Date"},
+            # feedback-tables-1.md: label -> package_name
+            {"title": "package_name", "type": "SingleLineText"},
+            {"title": "sort_order", "type": "Number"},
+            # feedback-tables-1.md: hours -> Hours_in_Package
+            {"title": "hours_in_package", "type": "Number"},
+            # feedback-tables-1.md: mode -> Training_Group_Size
+            {"title": "training_group_size", "type": "SingleSelect", "options": select(*MODE)},
         ],
     },
     {
-        "title": "document_templates",
-        "icon": "🗂️",
-        "description": "Biblioteka szablonow (.pptx/.docx). v3 §12: uogolnione "
-                       "z `offer_templates`, bo renderer jest generyczny i "
-                       "obsluzy tez raport audytowy. n8n bierze najnowszy "
-                       "rekord z active=true I pasujacym `kind`.",
+        "title": "recommendations",
+        "icon": "🧭",
+        "description": "Co proponujemy TEJ osobie. Oddzielone od audytu, bo to "
+                       "inna decyzja, innego czlowieka i w innym momencie "
+                       "(Opis_procesu §7).",
         "fields": [
-            {"title": "name", "type": "SingleLineText"},
-            {"title": "kind", "type": "SingleSelect",
-             "options": select("offer", "audit_report", "testimonial_slide", "inne")},
-            {"title": "file", "type": "Attachment"},
-            {"title": "active", "type": "Checkbox", "default_value": False},
-            {"title": "notes", "type": "LongText"},
+            {"title": "title", "type": "SingleLineText"},
+            {"title": "type", "type": "SingleSelect",
+             "options": select("business_english", "english_plus_skills",
+                               "skills_only", "mieszana")},
+            {"title": "headline", "type": "SingleLineText"},
+            {"title": "rationale", "type": "LongText"},
+            # feedback-tables-1.md: brakowalo wyjasnienia CZEGO to priorytet
+            {"title": "priority", "type": "SingleSelect",
+             "options": select("wysoki", "sredni", "niski"),
+             "description": "Priorytet TEJ rekomendacji wzgledem innych "
+                            "rekomendacji dla tej samej osoby (jedna osoba "
+                            "moze miec kilka proponowanych sciezek) - pomaga "
+                            "wybrac, ktora sciezke pokazac jako glowna w "
+                            "ofercie."},
+            # brak potwierdzonego przycisku dla tej tabeli w skrypcie (patrz
+            # naglowek: Button jest tylko na offers/meetings/assessments) -
+            # ai_status_field() bez `action` pisze to wprost, zamiast zmyslac
+            ai_status_field(),
+        ],
+    },
+    {
+        "title": "task_templates",
+        "icon": "🔁",
+        "description": "Czytane wylacznie przez cron w n8n (W1) - triggery CRON "
+                       "w NocoDB CE sa platne, stad n8n.",
+        "fields": [
+            {"title": "title", "type": "SingleLineText"},
+            {"title": "assignee", "type": "User"},
+            {"title": "rrule", "type": "SingleLineText"},
+            {"title": "due_offset_days", "type": "Number"},
+            {"title": "description", "type": "LongText"},
+            {"title": "active", "type": "Checkbox", "default_value": True},
+        ],
+    },
+    {
+        "title": "tasks",
+        "icon": "✅",
+        "description": "JEDNA tabela dla calej firmy - warunek dzialania widokow "
+                       "'moje taski ze wszystkich projektow'.",
+        "fields": [
+            {"title": "title", "type": "SingleLineText"},
+            {"title": "assignee", "type": "User"},
+            {"title": "due_date", "type": "Date"},
+            {"title": "status", "type": "SingleSelect",
+             "options": select("todo", "in_progress", "done", "cancelled")},
+            {"title": "priority", "type": "SingleSelect",
+             "options": select("low", "normal", "high")},
+            {"title": "description", "type": "LongText"},
+            {"title": "created_by_flow", "type": "SingleLineText"},
         ],
     },
     {
@@ -808,65 +857,28 @@ TABLES = [
         ],
     },
     {
-        "title": "projects",
-        "icon": "🚀",
-        "description": "Prosty slownik projektow dla taskow.",
-        "fields": [
-            {"title": "name", "type": "SingleLineText"},
-            {"title": "team", "type": "SingleSelect",
-             "options": select("marketing", "sales", "ops")},
-            {"title": "active", "type": "Checkbox", "default_value": True},
-        ],
-    },
-    {
-        "title": "task_templates",
-        "icon": "🔁",
-        "description": "Czytane wylacznie przez cron w n8n (W1) - triggery CRON "
-                       "w NocoDB CE sa platne, stad n8n.",
+        # feedback-tables-1.md: nazwa tabeli TRAINING_MODULES -> Training_descriptions
+        # (znormalizowane do lowercase snake_case - konwencja calego pliku)
+        "title": "training_descriptions",
+        "icon": "📚",
+        "description": "Biblioteka modulow szkoleniowych (dzis istnieja tylko "
+                       "jako tekst zaszyty na slajdach ETAP 1/ETAP 2).",
         "fields": [
             {"title": "title", "type": "SingleLineText"},
-            {"title": "assignee", "type": "User"},
-            {"title": "rrule", "type": "SingleLineText"},
-            {"title": "due_offset_days", "type": "Number"},
+            # feedback-tables-1.md: category -> Training_Type
+            {"title": "training_type", "type": "SingleSelect",
+             "options": select("business_english", "english_for_it",
+                               "workshop_facylitacja", "workshop_negocjacje",
+                               "inne")},
+            # feedback-tables-1.md: goal_statement -> learning_goal
+            {"title": "learning_goal", "type": "LongText"},
             {"title": "description", "type": "LongText"},
+            # feedback-tables-1.md wymienia "hours_in_package" pod ta tabela
+            # bez dodatkowego kontekstu; zalozenie: to rename default_hours,
+            # analogiczny do hours -> hours_in_package w recommendation_packages
+            # (patrz nizej) - do potwierdzenia, jesli chodzilo o cos innego.
+            {"title": "hours_in_package", "type": "Number"},
             {"title": "active", "type": "Checkbox", "default_value": True},
-        ],
-    },
-    {
-        "title": "tasks",
-        "icon": "✅",
-        "description": "JEDNA tabela dla calej firmy - warunek dzialania widokow "
-                       "'moje taski ze wszystkich projektow'.",
-        "fields": [
-            {"title": "title", "type": "SingleLineText"},
-            {"title": "assignee", "type": "User"},
-            {"title": "due_date", "type": "Date"},
-            {"title": "status", "type": "SingleSelect",
-             "options": select("todo", "in_progress", "done", "cancelled")},
-            {"title": "priority", "type": "SingleSelect",
-             "options": select("low", "normal", "high")},
-            {"title": "description", "type": "LongText"},
-            {"title": "created_by_flow", "type": "SingleLineText"},
-        ],
-    },
-    {
-        "title": "activities",
-        "icon": "📜",
-        "description": "Log zdarzen, append-only - pisze WYLACZNIE n8n, ludzie "
-                       "tu tylko czytaja. Timeline leada + debug automatow.",
-        "fields": [
-            {"title": "summary", "type": "SingleLineText"},
-            {"title": "type", "type": "SingleSelect",
-             "options": select("lead_created", "stage_changed", "task_created",
-                               "task_completed", "meeting_created",
-                               "transcript_added", "ai_analysis_done",
-                               "ai_accepted", "goals_provided",
-                               "testimonials_provided", "offer_draft_ready",
-                               "company_match_suggested", "notification_sent",
-                               "automation_error")},
-            {"title": "triggered_by", "type": "SingleLineText"},
-            {"title": "flow", "type": "SingleLineText"},
-            {"title": "payload", "type": "LongText"},
         ],
     },
 ]
