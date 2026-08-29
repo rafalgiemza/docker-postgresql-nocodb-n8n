@@ -297,6 +297,7 @@ def gen_note_field(prefix, action):
 TABLES = [
     {
         "title": "companies",
+        "icon": "🏢",
         "description": "Firma jako byt trwaly - lead to pojedyncza szansa, "
                        "firma moze miec wiele leadow w czasie. Tylko B2B.",
         "fields": [
@@ -324,6 +325,7 @@ TABLES = [
     },
     {
         "title": "leads",
+        "icon": "🎯",
         "description": "Jedna szansa sprzedazy. Kanban po `stage`. UWAGA: "
                        "`deal_value` to PROGNOZA wartosci szansy - nie mylic z "
                        "`offers.total_price` (kwota na konkretnym dokumencie).",
@@ -411,6 +413,7 @@ TABLES = [
     },
     {
         "title": "participants",
+        "icon": "🧑‍🎓",
         "description": "Osoba szkolona (!= kupujacy). v3 §3: tworzymy ZAWSZE, "
                        "takze dla B2C - inaczej nie ma gdzie trzymac oceny "
                        "i rekomendacji, a generator oferty wyrenderuje pusto. "
@@ -431,6 +434,7 @@ TABLES = [
     },
     {
         "title": "meetings",
+        "icon": "👋",
         "description": "Tylko prawdziwe spotkania (Calendar view). v3 §2: pola "
                        "strukturalne zamiast jednego blobu - bo kazda rzecz, "
                        "ktora ma trafic na slajd, musi byc osobnym polem.",
@@ -488,6 +492,7 @@ TABLES = [
     },
     {
         "title": "assessments",
+        "icon": "📝",
         "description": "Historia ocen CEFR: jeden wiersz na audyt. Najnowsza "
                        "ocena = sort=-UpdatedAt (pole systemowe), bez osobnej "
                        "flagi 'aktualna'. Zastepuje plaskie participants.cefr_*.",
@@ -512,6 +517,7 @@ TABLES = [
     },
     {
         "title": "recommendations",
+        "icon": "🧭",
         "description": "Co proponujemy TEJ osobie. Oddzielone od audytu, bo to "
                        "inna decyzja, innego czlowieka i w innym momencie "
                        "(Opis_procesu §7).",
@@ -540,6 +546,7 @@ TABLES = [
         # feedback-tables-1.md: nazwa tabeli TRAINING_MODULES -> Training_descriptions
         # (znormalizowane do lowercase snake_case - konwencja calego pliku)
         "title": "training_descriptions",
+        "icon": "📚",
         "description": "Biblioteka modulow szkoleniowych (dzis istnieja tylko "
                        "jako tekst zaszyty na slajdach ETAP 1/ETAP 2).",
         "fields": [
@@ -563,6 +570,7 @@ TABLES = [
     {
         # feedback-tables-1.md: "Nazwa tabeli: recommendation_packages, a nie items"
         "title": "recommendation_packages",
+        "icon": "📦",
         "description": "Konkretna sciezka: ktore moduly, w jakiej kolejnosci, "
                        "ile godzin, w jakim trybie. Zasila slajd repeat:module. "
                        "`package_name` istnieje wylacznie po to, zeby display "
@@ -579,6 +587,7 @@ TABLES = [
     },
     {
         "title": "pricing",
+        "icon": "💰",
         "description": "Cennik wersjonowany, jeden wiersz = jedna kombinacja "
                        "segment x hours x tryb. `product` == "
                        "offers.product_type, `training_group_size` == "
@@ -654,6 +663,7 @@ TABLES = [
     },
     {
         "title": "package_variants",
+        "icon": "🎁",
         "description": "Katalog gotowych pakietow (Business English, English "
                        "for IT, English + Business Skills: ..., Job "
                        "Interview) do krotkich opisow na slajdzie 'NASZA "
@@ -681,6 +691,7 @@ TABLES = [
     },
     {
         "title": "offers",
+        "icon": "📄",
         "description": "Jedna oferta = jeden wygenerowany dokument; wiele ofert "
                        "na lead (wersje). `data_json` to zamrozony snapshot "
                        "danych - realizacja wymogu 'historia ofert' (§10).",
@@ -717,6 +728,7 @@ TABLES = [
     },
     {
         "title": "document_templates",
+        "icon": "🗂️",
         "description": "Biblioteka szablonow (.pptx/.docx). v3 §12: uogolnione "
                        "z `offer_templates`, bo renderer jest generyczny i "
                        "obsluzy tez raport audytowy. n8n bierze najnowszy "
@@ -732,6 +744,7 @@ TABLES = [
     },
     {
         "title": "testimonials",
+        "icon": "💬",
         "description": "Biblioteka referencji - analityk linkuje z biblioteki "
                        "zamiast wklejac do oferty, wiec ta sama referencja jest "
                        "reuzywalna i wiadomo, gdzie byla uzyta. 2026-08-11: "
@@ -796,6 +809,7 @@ TABLES = [
     },
     {
         "title": "projects",
+        "icon": "🚀",
         "description": "Prosty slownik projektow dla taskow.",
         "fields": [
             {"title": "name", "type": "SingleLineText"},
@@ -806,6 +820,7 @@ TABLES = [
     },
     {
         "title": "task_templates",
+        "icon": "🔁",
         "description": "Czytane wylacznie przez cron w n8n (W1) - triggery CRON "
                        "w NocoDB CE sa platne, stad n8n.",
         "fields": [
@@ -819,6 +834,7 @@ TABLES = [
     },
     {
         "title": "tasks",
+        "icon": "✅",
         "description": "JEDNA tabela dla calej firmy - warunek dzialania widokow "
                        "'moje taski ze wszystkich projektow'.",
         "fields": [
@@ -835,6 +851,7 @@ TABLES = [
     },
     {
         "title": "activities",
+        "icon": "📜",
         "description": "Log zdarzen, append-only - pisze WYLACZNIE n8n, ludzie "
                        "tu tylko czytaja. Timeline leada + debug automatow.",
         "fields": [
@@ -1031,6 +1048,38 @@ def sync_select_options(ids, dry_run):
                 json={"colOptions": {"options": options}})
 
 
+def sync_table_icons(ids, dry_run):
+    """Ustawia emoji-ikonke kazdej tabeli w bocznym menu NocoDB (`TABLES[].icon`).
+
+    Osobny, bezwarunkowy PATCH per tabela - jak sync_select_options(), NIE
+    czesc to_v2_table()/create_tables(). Dwa powody: (1) create_tables()
+    pomija CAŁĄ tabele, jesli tytul juz istnieje (patrz naglowek skryptu,
+    "CZEGO TEN SKRYPT NIE ROBI" #5) - na juz wdrozonej produkcji (od
+    2026-08-10) wszystkie 17 tabel juz istnieje, wiec ikonki inline przy
+    tworzeniu nigdy by sie nie wykonaly; (2) analogiczny przypadek z dtxp w
+    to_v2_column() pokazal, ze NocoDB po cichu ignoruje niektore pola przy
+    bulk POST tabeli - bezpieczniej i tak zrobic to osobnym PATCH-em.
+
+    Kontrakt NIEZWERYFIKOWANY NA ZYWO w tej sesji (brak dostepnej instancji):
+    `PATCH /api/v2/meta/tables/{id}` z body `{"meta": {"icon": "<emoji>"}}`,
+    surowy unicode emoji - wg zgloszenia nocodb/nocodb#13004 (Meta API v3,
+    ten sam ksztalt meta.icon) i wzorca aktualizacji z nc-gui
+    (`dbTable.update(tableId, {meta})`). NIE prefiks iconify (`"emojione:smile"`)
+    z PR #4630 z 2022 - to stary format sprzed obecnego emoji-pickera.
+    Sprawdz w UI po pierwszym uruchomieniu, czy ikonki faktycznie sie
+    zapisaly.
+    """
+    for t in TABLES:
+        icon = t.get("icon")
+        table_id = ids.get(t["title"].lower())
+        if not icon or not table_id:
+            continue
+        print(f"~  {t['title']}: {icon}")
+        if dry_run:
+            continue
+        api("PATCH", f"/api/v2/meta/tables/{table_id}", json={"meta": {"icon": icon}})
+
+
 def create_tables(dry_run, source_id):
     # --dry-run ma dzialac takze bez dzialajacej instancji (na produkcji to
     # pierwsza rzecz, ktora odpalasz - zanim cokolwiek stoi). Gdy instancja
@@ -1134,6 +1183,8 @@ if __name__ == "__main__":
         print()
     print(f"--- tabele ({len(TABLES)}) ---")
     ids = create_tables(args.dry_run, source_id)
+    print(f"\n--- ikonki tabel ---")
+    sync_table_icons(ids, args.dry_run)
     print(f"\n--- relacje ({len(RELATIONS)}) ---")
     create_relations(ids, args.dry_run)
     print(f"\n--- opcje SingleSelect/MultiSelect ---")
@@ -1154,3 +1205,5 @@ if __name__ == "__main__":
     print("  2. Widoki: Kanban po leads.stage, Calendar po tasks.due_date,")
     print("     'moje taski' per osoba (patrz nocodb_crm_schema_v2.md).")
     print("  3. Sprawdz display value kazdej tabeli i nazwy pol zwrotnych relacji.")
+    print("  4. Ikonki tabel: kontrakt PATCH .../meta/tables/{id} meta.icon "
+          "niezweryfikowany na zywo - sprawdz w UI, czy sie zapisaly.")
