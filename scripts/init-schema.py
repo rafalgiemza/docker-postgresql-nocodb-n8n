@@ -66,9 +66,10 @@ czysty SQL — NocoDB trzyma dla nich własne metadane (i tabele `_nc_m2m_*`),
 więc po samym SQL-u relacje trzeba by i tak odtwarzać w NocoDB. Stąd API.
 
 CZEGO TEN SKRYPT NIE ROBI (do wyklikania ręcznie po uruchomieniu):
-  1. Dokończenia pól typu Button (`offers` "generuj ofertę", `meetings`
-     "Generuj analizę", `assessments` "Generuj needs summary", `testimonials`
-     "generuj slajd" i "generuj obrazek") — create_buttons() tworzy je już
+  1. Dokończenia pól typu Button (`offers` "generuj ofertę" i "Generuj opisy
+     pakietów", `meetings` "Generuj analizę", `assessments` "Generuj needs
+     summary", `testimonials` "generuj slajd" i "generuj obrazek") —
+     create_buttons() tworzy je już
      jako placeholder akcji "Open URL" z formułą `NOW()` (nie wymaga
      webhooka), bo akcja "Run Webhook" wymaga ID istniejącego webhooka
      n8n, którego przed importem workflowów jeszcze nie ma. Po imporcie
@@ -100,6 +101,24 @@ CZEGO TEN SKRYPT NIE ROBI (do wyklikania ręcznie po uruchomieniu):
      `participants.position` — patrz `docs/archive/fable/W9_generate_offer.json`,
      node "Assemble render data") NIE powstanie samo na już wdrożonej
      tabeli — dodaj je ręcznie w UI pod tą nazwą i typem.
+     Zmiana z 2026-08-30: tabela `offer_packages` (NOWA, tytuł jeszcze nie
+     istnieje) łączy `offers` z `package_variants` (dodane 2026-08-11) —
+     analogicznie do `recommendation_packages`, jako właściwa tabela-łącząca
+     (nie plain Links mm), bo musi trzymać `generated_text`/`ai_status`/
+     `sort_order` PER (offer, package_variant): po wyborze pakietu/pakietów
+     na slajd 4 "NASZA REKOMENDACJA" AI dopisuje dłuższy szkic na WŁASNY
+     slajd każdego wybranego pakietu (5/6/7 wg `sort_order` — ile pakietów,
+     tyle slajdów), człowiek go weryfikuje przed wysyłką oferty. `make
+     init-schema` utworzy tabelę i obie relacje `hm` (`offers`↔
+     `offer_packages`, `package_variants`↔`offer_packages`) automatycznie —
+     wymaga tylko ręcznego "Upgrade Link Field" w UI (patrz wyżej), jak przy
+     każdej nowej relacji `hm`. Trigger generowania (decyzja 2026-08-30):
+     JEDEN zbiorczy przycisk `offers`."Generuj opisy pakietów" (BUTTONS,
+     create_buttons() tworzy placeholder jak przy pozostałych) — klik na
+     ofercie ma wygenerować `generated_text` dla WSZYSTKICH `offer_packages`
+     polinkowanych do niej naraz, nie po jednym przycisku na wiersz.
+     Renderowanie slajdów 5/6/7 z tych danych w W9 (n8n) to nadal osobna,
+     nie zaczęta robota — patrz TODO.md.
      TABLES/RELATIONS niżej to teraz
      aktualny stan docelowy, nie automatyczny diff.
 
@@ -543,6 +562,55 @@ TABLES = [
         ],
     },
     {
+        # NOWA 2026-08-30: klientka opisala kolejny krok procesu ofertowego -
+        # po wybraniu pakietu/pakietow (package_variants, slajd 4 "NASZA
+        # REKOMENDACJA") AI generuje SZKIC dluzszego tekstu per wybrany
+        # pakiet na jego WLASNY slajd (5/6/7 - ile pakietow, tyle slajdow),
+        # czlowiek go weryfikuje przed wyslaniem oferty. To wymaga wlasnej
+        # tabeli-laczacej (analogicznie do recommendation_packages), bo
+        # zwykle Links (mm) nie ma gdzie trzymac generated_text/ai_status
+        # per (offer, package_variant).
+        "title": "offer_packages",
+        "icon": "✍️",
+        "description": "Ktore package_variants wybrano do TEJ oferty i w jakiej "
+                       "kolejnosci - sort_order steruje kolejnoscia na slajdzie 4 "
+                       "ORAZ przypisaniem do wlasnego slajdu w dalszej czesci "
+                       "oferty (1=slajd 5, 2=slajd 6, 3=slajd 7 - ile wierszy, "
+                       "tyle slajdow). `generated_text` to szkic AI rozwijajacy "
+                       "`package_variants.short_description` na dluzszy tekst "
+                       "TEGO slajdu, zweryfikowany/poprawiony przez czlowieka "
+                       "przed uzyciem w ofercie. Generowanie NIE ma wlasnego "
+                       "przycisku na tej tabeli (decyzja 2026-08-30): startuje "
+                       "je zbiorczy przycisk `offers`.\"Generuj opisy pakietow\" - "
+                       "jeden klik na ofercie generuje generated_text dla "
+                       "WSZYSTKICH offer_packages polinkowanych do niej naraz.",
+        "fields": [
+            # analogicznie do recommendation_packages.package_name -
+            # display value nie moze byc samym sort_order (liczba)
+            {"title": "package_name", "type": "SingleLineText"},
+            {"title": "sort_order", "type": "Number"},
+            {"title": "generated_text", "type": "LongText",
+             "description": "Szkic AI (potem tekst zweryfikowany przez czlowieka) "
+                            "na wlasny slajd tego pakietu w ofercie (slajd 5/6/7 "
+                            "wg sort_order) - NIE to samo co "
+                            "package_variants.short_description (ten jest "
+                            "krotki, wspolny dla kazdej oferty z tym pakietem; "
+                            "tu jest dluzszy tekst wygenerowany/dopasowany do "
+                            "TEJ konkretnej oferty)."},
+            {"title": "ai_status", "type": "SingleSelect", "options": select(*AI_STATUS),
+             "description": "Status tresci generowanej przez AI: none (nic nie "
+                            "generowano) -> pending (automatyzacja wlasnie "
+                            "generuje, czekaj) -> ai_draft_ready (jest szkic, "
+                            "czeka na weryfikacje czlowieka) -> ai_accepted / "
+                            "ai_rejected (decyzja czlowieka). Tylko ai_accepted "
+                            "moze zasilic oferte. Sama zmiana tego pola NIC nie "
+                            "generuje - przycisk \"Generuj opisy pakietow\" jest "
+                            "na OFERCIE (offers), nie tutaj: generuje SZKICE dla "
+                            "WSZYSTKICH wierszy offer_packages polinkowanych do "
+                            "tej oferty naraz (zbiorczo), potem odswiez."},
+        ],
+    },
+    {
         "title": "offers",
         "icon": "📄",
         "description": "Jedna oferta = jeden wygenerowany dokument; wiele ofert "
@@ -920,6 +988,14 @@ RELATIONS = [
     # per produkt) - stad mm, nie hm. Kazdy link wskazuje wiersz pricing,
     # z ktorego wzieta zostala kwota w offers.total_price.
     ("offers", "pricing", "mm", "pricing"),
+    # warianty_slajd_4.txt (2026-08-11, import-packages.py) -> package_variants
+    # istnieje juz z danymi. offer_packages to tabela-laczaca (nie plain mm),
+    # bo musi trzymac generated_text/ai_status/sort_order PER (offer,
+    # package_variant) - patrz komentarz przy definicji offer_packages w
+    # TABLES. Ten sam ksztalt relacji co recommendations/recommendation_packages
+    # nizej.
+    ("offers", "packages", "hm", "offer_packages"),
+    ("package_variants", "offer_packages", "hm", "offer_packages"),
     # --- trzy poziomy merytoryczne (v3 "Architektura tabel")
     ("participants", "assessments", "hm", "assessments"),
     ("participants", "recommendations", "hm", "recommendations"),
@@ -948,6 +1024,10 @@ RELATIONS = [
 # przycisk X" w opisie wskazywalo na pole o tej samej nazwie.
 BUTTONS = [
     ("offers", "generuj ofertę"),
+    # decyzja 2026-08-30: JEDEN zbiorczy przycisk na offers, nie po jednym na
+    # kazdym wierszu offer_packages - klik generuje generated_text dla
+    # WSZYSTKICH offer_packages polinkowanych do tej oferty naraz.
+    ("offers", "Generuj opisy pakietów"),
     ("meetings", "Generuj analizę"),
     ("assessments", "Generuj needs summary"),
     ("testimonials", "generuj slajd"),
