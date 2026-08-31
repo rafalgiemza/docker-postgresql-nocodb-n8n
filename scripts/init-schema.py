@@ -731,7 +731,12 @@ TABLES = [
              "description": "Czy stawka dotyczy kontynuacji istniejacego "
                             "kursu, czy nowego kursu od zera (cennik.xlsx "
                             "'Kontynuacja czy nowy kurs?')."},
-            {"title": "continuation_bonus_hours", "type": "Number",
+            # Decimal, nie Number/bigint - ta kolumna bywa 1.5 (patrz
+            # import-pricing.py naglowek, "Osobliwosc zrodlowego pliku"):
+            # Number w NocoDB v2 mapuje sie na Postgresowy bigint, ktory
+            # odrzuca wartosci niecalkowite (zweryfikowane na zywo 2026-09-01,
+            # "Invalid value '1.5' for type 'bigint'").
+            {"title": "continuation_bonus_hours", "type": "Decimal",
              "description": "Dodatkowe godziny doliczane przy kontynuacji "
                             "(cennik.xlsx 'Dodatkowe godziny za "
                             "kontynuacje')."},
@@ -748,7 +753,9 @@ TABLES = [
              "options": {"locale": "pl-PL", "code": "PLN"},
              "description": "Cena po rabacie, np. za platnosc z gory "
                             "(cennik.xlsx 'Po rabacie')."},
-            {"title": "hours_with_bonus", "type": "Number",
+            # Decimal, nie Number/bigint - ten sam powod co continuation_bonus_hours
+            # wyzej (bywa 1.5, patrz import-pricing.py naglowek).
+            {"title": "hours_with_bonus", "type": "Decimal",
              "description": "Laczna liczba godzin w pakiecie po doliczeniu "
                             "bonusow (cennik.xlsx 'Wielkosc pakietu z "
                             "bonusowymi h')."},
@@ -1046,7 +1053,7 @@ BUTTON_PLACEHOLDER_NOTE = (
 # Definicje TABLES wyzej sa pisane w czytelnym stylu v3 (type/options), bo
 # stanowia dokumentacje modelu. API v2 chce czego innego - stad ta warstwa.
 _UIDT = {"SingleLineText", "LongText", "Email", "PhoneNumber", "URL", "Number",
-         "Date", "DateTime", "Checkbox", "SingleSelect", "MultiSelect",
+         "Decimal", "Date", "DateTime", "Checkbox", "SingleSelect", "MultiSelect",
          "Currency", "User", "Attachment"}
 
 
