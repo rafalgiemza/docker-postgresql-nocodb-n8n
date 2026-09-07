@@ -154,9 +154,20 @@ i regenerację), `warnings` (LongText), `lead` (Links → leads).
   `{{participant.needs_summary}}` jest bardzo długie, może wyjść poza pole
   (jak w każdym szablonie). Projektuj szablony z zapasem; ewentualnie skracaj
   długie pola w danych.
-- Trzymaj cały `{{placeholder}}` w jednym stylu (nie pogrubiaj połowy).
-  Serwis radzi sobie z rozbiciem na runy, ale wtedy cały tekst akapitu
-  przyjmuje styl pierwszego fragmentu.
+- Trzymaj cały `{{placeholder}}` w jednym stylu (nie pogrubiaj połowy) —
+  dotyczy TYLKO ręcznego formatowania w samym szablonie (PowerPoint/Word
+  potrafi rozbić jeden `{{...}}` na kilka runów o różnym stylu). Serwis
+  radzi sobie z takim rozbiciem, ale wtedy cały tekst akapitu przyjmuje styl
+  pierwszego fragmentu.
+- **2026-09-07 (tylko PPTX, patrz niżej):** wartość ZWRÓCONA przez
+  placeholder (np. AI-generowany `{{module.goal_statement}}`/
+  `{{package.generated_text}}`) MOŻE zawierać `**pogrubienie**` i
+  `<br>`/prawdziwy `\n` — te dwa są rozpoznawane i zamieniane na prawdziwe
+  pogrubienie / złamanie linii w wygenerowanym pliku, nie wpadają jako
+  literalne `**`/`<br>` na slajd. Nic więcej z markdown/HTML nie jest
+  wspierane (list, nagłówków, linków itd. serwis nie rozumie — zostają jako
+  tekst). DOCX (`docx_renderer.py`) NIE MA jeszcze tej obsługi — placeholder
+  tam nadal wchodzi jako czysty tekst 1:1, `**`/`<br>` wyjdą dosłownie.
 
 ### PPTX (specyficzne)
 - Repeat działa na całych slajdach, nie na wierszach tabeli. Gdyby kiedyś

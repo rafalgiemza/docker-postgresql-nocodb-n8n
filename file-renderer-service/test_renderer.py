@@ -5,6 +5,7 @@ Run:  pytest file-renderer-service/test_renderer.py -v
 import io
 
 from pptx import Presentation
+from pptx.oxml.ns import qn
 from pptx.util import Inches
 
 from renderer import render_pptx
@@ -40,6 +41,23 @@ def _bytes(prs):
 
 def _textbox_text(slide):
     return slide.shapes[0].text_frame.text
+
+
+def _para_children(slide, para_idx=0):
+    """Ordered (kind, text, bold) tuples for a paragraph's a:r/a:br children -
+    text_frame.text alone can't tell a line break from nothing, and .runs
+    skips a:br entirely."""
+    para = slide.shapes[0].text_frame.paragraphs[para_idx]
+    out = []
+    for el in para._p:
+        if el.tag == qn("a:r"):
+            t = el.find(qn("a:t"))
+            rpr = el.find(qn("a:rPr"))
+            bold = rpr.get("b") if rpr is not None else None
+            out.append(("r", t.text if t is not None else "", bold))
+        elif el.tag == qn("a:br"):
+            out.append(("br", None, None))
+    return out
 
 
 def test_simple_placeholder_resolves():
@@ -164,3 +182,73 @@ def test_lifted_item_keys_shadow_top_level_data_on_that_slide():
             "row": [{"title": "z elementu"}]}
     out = _render(prs, data, warnings)
     assert _textbox_text(list(out.slides)[0]) == "z elementu|z leada"
+
+
+def test_bold_span_becomes_a_real_bold_run_not_literal_asterisks():
+    prs = _new_prs()
+    _add_slide(prs, ["{{module.goal_statement}}"])
+    warnings = []
+    data = {"module": {"goal_statement": "Zwykly tekst **pogrubiony fragment** koniec."}}
+    out = _render(prs, data, warnings)
+    assert _para_children(out.slides[0]) == [
+        ("r", "Zwykly tekst ", "0"),
+        ("r", "pogrubiony fragment", "1"),
+        ("r", " koniec.", "0"),
+    ]
+    assert warnings == []
+
+
+def test_br_and_newline_become_line_break_not_literal_text():
+    prs = _new_prs()
+    _add_slide(prs, ["{{module.goal_statement}}"])
+    warnings = []
+    data = {"module": {"goal_statement": "Pierwszy.<br>Drugi.\nTrzeci."}}
+    out = _render(prs, data, warnings)
+    assert _para_children(out.slides[0]) == [
+        ("r", "Pierwszy.", "0"),
+        ("br", None, None),
+        ("r", "Drugi.", "0"),
+        ("br", None, None),
+        ("r", "Trzeci.", "0"),
+    ]
+    # python-pptx represents each a:br as "\x0b" (soft line break) when
+    # joining paragraph text - a real break marker, not literal "<br>"/"\n".
+    assert _textbox_text(out.slides[0]) == "Pierwszy.\x0bDrugi.\x0bTrzeci."
+
+
+def test_plain_value_without_markup_stays_a_single_run():
+    """No **/<br>/\\n in the resolved value -> untouched fast path, same as
+    before this feature (no gratuitous run-splitting for ordinary text)."""
+    prs = _new_prs()
+    _add_slide(prs, ["{{lead.contact_name}}"])
+    warnings = []
+    out = _render(prs, {"lead": {"contact_name": "Ala"}}, warnings)
+    para = out.slides[0].shapes[0].text_frame.paragraphs[0]
+    assert len(para.runs) == 1
+    assert para.runs[0].text == "Ala"
+
+
+def test_rich_text_preserves_surrounding_plain_runs_and_their_order():
+    prs = _new_prs()
+    _add_slide(prs, ["Cel: ", "{{module.goal_statement}}", " (koniec)"])
+    warnings = []
+    data = {"module": {"goal_statement": "**A**\nB"}}
+    out = _render(prs, data, warnings)
+    assert _textbox_text(out.slides[0]) == "Cel: A\x0bB (koniec)"
+    kinds = [k for k, _, _ in _para_children(out.slides[0])]
+    assert kinds == ["r", "r", "br", "r", "r"]
+
+
+def test_rich_text_when_placeholder_split_across_runs():
+    """Slow path (placeholder text itself split across runs by PowerPoint) -
+    the collapsed-into-first-run value still gets bold/break treatment."""
+    prs = _new_prs()
+    _add_slide(prs, ["{{module.goal_", "statement}}"])
+    warnings = []
+    data = {"module": {"goal_statement": "**Cel**\nszczegoly"}}
+    out = _render(prs, data, warnings)
+    assert _textbox_text(out.slides[0]) == "Cel\x0bszczegoly"
+    kinds = [k for k, _, _ in _para_children(out.slides[0])]
+    # trailing "r" is the original second run, blanked (not removed) - same
+    # pre-existing collapse behavior as test_placeholder_split_across_runs_*.
+    assert kinds == ["r", "br", "r", "r"]

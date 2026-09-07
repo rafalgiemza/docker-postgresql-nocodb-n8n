@@ -1,8 +1,72 @@
 import copy, io, re
 from pptx import Presentation
 from pptx.oxml.ns import qn
+from pptx.text.text import Font
 
 from placeholders import PLACEHOLDER, resolve
+
+# LLM-generated LongText fields (needs_summary, offer_packages.generated_text)
+# come back with **bold** spans and either real "\n" or a literal "<br>" for
+# a line break - the two markdown/HTML constructs actually seen in practice.
+# Anything else is left as literal text (no general markdown/HTML parser).
+BOLD_RE = re.compile(r"\*\*(.+?)\*\*")
+BR_RE = re.compile(r"<br\s*/?>", re.I)
+
+
+def _is_rich(text):
+    return "\n" in text or bool(BR_RE.search(text)) or bool(BOLD_RE.search(text))
+
+
+def _segments(text):
+    """Split resolved placeholder text into ('text', str, bold) / ('break',)
+    tokens. Bold spans are resolved per line (a **span** can't cross a break),
+    which also means an accidental stray "**" can't eat the rest of the field."""
+    text = BR_RE.sub("\n", text)
+    tokens = []
+    for i, line in enumerate(text.split("\n")):
+        if i > 0:
+            tokens.append(("break",))
+        pos = 0
+        for m in BOLD_RE.finditer(line):
+            if m.start() > pos:
+                tokens.append(("text", line[pos:m.start()], False))
+            if m.group(1):
+                tokens.append(("text", m.group(1), True))
+            pos = m.end()
+        if pos < len(line):
+            tokens.append(("text", line[pos:], False))
+    return [t for t in tokens if t != ("text", "", False)]
+
+
+def _apply_rich_text(run, text):
+    """Rewrite `run` in place as a **bold**/line-break-aware run sequence.
+    New runs are deep-copies of the original run's XML (so they inherit its
+    font/size/color) with only `b` explicitly toggled per segment; line
+    breaks become `<a:br/>` siblings (soft break, same paragraph - a new
+    `<a:p>` would repeat bullet/numbering and paragraph spacing)."""
+    r_el = run._r
+    p_el = r_el.getparent()
+    run.text = ""
+    anchor = r_el
+    used_original = False
+    for tok in _segments(text):
+        if tok[0] == "break":
+            br = p_el.add_br()
+            anchor.addnext(br)
+            anchor = br
+            continue
+        _, content, bold = tok
+        if not used_original:
+            run.text = content
+            run.font.bold = bold
+            anchor = r_el
+            used_original = True
+        else:
+            new_el = copy.deepcopy(r_el)
+            new_el.find(qn("a:t")).text = content
+            anchor.addnext(new_el)
+            anchor = new_el
+            Font(new_el.get_or_add_rPr()).bold = bold
 
 
 def render_paragraph(para, ctx, warnings):
@@ -16,12 +80,20 @@ def render_paragraph(para, ctx, warnings):
             and "{{" not in PLACEHOLDER.sub("", full):
         for r in runs:
             if r.text and "{{" in r.text:
-                r.text = sub(r.text)
+                resolved = sub(r.text)
+                if _is_rich(resolved):
+                    _apply_rich_text(r, resolved)
+                else:
+                    r.text = resolved
         return
     # Placeholder split across runs: collapse into the first run.
     # (Documented tradeoff: keep placeholders inside one styling run.)
     if runs:
-        runs[0].text = sub(full)
+        resolved = sub(full)
+        if _is_rich(resolved):
+            _apply_rich_text(runs[0], resolved)
+        else:
+            runs[0].text = resolved
         for r in runs[1:]:
             r.text = ""
 
