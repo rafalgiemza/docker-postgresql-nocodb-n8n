@@ -239,6 +239,113 @@ def test_rich_text_preserves_surrounding_plain_runs_and_their_order():
     assert kinds == ["r", "r", "br", "r", "r"]
 
 
+def test_render_if_keeps_matching_variant_and_drops_others():
+    prs = _new_prs()
+    _add_slide(prs, ["boy cover"], notes="render_if:boy")
+    _add_slide(prs, ["girl cover"], notes="render_if:girl")
+    _add_slide(prs, ["man cover"], notes="render_if:man")
+    warnings = []
+    out = _render(prs, {"key": "girl"}, warnings)
+    assert len(out.slides) == 1
+    assert _textbox_text(out.slides[0]) == "girl cover"
+    assert any("render_if:boy" in w for w in warnings)
+    assert any("render_if:man" in w for w in warnings)
+    assert not any("render_if:girl" in w for w in warnings)
+
+
+def test_render_if_missing_key_in_data_drops_all_variants_and_warns():
+    prs = _new_prs()
+    _add_slide(prs, ["boy cover"], notes="render_if:boy")
+    _add_slide(prs, ["girl cover"], notes="render_if:girl")
+    _add_slide(prs, ["man cover"], notes="render_if:man")
+    warnings = []
+    out = _render(prs, {}, warnings)
+    assert len(out.slides) == 0
+    assert len(warnings) == 3
+
+
+def test_render_if_no_repeat_value_mismatch_drops_slide_and_warns():
+    prs = _new_prs()
+    _add_slide(prs, ["variant"], notes="render_if:skill_facilitating")
+    warnings = []
+    out = _render(prs, {"key": "exam_prep"}, warnings)
+    assert len(out.slides) == 0
+    assert any("render_if:skill_facilitating" in w for w in warnings)
+
+
+def test_render_if_combined_with_repeat_filters_per_item():
+    """render_if: value must be captured once from the PRISTINE slide, not
+    re-derived from a duplicated target (which has no notes slide at all -
+    see duplicate_slide) - otherwise this per-package-variant filtering
+    silently breaks."""
+    prs = _new_prs()
+    _add_slide(prs, ["{{package.key}} skill slide"],
+               notes="repeat:package\nrender_if:skill_facilitating")
+    _add_slide(prs, ["{{package.key}} exam slide"],
+               notes="repeat:package\nrender_if:exam_prep")
+    warnings = []
+    data = {"package": [{"key": "skill_facilitating"}, {"key": "exam_prep"}]}
+    out = _render(prs, data, warnings)
+    texts = [_textbox_text(s) for s in out.slides]
+    assert texts == ["skill_facilitating skill slide", "exam_prep exam slide"]
+
+
+def test_render_if_combined_with_repeat_drops_all_copies_when_no_item_matches():
+    prs = _new_prs()
+    _add_slide(prs, ["{{package.key}} exam slide"],
+               notes="repeat:package\nrender_if:exam_prep")
+    warnings = []
+    data = {"package": [{"key": "skill_facilitating"}, {"key": "skill_facilitating"}]}
+    out = _render(prs, data, warnings)
+    assert len(out.slides) == 0
+    assert len([w for w in warnings if "render_if:exam_prep" in w]) == 2
+
+
+def test_plain_slide_without_any_marker_is_unaffected():
+    prs = _new_prs()
+    _add_slide(prs, ["hello"])
+    _add_slide(prs, ["world"], notes="some unrelated note")
+    warnings = []
+    out = _render(prs, {}, warnings)
+    assert [_textbox_text(s) for s in out.slides] == ["hello", "world"]
+    assert warnings == []
+
+
+def test_render_if_value_stops_at_first_invalid_char_same_as_repeat():
+    """render_if:foo-bar is parsed as value "foo" (charset stops at "-"),
+    exactly like repeat:<name> already does - not a special render_if rule."""
+    prs = _new_prs()
+    _add_slide(prs, ["still here"], notes="render_if:foo-bar")
+    warnings = []
+    out = _render(prs, {"key": "foo"}, warnings)
+    assert len(out.slides) == 1
+    assert _textbox_text(out.slides[0]) == "still here"
+    assert warnings == []
+
+
+def test_render_if_marker_starting_with_invalid_char_is_not_recognized_at_all():
+    """Only when the FIRST char right after "render_if:" isn't a valid
+    identifier start (e.g. a digit) does the marker fail to match entirely -
+    the slide then renders unconditionally, no warning."""
+    prs = _new_prs()
+    _add_slide(prs, ["still here"], notes="render_if:123boy")
+    warnings = []
+    out = _render(prs, {"key": "totally_different"}, warnings)
+    assert len(out.slides) == 1
+    assert _textbox_text(out.slides[0]) == "still here"
+    assert warnings == []
+
+
+def test_two_slides_with_same_render_if_value_both_survive():
+    prs = _new_prs()
+    _add_slide(prs, ["first boy"], notes="render_if:boy")
+    _add_slide(prs, ["second boy"], notes="render_if:boy")
+    warnings = []
+    out = _render(prs, {"key": "boy"}, warnings)
+    assert [_textbox_text(s) for s in out.slides] == ["first boy", "second boy"]
+    assert warnings == []
+
+
 def test_rich_text_when_placeholder_split_across_runs():
     """Slow path (placeholder text itself split across runs by PowerPoint) -
     the collapsed-into-first-run value still gets bold/break treatment."""

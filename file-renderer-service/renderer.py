@@ -172,11 +172,52 @@ def slide_repeat_marker(slide):
     return m.group(1) if m else None
 
 
+def slide_render_if_marker(slide):
+    """`render_if:<value>` in a slide's SPEAKER NOTES - the slide survives
+    only if str(ctx.get("key")) == <value> (the literal, fixed "key" field;
+    inside a repeat: block this is normally the item's own lifted "key",
+    e.g. package_variants.key - see render_pptx). Same charset as
+    repeat:<name>. Returns None if the marker isn't present/recognized, in
+    which case the slide is unconditional (degrades safely, same as any
+    other unrecognized marker text)."""
+    if not slide.has_notes_slide:
+        return None
+    txt = slide.notes_slide.notes_text_frame.text or ""
+    m = re.search(r"render_if\s*:\s*([a-zA-Z_][a-zA-Z0-9_]*)", txt, re.I)
+    return m.group(1) if m else None
+
+
+def render_if_ok(value, ctx, warnings):
+    """True if `value` is None (slide has no render_if marker) or matches
+    str(ctx.get("key")) exactly. Appends a warning and returns False on any
+    mismatch, including a missing "key" - fail-closed, same convention as
+    repeat:'s empty-list handling. Takes the already-resolved marker VALUE
+    (not the slide) so callers control whether it's re-derived per slide or
+    captured once and reused across a repeat group's duplicates - duplicated
+    slides have no notes slide part (see duplicate_slide), so re-deriving it
+    from a duplicated target would silently see "no marker" and stop
+    filtering."""
+    if value is None:
+        return True
+    if value == str(ctx.get("key")):
+        return True
+    warnings.append(f"render_if:{value} slide dropped - key={ctx.get('key')!r} did not match")
+    return False
+
+
 def render_pptx(template_bytes, data, warnings):
     prs = Presentation(io.BytesIO(template_bytes))
     for slide in list(prs.slides):
         marker = slide_repeat_marker(slide)
+        # Captured once from the PRISTINE slide's own notes, same reason
+        # `marker` is: duplicate_slide() does not copy the notesSlide
+        # relationship, so a duplicated target has no notes of its own to
+        # re-derive this from later.
+        render_if_value = slide_render_if_marker(slide)
         if not marker:
+            if not render_if_ok(render_if_value, data, warnings):
+                delete_slide(prs, slide)
+                continue
             render_shapes(slide.shapes, data, warnings)
             continue
         items = data.get(marker) or []
@@ -204,6 +245,9 @@ def render_pptx(template_bytes, data, warnings):
             if isinstance(item, dict):
                 ctx.update(item)
             ctx[marker] = item
+            if not render_if_ok(render_if_value, ctx, warnings):
+                delete_slide(prs, target)
+                continue
             render_shapes(target.shapes, ctx, warnings)
     out = io.BytesIO()
     prs.save(out)
