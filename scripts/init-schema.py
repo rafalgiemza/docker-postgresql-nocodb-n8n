@@ -124,9 +124,10 @@ CZEGO TEN SKRYPT NIE ROBI (do wyklikania ręcznie po uruchomieniu):
      nie zaczęta robota — patrz TODO.md.
      Zmiana z 2026-09-16: `package_variants` rozbite na DWA katalogi -
      `package_variants_cores` (glowne pakiety, dynamiczna liczba slajdow
-     uzasadnienia, pola name/description/slides) i `package_variants_adons`
-     (dodatki/skille o STALYCH slajdach w szablonie, pola
-     name/default_hours/key) - patrz .ai/slajdy.md. Personalizowany wybor
+     uzasadnienia, pola name/description + link `slides` - patrz poprawka
+     z 2026-09-17 nizej) i `package_variants_adons` (dodatki/skille o
+     STALYCH slajdach w szablonie, pola name/default_hours/key) - patrz
+     .ai/slajdy.md. Personalizowany wybor
      per recommendation przenosi sie z `offer_packages` na dwie nowe
      tabele-laczace: `selected_package_variants_cores` i
      `selected_package_variants_adons` (kazda: pole `hours` + link do
@@ -171,6 +172,31 @@ CZEGO TEN SKRYPT NIE ROBI (do wyklikania ręcznie po uruchomieniu):
      5 w komunikacie koncowym skryptu). Caly lancuch hours*price -> ... ->
      total_price NIE byl jeszcze przetestowany end-to-end na zywej bazie -
      sprawdz w UI po pierwszym uruchomieniu.
+     Poprawka z 2026-09-17: `package_variants_cores.slides` NIE jest polem
+     liczbowym (pierwotna wersja z tego samego dnia, wyzej) - to Links (hm)
+     do NOWEJ tabeli `package_core_slides` (pola: name/title/description).
+     Kazdy pakiet core dostaje 0-3 wiersze tej tabeli, po jednym na kazdy
+     slajd uzasadnienia - dokladnie tyle samo elastycznosci ("dopisz slajd"),
+     ile dawalo bezposrednie edytowanie szablonu PRZED przemodelowaniem na
+     cores/adons, tylko teraz jako dane w NocoDB zamiast recznej edycji pptx.
+     NA JUZ WDROZONEJ BAZIE `package_variants_cores.slides` istnieje jako
+     zwykle pole Number (utworzone przy pierwszym, blednym przebiegu tej
+     samej zmiany) - dokladnie ten sam problem co z `offers.total_price`
+     wyzej: create_relations() pomija pola po samym TYTULE, wiec `make
+     init-schema` NIE zamieni go samo na Links; usun je RECZNIE w UI NocoDB
+     przed ponownym uruchomieniem skryptu.
+     Sync z 2026-09-17 (docs/archive/fable/schema_map.json, dump po recznych
+     poprawkach na zywej bazie): dopisano `package_variants_adons.description`
+     (LongText, analogicznie do package_variants_cores.description - brakowalo
+     go w TABLES) oraz `title` (SingleLineText, pierwsze pole) na obu
+     `selected_package_variants_cores`/`adons` - wczesniej mialy tylko
+     hours/price, co robilo z Number (`hours`) display value; `title`
+     to rozwiazuje. NIEZASTOSOWANE swiadomie: na zywej bazie
+     `package_variants_adons.key` zostalo recznie przekonwertowane na
+     SingleSelect (dump nie zapisuje listy opcji dla SingleSelect - patrz
+     sync_select_options() nizej), ale realna lista opcji nie jest znana
+     temu skryptowi, wiec TABLES nizej zostawia `key` jako SingleLineText -
+     zobacz komentarz przy tym polu.
      TABLES/RELATIONS niżej to teraz
      aktualny stan docelowy, nie automatyczny diff.
 
@@ -656,34 +682,56 @@ TABLES = [
         ],
     },
     {
+        # NOWA 2026-09-17: katalog POSZCZEGOLNYCH slajdow uzasadnienia dla
+        # package_variants_cores - zastepuje pierwotny pomysl z liczbowym
+        # polem `slides` (patrz historia w naglowku skryptu, "Zmiana z
+        # 2026-09-17"). Kazdy wiersz = jeden slajd tresci, link
+        # package_variants_cores.slides (RELATIONS, hm) pozwala dopiac 0-3
+        # takich wierszy do jednego pakietu - dokladnie tyle, ile slajdow
+        # uzasadnienia ten pakiet ma dostac w ofercie (.ai/slajdy.md: "moze
+        # zajac 1-3 slajdow"), tak jak dalo sie to robic PRZED
+        # przemodelowaniem na cores/adons (dowolna liczba dopisywanych
+        # slajdow, nie sztywny licznik).
+        "title": "package_core_slides",
+        "icon": "🖼️",
+        "description": "Pojedynczy slajd uzasadnienia dla package_variants_"
+                       "cores - 0-3 wiersze na pakiet (link "
+                       "package_variants_cores.slides, RELATIONS). `name` to "
+                       "wewnetrzna etykieta/kolejnosc, `title`/`description` "
+                       "to tresc renderowana na slajdzie.",
+        "fields": [
+            {"title": "name", "type": "SingleLineText",
+             "description": "Wewnetrzna etykieta tego slajdu (identyfikacja "
+                            "w UI/kolejnosc) - NIE tresc widoczna na slajdzie."},
+            {"title": "title", "type": "SingleLineText",
+             "description": "Naglowek tego slajdu w wygenerowanej ofercie."},
+            {"title": "description", "type": "LongText",
+             "description": "Tresc/uzasadnienie tego slajdu w wygenerowanej "
+                            "ofercie."},
+        ],
+    },
+    {
         # NOWA 2026-09-16: zastepuje `package_variants` (usuniete - patrz
         # naglowek skryptu, "Zmiana z 2026-09-16") - katalog GLOWNYCH
         # pakietow ("cores"), rozdzielony od `package_variants_adons`
         # (dodatki/skille) ponizej. .ai/slajdy.md: pakiety maja personalnie
         # dobierane godziny i uzasadnienie z assessmentu, ktore moze zajac
-        # 1-3 slajdy - DYNAMICZNA liczba, w odroznieniu od adons, ktore maja
-        # STALE sloty w szablonie.
+        # 1-3 slajdy - DYNAMICZNA liczba (0-3 linkowanych package_core_slides,
+        # patrz ta tabela wyzej), w odroznieniu od adons, ktore maja STALE
+        # sloty w szablonie.
         "title": "package_variants_cores",
         "icon": "🎁",
         "description": "Katalog glownych pakietow szkoleniowych (Business "
                        "English, English for IT, ...). Godziny per pakiet "
                        "sa personalizowane per rekomendacja (patrz "
                        "selected_package_variants_cores.hours) - ten katalog "
-                       "trzyma tylko tresc i domyslna liczbe slajdow.",
+                       "trzyma tresc ogolna (description) plus link do 0-3 "
+                       "slajdow uzasadnienia (slides -> package_core_slides).",
         "fields": [
             {"title": "name", "type": "SingleLineText"},
             {"title": "description", "type": "LongText",
              "description": "Opis katalogowy pakietu - baza pod "
                             "personalizowany tekst na slajdzie oferty."},
-            # ZALOZENIE (niezweryfikowane na zywo): Number = domyslna liczba
-            # slajdow uzasadnienia tego pakietu (.ai/slajdy.md: "moze zajac
-            # 1-3 slajdow") - steruje mechanizmem repeat:/render_if: w
-            # file-renderer-service. Jesli chodzilo o cos innego (np. tresc
-            # per-slajd), popraw typ pola w UI.
-            {"title": "slides", "type": "Number",
-             "description": "Domyslna liczba slajdow uzasadnienia dla tego "
-                            "pakietu (dynamiczna, personalizowana per "
-                            "oferta - .ai/slajdy.md)."},
         ],
     },
     {
@@ -699,10 +747,24 @@ TABLES = [
                        "wlacza/wylacza wlasciwy staly slajd.",
         "fields": [
             {"title": "name", "type": "SingleLineText"},
+            # NOWA 2026-09-17: dopisane recznie w UI (zobaczone w
+            # docs/archive/fable/schema_map.json), dopisane tu zeby nie
+            # zniknelo przy odtworzeniu schematu - analogiczny opis
+            # katalogowy jak package_variants_cores.description.
+            {"title": "description", "type": "LongText",
+             "description": "Opis katalogowy dodatku - baza pod "
+                            "personalizowany tekst na slajdzie oferty."},
             {"title": "default_hours", "type": "Number",
              "description": "Domyslna/typowa liczba godzin tego dodatku - "
                             "nadpisywana per rekomendacja w "
                             "selected_package_variants_adons.hours."},
+            # NA JUZ WDROZONEJ BAZIE to pole zostalo recznie zmienione w UI
+            # na SingleSelect (docs/archive/fable/schema_map.json,
+            # 2026-09-17) - lista opcji NIE jest znana temu skryptowi (dump
+            # nie zapisuje choices dla SingleSelect, patrz sync_select_options()
+            # nizej) i celowo nie jest tu zgadywana. Zostaje SingleLineText -
+            # jesli odtwarzasz baze od zera i chcesz SingleSelect, przekonwertuj
+            # recznie w UI i wklej tu realna liste opcji.
             {"title": "key", "type": "SingleLineText",
              "description": "Kod placeholdera w szablonie pptx "
                             "(render_if:key) - identyfikuje, KTORY staly "
@@ -875,9 +937,10 @@ TABLES = [
         # wybrany do TEJ recommendation, z godzinami dobranymi
         # indywidualnie (.ai/slajdy.md: "snapshot zamiast override" -
         # hours tutaj jest WLASNA wartoscia tego wyboru, nie live-lookupem
-        # z katalogu). UWAGA na display value: jedyne pole to `hours`
-        # (Number) - jesli w UI okaze sie niewygodne, dopisz pole nazwowe
-        # (jak package_name w dawnym offer_packages).
+        # z katalogu). `title` dopisane 2026-09-17 (zobaczone recznie
+        # dodane w UI, docs/archive/fable/schema_map.json) jako pierwsze
+        # pole - rozwiazuje wczesniejsza obawe o display value = `hours`
+        # (Number).
         "title": "selected_package_variants_cores",
         "icon": "🧺",
         "description": "Wybrany glowny pakiet (package_variants_cores) w "
@@ -885,6 +948,7 @@ TABLES = [
                        "godzinami. Link do package_variants_cores wskazuje "
                        "dokladnie jeden katalogowy pakiet (RELATIONS).",
         "fields": [
+            {"title": "title", "type": "SingleLineText"},
             {"title": "hours", "type": "Number",
              "description": "Godziny tego pakietu core personalizowane dla "
                             "TEJ rekomendacji - katalog "
@@ -905,7 +969,8 @@ TABLES = [
     {
         # NOWA 2026-09-16: analogicznie do selected_package_variants_cores
         # wyzej, dla dodatkow/skilli (`package_variants_adons`, stale sloty
-        # w szablonie).
+        # w szablonie). `title` - patrz komentarz przy
+        # selected_package_variants_cores wyzej.
         "title": "selected_package_variants_adons",
         "icon": "🔌",
         "description": "Wybrany dodatek/skill (package_variants_adons) w "
@@ -913,6 +978,7 @@ TABLES = [
                        "godzinami. Link do package_variants_adons wskazuje "
                        "dokladnie jeden katalogowy dodatek (RELATIONS).",
         "fields": [
+            {"title": "title", "type": "SingleLineText"},
             {"title": "hours", "type": "Number",
              "description": "Godziny tego dodatku personalizowane dla TEJ "
                             "rekomendacji - package_variants_adons."
@@ -1097,6 +1163,9 @@ RELATIONS = [
     ("meetings", "assessments", "hm", "assessments"),
     ("recommendations", "packages", "hm", "recommendation_packages"),
     ("training_descriptions", "recommendation_packages", "hm", "recommendation_packages"),
+    # NOWA 2026-09-17: 0-3 slajdy uzasadnienia per GLOWNY pakiet - patrz
+    # komentarz przy definicji package_core_slides w TABLES.
+    ("package_variants_cores", "slides", "hm", "package_core_slides"),
     # NOWA 2026-09-16: zastepuje offer_packages/package_variants (usuniete) -
     # wybor GLOWNYCH pakietow ("cores") per recommendation, ten sam ksztalt
     # relacji co recommendations/recommendation_packages wyzej (junction z
@@ -1525,8 +1594,12 @@ if __name__ == "__main__":
     print("  5. offers.total_price (Rollup): jesli na TEJ bazie istnialo juz "
           "jako zwykle Currency, powyzszy krok je pominal - usun je RECZNIE ")
     print("     w UI i uruchom skrypt ponownie, zeby powstalo jako Rollup "
-          "(patrz COMPUTED_FIELDS w tym pliku). Sprawdz tez w UI, czy "
-          "kazdy Formula/Rollup z tego kroku faktycznie policzyl wartosc "
-          "(kontrakt Rollup zweryfikowany na zywym dumpie, ale caly lancuch "
-          "hours*price -> ... -> total_price NIE byl jeszcze przetestowany "
-          "end-to-end).")
+          "(patrz COMPUTED_FIELDS w tym pliku). Kontrakt i caly lancuch "
+          "hours*price -> ... -> total_price juz DZIALA na zywej bazie "
+          "(potwierdzone dumpem 2026-09-17) - ten punkt dotyczy tylko baz, "
+          "gdzie total_price nadal jest starym Currency.")
+    print("  6. package_variants_cores.slides (Links -> package_core_slides): "
+          "ten sam problem co punkt 5 - jesli na TEJ bazie istnieje juz jako "
+          "zwykle pole Number, usun je RECZNIE w UI przed ponownym "
+          "uruchomieniem, inaczej create_relations() je pominie i relacja "
+          "nigdy nie powstanie.")
