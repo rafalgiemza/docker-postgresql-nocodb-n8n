@@ -32,7 +32,10 @@ losuje z tego, co tam już jest, i linkuje. Jeśli katalog jest pusty, ta
 część jest pomijana z ostrzeżeniem (jak przy braku leadów). Każda
 recommendation dostaje też link `offers`↔`recommendations`, żeby cały
 łańcuch rollupów `offers.total_price` (patrz nagłówek init-schema.py "Zmiana
-z 2026-09-17") dało się sprawdzić na żywo po seedzie.
+z 2026-09-17") wyliczył się sam po seedzie - potwierdzone na żywym dumpie
+(docs/archive/fable/schema_map.json, 2026-09-17): `offers.total_price` ma
+tam już `uidt: Rollup`, więc ten skrypt świadomie NIE ustawia go ręcznie przy
+tworzeniu `offers` (patrz komentarz przy tym create() w seed_per_lead).
 
 Pola SingleSelect/MultiSelect MUSZĄ zgadzać się z listami opcji z
 `scripts/init-schema.py` (TABLES) - stałe niżej są stamtąd świadomie
@@ -460,9 +463,14 @@ def seed_per_lead(tables, links, leads_with_participants, package_ids,
             rec_ids.append(rec_id)
 
         # offer
+        # total_price NIE jest tu ustawiane - na tej bazie (docs/archive/fable/
+        # schema_map.json, dump 2026-09-17) to już Rollup (offers.recommendations
+        # -> recommendations.package_total, patrz nagłówek scripts/init-schema.py
+        # "Zmiana z 2026-09-17"), liczony automatycznie z linku ustawionego
+        # niżej ("offers", "recommendations") - ręczny zapis byłby odrzucony/
+        # zignorowany przez pole liczone.
         offer_id = create("offers", tables, {
             "title": f"Oferta — {name}", "status": random.choice(["draft", "sent", "accepted"]),
-            "total_price": random.choice([8400, 11700, 16500]),
             "hours": random.choice([30, 60, 90]),
             "product_type": random.choice(VARIANT),
             "version": 1, "template_name": "Oferta standard PL",
