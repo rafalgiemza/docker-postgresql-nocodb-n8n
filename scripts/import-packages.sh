@@ -3,8 +3,9 @@ set -e
 # .env vars come from the Makefile (`include .env` + `export`), not a bash
 # `source` here - patrz komentarz w seed-extra.sh.
 
-# warianty_slajd_4.txt -> tabela package_variants (patrz nagłówek
-# scripts/import-packages.py). Uruchamiane w kontenerze testimonials-import
+# warianty_core.txt -> package_variants_cores, warianty_adons.txt ->
+# package_variants_adons (patrz nagłówek scripts/import-packages.py).
+# Uruchamiane w kontenerze testimonials-import
 # (nie na hosta python3) - ten sam kontener co import-testimonials.py, bo
 # potrzebuje tylko `requests`, który już tam jest (patrz
 # testimonials-import/README.md dlaczego kontener, nie `pip install` na hoście).

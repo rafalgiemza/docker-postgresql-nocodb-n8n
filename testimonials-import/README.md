@@ -14,8 +14,9 @@ zależności pythonowe potrzebne przez skrypty w `../scripts/`:
 - `import-pricing.py` — `init-data/source/cennik.xlsx` → tabela `pricing`
   (UPSERT po strukturze segment/hours/tryb, nie po cenach - bezpieczne
   ponowne uruchomienie po podmianie pliku na wersję z realnymi stawkami).
-- `import-packages.py` — `init-data/source/warianty_slajd_4.txt` → tabela
-  `package_variants` (parsuje prozaiczny tekst, nie arkusz).
+- `import-packages.py` — `init-data/warianty_core.txt` → tabela
+  `package_variants_cores`, `init-data/warianty_adons.txt` → tabela
+  `package_variants_adons` (parsuje prozaiczny tekst, nie arkusz).
 
 Pełny kontekst i mechanika: nagłówki poszczególnych skryptów.
 

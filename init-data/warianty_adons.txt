@@ -1,0 +1,16 @@
+﻿✅ English + Business Skills: Facilitating – {{package.hours}}  godzin 
+Rozwijasz umiejętność prowadzenia spotkań i moderowania rozmów prowadzących do konkretnych ustaleń i decyzji. 
+✅ English + Business Skills: Negotiating – {{package.hours}}  godzin 
+Rozwijasz umiejętność prowadzenia negocjacji biznesowych i osiągania korzystnych ustaleń po angielsku. 
+✅ English + Business Skills: Dynamic Discussions – {{package.hours}}  godzin 
+Skuteczniej uczestniczysz w spotkaniach, dyskusjach i rozmowach biznesowych prowadzonych po angielsku. 
+✅ English + Business Skills: Presenting & Pitching – {{package.hours}}  godzin 
+Skuteczniej prezentujesz pomysły, rekomendacje i rozwiązania przed klientami oraz współpracownikami. 
+✅ English + Business Skills: Facilitating – {{package.hours}}  godzin 
+Skuteczniej prowadzisz spotkania i angażujesz uczestników w osiąganie wspólnych celów. 
+✅ English + Business Skills: Negotiating – {{package.hours}}  godzin 
+Skuteczniej prowadzisz negocjacje i wypracowujesz porozumienia z klientami oraz partnerami biznesowymi. 
+✅ English + Business Skills: Bridging the Gap Between Cultures – {{package.hours}}  godzin 
+Skuteczniej komunikujesz się i współpracujesz z partnerami biznesowymi z różnych krajów i kultur. 
+✅ Job Interview – {{package.hours}}  godzin 
+Przygotowujesz się do rozmów rekrutacyjnych po angielsku, budując pewność siebie i profesjonalny sposób prezentowania swoich kompetencji.

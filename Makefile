@@ -80,7 +80,7 @@ dump-crm-schema: ## Dump live CRM table/field ids + relation targets to docs/arc
 # MUSZĄ iść PO krokach 1-3 (dopasowanie firmy po nazwie i dociągnięcie
 # slajdów działają na już istniejących leadach/firmach/testimonialach).
 # Kroki 6-7: cennik i warianty pakietów - niezależne od 1-5 (pricing/
-# package_variants nie linkują do leads/companies), kolejność wobec nich
+# package_variants_cores nie linkują do leads/companies), kolejność wobec nich
 # bez znaczenia. Pełny kontekst: nagłówki scripts/import-testimonials.py,
 # scripts/attach-testimonial-slides.py, scripts/import-pricing.py,
 # scripts/import-packages.py.
@@ -104,7 +104,8 @@ init-data:
 	#    gdy plik na VPS zostanie podmieniony na wersję z realnymi cenami)
 	./scripts/import-pricing.sh
 
-	# 7. warianty_slajd_4.txt -> tabela package_variants
+	# 7. warianty_core.txt -> package_variants_cores, warianty_adons.txt ->
+	#    package_variants_adons
 	./scripts/import-packages.sh
 
 # Seeduje przez NocoDB REST API 13 tabel CRM poza leads/companies/participants
