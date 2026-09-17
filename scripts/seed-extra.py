@@ -12,13 +12,27 @@ Tabele:
     document_templates, projects, task_templates
   wpięte pod ISTNIEJĄCE leady/participants (pobrane z bazy - patrz
   --leads), NIE dedupe'owane - kolejne uruchomienie dokłada kolejną porcję:
-    meetings, assessments, recommendations, offers, tasks, activities
+    meetings, assessments, recommendations, offers, tasks, activities,
+    selected_package_variants_cores, selected_package_variants_adons
 
 Skąd biorą się leady/participants do wpięcia: ten skrypt niczego nie
 generuje sam - czyta `n` istniejących rekordów `leads` (najlepiej po
 `make init-data`/seed-service) i ich linki `participants`, potem dokleja pod
 nie meetings/assessments/etc. Jeśli baza jest pusta (0 leadów), sensowna
 jest tylko część referencyjna - reszta zostanie pominięta z ostrzeżeniem.
+
+`selected_package_variants_cores`/`selected_package_variants_adons`
+(dodane 2026-09-17 wraz z resztą schematu, patrz nagłówek
+scripts/init-schema.py "Zmiana z 2026-09-16"/"z 2026-09-17") - jeden wiersz
+= jeden wybrany pakiet/dodatek (z katalogu `package_variants_cores`/
+`package_variants_adons`) w ramach jednej `recommendations`, z własnym
+hours/price. Ten skrypt SAM NIE tworzy katalogu (`package_variants_cores`/
+`_adons`) - to robi `./scripts/import-packages.sh` z danych klientki - tylko
+losuje z tego, co tam już jest, i linkuje. Jeśli katalog jest pusty, ta
+część jest pomijana z ostrzeżeniem (jak przy braku leadów). Każda
+recommendation dostaje też link `offers`↔`recommendations`, żeby cały
+łańcuch rollupów `offers.total_price` (patrz nagłówek init-schema.py "Zmiana
+z 2026-09-17") dało się sprawdzić na żywo po seedzie.
 
 Pola SingleSelect/MultiSelect MUSZĄ zgadzać się z listami opcji z
 `scripts/init-schema.py` (TABLES) - stałe niżej są stamtąd świadomie
@@ -85,7 +99,10 @@ TABLES_NEEDED = ["leads", "participants", "meetings", "assessments",
                  "recommendations", "training_descriptions",
                  "recommendation_packages", "pricing", "offers",
                  "document_templates", "testimonials", "projects",
-                 "task_templates", "tasks", "activities"]
+                 "task_templates", "tasks", "activities",
+                 "package_variants_cores", "package_variants_adons",
+                 "selected_package_variants_cores",
+                 "selected_package_variants_adons"]
 
 
 def resolve_meta():
@@ -277,11 +294,14 @@ def seed_reference(tables, links, dry_run):
              training_ids.get(training_title), pkg_id, dry_run)
 
 
-def get_recommendation_package_ids(tables, dry_run):
+def get_records(table_title, tables, dry_run, limit=25):
+    """Rekordy istniejące w tabeli-katalogu (do losowania z niej pod link) -
+    w dry-run puste, jak fetch_leads_with_participants: dry-run nie zależy
+    od realnych ID."""
     if dry_run:
         return []
-    res = api("GET", f"/api/v2/tables/{tables['recommendation_packages']}/records", params={"limit": 25})
-    return [r["Id"] for r in res.get("list", [])]
+    res = api("GET", f"/api/v2/tables/{tables[table_title]}/records", params={"limit": limit})
+    return res.get("list", [])
 
 
 def get_project_and_template_ids(tables, links, dry_run):
@@ -338,7 +358,36 @@ def lead_display_name(lead_rec):
     return lead_rec.get("lead_name") or f"lead#{lead_rec.get('Id')}"
 
 
-def seed_per_lead(tables, links, leads_with_participants, package_ids, project_ids, tt_ids, dry_run):
+def seed_selected_packages(tables, links, rec_id, p_name, core_catalog, adon_catalog, dry_run):
+    """Losuje z katalogu package_variants_cores/adons i tworzy pod TĘ
+    recommendation wiersze selected_package_variants_cores/adons (własne
+    hours/price - patrz komentarz przy tych tabelach w init-schema.py)."""
+    if core_catalog:
+        core = random.choice(core_catalog)
+        core_row_id = create("selected_package_variants_cores", tables, {
+            "title": f"{core.get('name', 'Pakiet core')} — {p_name}",
+            "hours": random.choice([30, 60, 90]),
+            "price": random.choice([130, 140, 150]),
+        }, dry_run)
+        link("package_variants_cores", "selected_package_variants_cores", links, tables,
+             core.get("Id"), core_row_id, dry_run)
+        link("recommendations", "selected_cores", links, tables, rec_id, core_row_id, dry_run)
+
+    if adon_catalog:
+        chosen = random.sample(adon_catalog, k=min(random.randint(0, 2), len(adon_catalog)))
+        for adon in chosen:
+            adon_row_id = create("selected_package_variants_adons", tables, {
+                "title": f"{adon.get('name', 'Dodatek')} — {p_name}",
+                "hours": random.choice([5, 10, 15]),
+                "price": random.choice([130, 140, 150]),
+            }, dry_run)
+            link("package_variants_adons", "selected_package_variants_adons", links, tables,
+                 adon.get("Id"), adon_row_id, dry_run)
+            link("recommendations", "selected_adons", links, tables, rec_id, adon_row_id, dry_run)
+
+
+def seed_per_lead(tables, links, leads_with_participants, package_ids,
+                  core_catalog, adon_catalog, project_ids, tt_ids, dry_run):
     projects = [pid for pid in project_ids.values() if pid]
     templates = [tid for tid in tt_ids.values() if tid]
 
@@ -377,6 +426,7 @@ def seed_per_lead(tables, links, leads_with_participants, package_ids, project_i
         link("meetings", "activities", links, tables, meeting_id, act_meeting, dry_run)
 
         # participants: assessment + recommendation each
+        rec_ids = []
         for p in participants:
             p_id, p_name = p["Id"], p.get("full_name", f"participant#{p['Id']}")
             assessment_id = create("assessments", tables, {
@@ -406,6 +456,8 @@ def seed_per_lead(tables, links, leads_with_participants, package_ids, project_i
             if package_ids:
                 link("recommendations", "packages", links, tables, rec_id,
                      random.sample(package_ids, k=min(2, len(package_ids))), dry_run)
+            seed_selected_packages(tables, links, rec_id, p_name, core_catalog, adon_catalog, dry_run)
+            rec_ids.append(rec_id)
 
         # offer
         offer_id = create("offers", tables, {
@@ -418,6 +470,8 @@ def seed_per_lead(tables, links, leads_with_participants, package_ids, project_i
             "valid_until": d(random.randint(10, 30)),
         }, dry_run)
         link("leads", "offers", links, tables, lead_id, offer_id, dry_run)
+        if rec_ids:
+            link("offers", "recommendations", links, tables, offer_id, rec_ids, dry_run)
 
         # task
         task_id = create("tasks", tables, {
@@ -467,14 +521,22 @@ def main():
     package_ids, project_ids, tt_ids = [], {}, {}
     if not args.skip_reference:
         seed_reference(tables, links, args.dry_run)
-        package_ids = get_recommendation_package_ids(tables, args.dry_run)
+        package_ids = [r["Id"] for r in get_records("recommendation_packages", tables, args.dry_run)]
         project_ids, tt_ids = get_project_and_template_ids(tables, links, args.dry_run)
     else:
         print("\n(pominięto dane referencyjne: --skip-reference)")
-        package_ids = get_recommendation_package_ids(tables, args.dry_run)
+        package_ids = [r["Id"] for r in get_records("recommendation_packages", tables, args.dry_run)]
+
+    core_catalog = get_records("package_variants_cores", tables, args.dry_run)
+    adon_catalog = get_records("package_variants_adons", tables, args.dry_run)
+    if not args.dry_run and not core_catalog and not adon_catalog:
+        print("\nℹ️  package_variants_cores/package_variants_adons puste - "
+              "uruchom najpierw ./scripts/import-packages.sh, żeby "
+              "selected_package_variants_cores/adons miały co linkować.")
 
     leads_with_participants = fetch_leads_with_participants(tables, links, args.leads, args.dry_run)
-    seed_per_lead(tables, links, leads_with_participants, package_ids, project_ids, tt_ids, args.dry_run)
+    seed_per_lead(tables, links, leads_with_participants, package_ids,
+                  core_catalog, adon_catalog, project_ids, tt_ids, args.dry_run)
 
     print(f"\n--- podsumowanie {'(dry-run, nic nie zapisano)' if args.dry_run else ''} ---")
     print(f"utworzone rekordy: {COUNTS['created']}")
