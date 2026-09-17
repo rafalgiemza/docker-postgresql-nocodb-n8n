@@ -206,7 +206,25 @@ def render_if_ok(value, ctx, warnings):
 
 
 def render_pptx(template_bytes, data, warnings):
+    """MUSI zrobic wszystkie duplikacje PRZED jakimkolwiek usunieciem slajdu w
+    tym samym przebiegu. python-pptx liczy nazwe pliku nowego slajdu jako
+    `len(sldIdLst) + 1` (PresentationPart._next_slide_partname) - bez
+    sprawdzenia, czy taki plik juz istnieje. Jesli wczesniej w tym samym
+    przebiegu cokolwiek zostalo usuniete (np. niepasujacy wariant
+    render_if), liczba slajdow sie zmniejsza, a kolejna duplikacja (np. dla
+    repeat:) dostaje numer, ktory juz nalezy do INNEGO, wciaz zywego slajdu
+    dalej w prezentacji - dwa rozne slajdy ladu ja w archiwum pod tym samym
+    "slideN.xml", co PowerPoint naprawia, usuwajac jeden z nich (ZWERYFIKOWANE
+    NA ZYWO: reprodukowane na prawdziwym szablonie, patrz historia zmian -
+    "duplicate slide29.xml/slide30.xml"). Dlatego ta funkcja NAJPIERW w
+    calosci przechodzi original slajdy i wykonuje WSZYSTKIE duplikacje
+    (liczba slajdow tylko rosnie), zbierajac decyzje "usun"/"renderuj", a
+    USUWANIE i RENDEROWANIE odklada na koniec, gdy zadna kolejna duplikacja
+    juz nie nastapi.
+    """
     prs = Presentation(io.BytesIO(template_bytes))
+    to_delete = []
+    to_render = []  # (slide, ctx) par - shapes renderowane dopiero po fazie usuwania
     for slide in list(prs.slides):
         marker = slide_repeat_marker(slide)
         # Captured once from the PRISTINE slide's own notes, same reason
@@ -216,14 +234,14 @@ def render_pptx(template_bytes, data, warnings):
         render_if_value = slide_render_if_marker(slide)
         if not marker:
             if not render_if_ok(render_if_value, data, warnings):
-                delete_slide(prs, slide)
+                to_delete.append(slide)
                 continue
-            render_shapes(slide.shapes, data, warnings)
+            to_render.append((slide, data))
             continue
         items = data.get(marker) or []
         if not items:
             warnings.append(f"repeat:{marker} slide dropped - no items")
-            delete_slide(prs, slide)
+            to_delete.append(slide)
             continue
         # Clone all copies from the PRISTINE template slide FIRST (before any
         # render mutates it), then render each with its own item context.
@@ -246,9 +264,13 @@ def render_pptx(template_bytes, data, warnings):
                 ctx.update(item)
             ctx[marker] = item
             if not render_if_ok(render_if_value, ctx, warnings):
-                delete_slide(prs, target)
+                to_delete.append(target)
                 continue
-            render_shapes(target.shapes, ctx, warnings)
+            to_render.append((target, ctx))
+    for slide in to_delete:
+        delete_slide(prs, slide)
+    for target, ctx in to_render:
+        render_shapes(target.shapes, ctx, warnings)
     out = io.BytesIO()
     prs.save(out)
     return out.getvalue()

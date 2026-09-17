@@ -301,6 +301,45 @@ def test_render_if_combined_with_repeat_drops_all_copies_when_no_item_matches():
     assert len([w for w in warnings if "render_if:exam_prep" in w]) == 2
 
 
+def test_delete_before_duplicate_does_not_collide_on_slide_partname():
+    """Regression: python-pptx names a new slide part `slide<len(sldIdLst)+1>.xml`
+    with NO check that name is already taken (PresentationPart.
+    _next_slide_partname). If a slide gets deleted (render_if drop) EARLIER
+    in the same render pass than a repeat: block that needs 1+ duplicates,
+    the slide count shrinks first, and the "next" number computed for the
+    duplicate can collide with an EXISTING later slide's own partname - two
+    different slides then get written to the archive under the identical
+    "slideN.xml" name, which PowerPoint "repairs" by dropping one of them.
+    Reproduced live on a real template (see project history, 2026-09-17)
+    with cover-variant render_if slides ahead of two repeat:packages slides.
+    render_pptx() must do ALL duplication before ANY deletion in the same
+    pass specifically to avoid this - this test asserts that invariant by
+    inspecting the RAW zip part names, since re-opening via python-pptx
+    would silently hide a duplicate-partname corruption instead of catching it.
+    """
+    prs = _new_prs()
+    _add_slide(prs, ["dropped variant"], notes="render_if:no_match")
+    _add_slide(prs, ["{{title}}"], notes="repeat:items")
+    _add_slide(prs, ["trailing slide"])
+    warnings = []
+    data = {"key": "boy", "items": [{"title": "one"}, {"title": "two"}, {"title": "three"}]}
+    out_bytes = render_pptx(_bytes(prs), data, warnings)
+
+    import re
+    import zipfile
+    from collections import Counter
+
+    z = zipfile.ZipFile(io.BytesIO(out_bytes))
+    names = [n for n in z.namelist() if re.match(r"ppt/slides/slide\d+\.xml$", n)]
+    counts = Counter(names)
+    duplicated = {n: c for n, c in counts.items() if c > 1}
+    assert duplicated == {}, f"colliding slide partnames in saved archive: {duplicated}"
+
+    out = Presentation(io.BytesIO(out_bytes))
+    texts = [_textbox_text(s) for s in out.slides]
+    assert texts == ["one", "two", "three", "trailing slide"]
+
+
 def test_plain_slide_without_any_marker_is_unaffected():
     prs = _new_prs()
     _add_slide(prs, ["hello"])
