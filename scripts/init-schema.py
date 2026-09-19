@@ -197,6 +197,24 @@ CZEGO TEN SKRYPT NIE ROBI (do wyklikania ręcznie po uruchomieniu):
      sync_select_options() nizej), ale realna lista opcji nie jest znana
      temu skryptowi, wiec TABLES nizej zostawia `key` jako SingleLineText -
      zobacz komentarz przy tym polu.
+     Poprawka z 2026-09-17 (kolejna, po uwadze usera): link `slides` ->
+     `package_core_slides` NIE zyje na katalogu `package_variants_cores`
+     (jak w wersji wyzej) - zyje na `selected_package_variants_cores`.
+     Powod: slajdy uzasadnienia sa spersonalizowane na podstawie assessmentu
+     KONKRETNEJ osoby w KONKRETNEJ rekomendacji, nie sa wspolna trescia dla
+     kazdego, kto kiedykolwiek dostanie ten pakiet z katalogu - dokladnie
+     jak juz dzialaja `hours`/`price` na tej samej tabeli (personalizowane
+     per wybor, katalog trzyma tylko wspolna tresc). NA JUZ WDROZONEJ
+     BAZIE, jesli zdazyles uruchomic poprzednia (bledna) wersje, `slides`
+     istnieje jako Links na `package_variants_cores` zamiast na
+     `selected_package_variants_cores` - usun ta relacje RECZNIE w UI (obie
+     strony: pole na package_variants_cores ORAZ automatycznie utworzone
+     pole zwrotne na package_core_slides) przed ponownym uruchomieniem
+     skryptu, inaczej `create_relations()` utworzy DRUGA, poprawna relacje
+     obok tej bledniej, zamiast ja zastapic. `docs/archive/fable/
+     W9_generate_offer.json` rowniez zaktualizowany: lancuch "Get linked
+     selected cores" -> "Get linked core slides" skrocony o jeden hop
+     (nie trzeba juz przechodzic przez package_variants_cores).
      TABLES/RELATIONS niżej to teraz
      aktualny stan docelowy, nie automatyczny diff.
 
@@ -349,13 +367,19 @@ INDUSTRY = ("Agriculture", "AI", "Automation", "Automotive", "Banking", "Clothin
 CUSTOMER_SEGMENT = ("A) <10", "B) 10-19", "C) >19")
 
 
-def ai_status_field(action=None):
+def ai_status_field(action=None, prefix=None):
     """`action` = etykieta przycisku, ktory faktycznie startuje generowanie w
     tej tabeli (patrz naglowek skryptu, sekcja "CZEGO TEN SKRYPT NIE ROBI" -
     Button na offers/meetings/assessments). feedback-tables-1.md prosil o
     opis "jak wygenerowac tresc" w description - NIE piszemy tu "zmien status
     i odswiez", bo to nieprawda: generowanie startuje przyciskiem, a zmiana
     samego ai_status niczego nie wywoluje.
+
+    `prefix` - jak w gen_status_field/gen_note_field: gdy jedna tabela
+    potrzebuje wiecej niz jednego cyklu ai_status (np. `materials`: osobno
+    dla szkicu tresci i osobno dla zarysu slajdow), bo NocoDB nie pozwoli na
+    dwa pola o tym samym tytule w jednej tabeli. Bez prefixu - zachowanie
+    identyczne jak dotychczas (title="ai_status", dla assessments/offers itp.).
     """
     base = ("Status tresci generowanej przez AI: none (nic nie generowano) -> "
             "pending (automatyzacja wlasnie generuje, czekaj) -> "
@@ -367,7 +391,8 @@ def ai_status_field(action=None):
     else:
         note = (" - przycisk/automatyzacja generujaca tresc dla tej tabeli nie "
                 "jest jeszcze podpieta, do ustalenia")
-    return {"title": "ai_status", "type": "SingleSelect", "options": select(*AI_STATUS),
+    title = f"{prefix}_ai_status" if prefix else "ai_status"
+    return {"title": title, "type": "SingleSelect", "options": select(*AI_STATUS),
             "description": base + note + "."}
 
 
@@ -491,6 +516,46 @@ TABLES = [
             {"title": "file", "type": "Attachment"},
             {"title": "active", "type": "Checkbox", "default_value": False},
             {"title": "notes", "type": "LongText"},
+        ],
+    },
+    {
+        # 2026-09-19: najmniejszy demo-pipeline AI (do pokazania zespolowi) -
+        # ale swiadomie tabela ogolnego uzytku, nie stub jednorazowy: brief ->
+        # szkic tresci (AI) -> czlowiek weryfikuje -> zarys/podzial na slajdy
+        # (AI) -> czlowiek weryfikuje -> gotowy plik (AI/render). Dwie bramki
+        # weryfikacji => dwa NIEZALEZNE cykle ai_status (stad prefixy -
+        # ai_status_field() z jednym, bezprefixowym polem nie wystarczy, gdy
+        # jedna tabela przechodzi przez dwa flow z osobna weryfikacja
+        # kazdego). Krok koncowy (plik) NIE ma bramki czlowieka - to czysty
+        # render, wiec dostaje prostszy cykl gen_status_field/gen_note_field
+        # (jak testimonials.slide_status/image_status), nie kolejny ai_status.
+        "title": "materials",
+        "icon": "📽️",
+        "description": "Demo-pipeline generowania materialow AI (brief -> "
+                       "szkic tresci -> zarys slajdow -> plik), kazdy krok "
+                       "generowany przyciskiem i weryfikowany przez czlowieka "
+                       "przed nastepnym. Ogolnego uzytku, nie tylko demo.",
+        "fields": [
+            {"title": "title", "type": "SingleLineText"},
+            {"title": "brief", "type": "LongText",
+             "description": "Oczekiwane tresci / wymagania od usera - wejscie "
+                            "dla kroku generowania szkicu tresci."},
+            ai_status_field("Generuj szkic treści", prefix="content"),
+            {"title": "content_draft", "type": "LongText",
+             "description": "Szkic tresci wygenerowany przez AI - czlowiek "
+                            "weryfikuje/poprawia w TYM SAMYM polu przed "
+                            "akceptacja (content_ai_status=ai_accepted)."},
+            ai_status_field("Generuj zarys slajdów", prefix="outline"),
+            {"title": "outline", "type": "LongText",
+             "description": "Podzial na slajdy wygenerowany przez AI z "
+                            "zaakceptowanego content_draft - czlowiek "
+                            "weryfikuje/poprawia w TYM SAMYM polu przed "
+                            "akceptacja (outline_ai_status=ai_accepted)."},
+            gen_status_field("file", "Generuj prezentację"),
+            gen_note_field("file", "Generuj prezentację"),
+            {"title": "presentation_file", "type": "Attachment",
+             "description": "Gotowy plik wygenerowany z zaakceptowanego "
+                            "outline (przycisk 'Generuj prezentację')."},
         ],
     },
     {
@@ -682,23 +747,30 @@ TABLES = [
         ],
     },
     {
-        # NOWA 2026-09-17: katalog POSZCZEGOLNYCH slajdow uzasadnienia dla
-        # package_variants_cores - zastepuje pierwotny pomysl z liczbowym
-        # polem `slides` (patrz historia w naglowku skryptu, "Zmiana z
-        # 2026-09-17"). Kazdy wiersz = jeden slajd tresci, link
-        # package_variants_cores.slides (RELATIONS, hm) pozwala dopiac 0-3
-        # takich wierszy do jednego pakietu - dokladnie tyle, ile slajdow
-        # uzasadnienia ten pakiet ma dostac w ofercie (.ai/slajdy.md: "moze
-        # zajac 1-3 slajdow"), tak jak dalo sie to robic PRZED
-        # przemodelowaniem na cores/adons (dowolna liczba dopisywanych
-        # slajdow, nie sztywny licznik).
+        # NOWA 2026-09-17, POPRAWIONA tego samego dnia: katalog
+        # POSZCZEGOLNYCH slajdow uzasadnienia - zastepuje pierwotny pomysl z
+        # liczbowym polem `slides` (patrz historia w naglowku skryptu,
+        # "Zmiana z 2026-09-17"). POPRAWKA: link jest z
+        # selected_package_variants_cores (RELATIONS, hm), NIE z
+        # package_variants_cores (katalogu) - slajdy uzasadnienia maja sens
+        # WYLACZNIE per konkretny wybor pakietu w konkretnej rekomendacji
+        # (personalizowana tresc na podstawie assessmentu tej osoby), nie
+        # jako wspolna tresc katalogowa dla wszystkich, ktorzy kiedykolwiek
+        # dostana ten pakiet. Kazdy wiersz = jeden slajd tresci; link
+        # pozwala dopiac 0-3 takich wierszy do jednego WYBORU pakietu -
+        # dokladnie tyle, ile slajdow uzasadnienia ten wybor ma dostac w
+        # ofercie (.ai/slajdy.md: "moze zajac 1-3 slajdow"), tak jak dalo sie
+        # to robic PRZED przemodelowaniem na cores/adons (dowolna liczba
+        # dopisywanych slajdow, nie sztywny licznik).
         "title": "package_core_slides",
         "icon": "🖼️",
-        "description": "Pojedynczy slajd uzasadnienia dla package_variants_"
-                       "cores - 0-3 wiersze na pakiet (link "
-                       "package_variants_cores.slides, RELATIONS). `name` to "
-                       "wewnetrzna etykieta/kolejnosc, `title`/`description` "
-                       "to tresc renderowana na slajdzie.",
+        "description": "Pojedynczy spersonalizowany slajd uzasadnienia dla "
+                       "WYBORU pakietu core w konkretnej rekomendacji - 0-3 "
+                       "wiersze na wybor (link "
+                       "selected_package_variants_cores.slides, RELATIONS). "
+                       "`name` to wewnetrzna etykieta/kolejnosc, "
+                       "`title`/`description` to tresc renderowana na "
+                       "slajdzie.",
         "fields": [
             {"title": "name", "type": "SingleLineText",
              "description": "Wewnetrzna etykieta tego slajdu (identyfikacja "
@@ -716,17 +788,20 @@ TABLES = [
         # pakietow ("cores"), rozdzielony od `package_variants_adons`
         # (dodatki/skille) ponizej. .ai/slajdy.md: pakiety maja personalnie
         # dobierane godziny i uzasadnienie z assessmentu, ktore moze zajac
-        # 1-3 slajdy - DYNAMICZNA liczba (0-3 linkowanych package_core_slides,
-        # patrz ta tabela wyzej), w odroznieniu od adons, ktore maja STALE
-        # sloty w szablonie.
+        # 1-3 slajdy - DYNAMICZNA liczba, w odroznieniu od adons, ktore maja
+        # STALE sloty w szablonie. POPRAWKA 2026-09-17: same slajdy
+        # uzasadnienia (package_core_slides) NIE wisza pod tym katalogiem -
+        # sa spersonalizowane per wybor, wiec link jest pod
+        # selected_package_variants_cores (patrz ta tabela nizej). Ten
+        # katalog trzyma WYLACZNIE tresc wspolna dla kazdego uzycia pakietu.
         "title": "package_variants_cores",
         "icon": "🎁",
         "description": "Katalog glownych pakietow szkoleniowych (Business "
-                       "English, English for IT, ...). Godziny per pakiet "
-                       "sa personalizowane per rekomendacja (patrz "
-                       "selected_package_variants_cores.hours) - ten katalog "
-                       "trzyma tresc ogolna (description) plus link do 0-3 "
-                       "slajdow uzasadnienia (slides -> package_core_slides).",
+                       "English, English for IT, ...). Godziny ORAZ slajdy "
+                       "uzasadnienia sa personalizowane per wybor (patrz "
+                       "selected_package_variants_cores.hours/.slides) - ten "
+                       "katalog trzyma wylacznie wspolna tresc katalogowa "
+                       "(description).",
         "fields": [
             {"title": "name", "type": "SingleLineText"},
             {"title": "description", "type": "LongText",
@@ -940,21 +1015,28 @@ TABLES = [
         # z katalogu). `title` dopisane 2026-09-17 (zobaczone recznie
         # dodane w UI, docs/archive/fable/schema_map.json) jako pierwsze
         # pole - rozwiazuje wczesniejsza obawe o display value = `hours`
-        # (Number).
+        # (Number). POPRAWKA 2026-09-17 (kolejna): link `slides` ->
+        # package_core_slides zyje TUTAJ, nie na katalogu
+        # package_variants_cores - 0-3 spersonalizowane slajdy uzasadnienia
+        # maja sens wylacznie per KONKRETNY wybor pakietu w konkretnej
+        # rekomendacji (na podstawie assessmentu tej osoby), nie jako
+        # wspolna tresc dla wszystkich, ktorzy kiedykolwiek dostana ten
+        # pakiet z katalogu.
         "title": "selected_package_variants_cores",
         "icon": "🧺",
         "description": "Wybrany glowny pakiet (package_variants_cores) w "
                        "ramach jednej recommendation, z personalizowanymi "
-                       "godzinami. Link do package_variants_cores wskazuje "
-                       "dokladnie jeden katalogowy pakiet (RELATIONS).",
+                       "godzinami i 0-3 wlasnymi slajdami uzasadnienia "
+                       "(link `slides` -> package_core_slides). Link do "
+                       "package_variants_cores wskazuje dokladnie jeden "
+                       "katalogowy pakiet (RELATIONS).",
         "fields": [
             {"title": "title", "type": "SingleLineText"},
             {"title": "hours", "type": "Number",
              "description": "Godziny tego pakietu core personalizowane dla "
                             "TEJ rekomendacji - katalog "
                             "(package_variants_cores) nie trzyma domyslnych "
-                            "godzin, tylko domyslna liczbe slajdow "
-                            "(`slides`); godziny sa ustalane wylacznie tutaj."},
+                            "godzin; godziny sa ustalane wylacznie tutaj."},
             # NOWA 2026-09-17: stawka za godzine tego pakietu w TEJ
             # rekomendacji - razem z hours zasila line_total (Formula,
             # COMPUTED_FIELDS nizej: hours*price), ktore rolluje sie dalej
@@ -1143,6 +1225,9 @@ RELATIONS = [
     # szablon jest aktualny"), W9 juz go NIE uzywa do wyboru - czyta wprost
     # link z offers (patrz W9 "Get offer template").
     ("document_templates", "offers", "hm", "offers"),
+    # wybor szablonu per material (krok 1 demo-pipeline'u) - ta sama
+    # niepewnosc nazwy pola zwrotnego jak wyzej.
+    ("document_templates", "materials", "hm", "materials"),
     # przeniesione z leads (byla tam do 2026-08-10) - dwie oferty dla tego
     # samego leada moga chciec innych referencji w wygenerowanym dokumencie.
     ("offers", "selected_testimonials", "mm", "testimonials"),
@@ -1163,9 +1248,6 @@ RELATIONS = [
     ("meetings", "assessments", "hm", "assessments"),
     ("recommendations", "packages", "hm", "recommendation_packages"),
     ("training_descriptions", "recommendation_packages", "hm", "recommendation_packages"),
-    # NOWA 2026-09-17: 0-3 slajdy uzasadnienia per GLOWNY pakiet - patrz
-    # komentarz przy definicji package_core_slides w TABLES.
-    ("package_variants_cores", "slides", "hm", "package_core_slides"),
     # NOWA 2026-09-16: zastepuje offer_packages/package_variants (usuniete) -
     # wybor GLOWNYCH pakietow ("cores") per recommendation, ten sam ksztalt
     # relacji co recommendations/recommendation_packages wyzej (junction z
@@ -1173,6 +1255,12 @@ RELATIONS = [
     # selected_package_variants_cores w TABLES.
     ("recommendations", "selected_cores", "hm", "selected_package_variants_cores"),
     ("package_variants_cores", "selected_package_variants_cores", "hm", "selected_package_variants_cores"),
+    # NOWA 2026-09-17, POPRAWIONA tego samego dnia: 0-3 slajdy uzasadnienia
+    # per WYBOR pakietu (NIE per katalogowy package_variants_cores - slajdy
+    # sa spersonalizowane na podstawie assessmentu tej osoby, nie wspolne
+    # dla wszystkich uzyc tego pakietu) - patrz komentarz przy definicji
+    # package_core_slides w TABLES.
+    ("selected_package_variants_cores", "slides", "hm", "package_core_slides"),
     # analogicznie dla dodatkow/skilli ("adons", stale sloty w szablonie)
     ("recommendations", "selected_adons", "hm", "selected_package_variants_adons"),
     ("package_variants_adons", "selected_package_variants_adons", "hm", "selected_package_variants_adons"),
@@ -1201,6 +1289,9 @@ BUTTONS = [
     ("assessments", "Generuj needs summary"),
     ("testimonials", "generuj slajd"),
     ("testimonials", "generuj obrazek"),
+    ("materials", "Generuj szkic treści"),
+    ("materials", "Generuj zarys slajdów"),
+    ("materials", "Generuj prezentację"),
 ]
 
 BUTTON_PLACEHOLDER_NOTE = (
@@ -1598,8 +1689,12 @@ if __name__ == "__main__":
           "hours*price -> ... -> total_price juz DZIALA na zywej bazie "
           "(potwierdzone dumpem 2026-09-17) - ten punkt dotyczy tylko baz, "
           "gdzie total_price nadal jest starym Currency.")
-    print("  6. package_variants_cores.slides (Links -> package_core_slides): "
-          "ten sam problem co punkt 5 - jesli na TEJ bazie istnieje juz jako "
-          "zwykle pole Number, usun je RECZNIE w UI przed ponownym "
-          "uruchomieniem, inaczej create_relations() je pominie i relacja "
-          "nigdy nie powstanie.")
+    print("  6. selected_package_variants_cores.slides (Links -> "
+          "package_core_slides): jesli na TEJ bazie istnieje jeszcze "
+          "POPRZEDNIA (bledna) wersja tej relacji na package_variants_cores "
+          "(katalogu, nie na wyborze) - usun ja RECZNIE w UI (obie strony: "
+          "pole 'slides' na package_variants_cores i pole zwrotne na "
+          "package_core_slides) przed ponownym uruchomieniem, inaczej "
+          "powstanie DRUGA relacja obok, zamiast ja zastapic. Jesli 'slides' "
+          "na tej bazie nigdy nie istnialo - create_relations() utworzy je "
+          "poprawnie od razu, nic nie trzeba robic.")
