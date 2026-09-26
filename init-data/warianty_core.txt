@@ -1,0 +1,4 @@
+﻿✅ Business English – {{package.hours}}  godzin ([lessonfrequency} x {lesson.minutes} min ) 
+Budujesz płynność, precyzję i pewność siebie w codziennej komunikacji biznesowej po angielsku. 
+✅ English for IT – {{package.hours}}  godzin ([lessonfrequency} x {lesson.minutes} min ) 
+Rozwijasz angielski potrzebny do skutecznej komunikacji technicznej i współpracy z międzynarodowymi zespołami. 

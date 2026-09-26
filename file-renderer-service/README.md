@@ -95,6 +95,43 @@ Dziś w użyciu (ustalone z n8n, nie z serwisem):
 Pusta lista (albo brak klucza w `data`) → slajd jest usuwany z ostrzeżeniem
 w `warnings`, nie błędem.
 
+**Slajd warunkowy** — wpisz w NOTATKACH slajdu `render_if:<wartość>`, np.
+`render_if:boy`. Slajd przeżywa renderowanie tylko wtedy, gdy `data["key"]`
+(dokładnie to pole, `key` — nazwa nie jest konfigurowalna) jest równe
+`<wartość>` (dokładne dopasowanie tekstu). W przeciwnym razie — także gdy
+`data["key"]` w ogóle nie istnieje — slajd jest usuwany z ostrzeżeniem w
+`warnings`, tak samo jak przy pustej liście w `repeat:`.
+
+Typowy wzorzec: kilka slajdów-wariantów w szablonie, każdy z innym
+`render_if:<wartość>` (np. `render_if:boy` / `render_if:girl` / `render_if:man`
+/ `render_if:woman`) — n8n wybiera jeden wariant, wstawiając odpowiednią
+wartość do `data["key"]`; serwis zostawia dokładnie ten jeden slajd, resztę
+usuwa z ostrzeżeniem. Renderer NIE sprawdza, czy dwa slajdy w takiej grupie
+przypadkiem mają tę samą wartość `render_if` — jeśli tak, oba przeżyją; to
+odpowiedzialność autora szablonu, tak samo jak unikalność nazw w `repeat:`.
+
+`render_if:` można łączyć z `repeat:<nazwa>` na tym samym slajdzie — wtedy
+dopasowanie liczy się osobno dla każdej powielonej kopii, względem klucza
+`key` PODNIESIONEGO z elementu listy (patrz wyżej: klucze elementu
+podnoszone na wierzch). W praktyce oznacza to, że kolumna źródłowa listy musi
+mieć pole nazwane dokładnie `key` (np. `package_variants.key`) — element bez
+własnego `key` dziedziczy `data["key"]` z góry, jeśli takie jest ustawione.
+
+Wartość w `render_if:<wartość>` używa tego samego zestawu znaków co nazwa w
+`repeat:<nazwa>`: litery, cyfry, `_`, start od litery/`_`. Niedozwolony znak
+(myślnik, spacja, kropka) w środku ucina wartość w tym miejscu — np.
+`render_if:foo-bar` rozpozna wartość `foo`, nie `foo-bar` (dokładnie tak samo
+działa `repeat:<nazwa>`). Notatka jest CAŁKOWICIE nierozpoznana tylko wtedy,
+gdy zaraz po dwukropku nie ma żadnego dozwolonego znaku (np. zaczyna się
+cyfrą) — wtedy slajd renderuje się bezwarunkowo, bez ostrzeżenia (ta sama
+pułapka co literówka w `repeat:`/`{{...}` opisana wyżej).
+
+Dziś w użyciu: jeszcze nic — to funkcja serwisu czeka na n8n. Docelowo:
+`offers.cover_style` (boy/girl/man/woman) na grupie top-level'owych slajdów
+`offer_cover`, oraz `package_variants.key` wewnątrz `repeat:packages`. Dopóki
+n8n nie wyśle `data["key"]`, każdy slajd z `render_if:` zostanie usunięty
+z ostrzeżeniem (fail-closed, zgodnie z konwencją `repeat:`).
+
 **Jedna zasada formatowania:** trzymaj cały `{{placeholder}}` w jednym stylu
 (nie pogrubiaj połowy). Serwis radzi sobie z rozbiciem na runy, ale wtedy cały
 tekst akapitu przyjmuje styl pierwszego fragmentu. W praktyce: zaznacz placeholder,

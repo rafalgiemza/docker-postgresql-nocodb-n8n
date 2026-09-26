@@ -172,17 +172,76 @@ def slide_repeat_marker(slide):
     return m.group(1) if m else None
 
 
+def slide_render_if_marker(slide):
+    """`render_if:<value>` in a slide's SPEAKER NOTES - the slide survives
+    only if str(ctx.get("key")) == <value> (the literal, fixed "key" field;
+    inside a repeat: block this is normally the item's own lifted "key",
+    e.g. package_variants.key - see render_pptx). Same charset as
+    repeat:<name>. Returns None if the marker isn't present/recognized, in
+    which case the slide is unconditional (degrades safely, same as any
+    other unrecognized marker text)."""
+    if not slide.has_notes_slide:
+        return None
+    txt = slide.notes_slide.notes_text_frame.text or ""
+    m = re.search(r"render_if\s*:\s*([a-zA-Z_][a-zA-Z0-9_]*)", txt, re.I)
+    return m.group(1) if m else None
+
+
+def render_if_ok(value, ctx, warnings):
+    """True if `value` is None (slide has no render_if marker) or matches
+    str(ctx.get("key")) exactly. Appends a warning and returns False on any
+    mismatch, including a missing "key" - fail-closed, same convention as
+    repeat:'s empty-list handling. Takes the already-resolved marker VALUE
+    (not the slide) so callers control whether it's re-derived per slide or
+    captured once and reused across a repeat group's duplicates - duplicated
+    slides have no notes slide part (see duplicate_slide), so re-deriving it
+    from a duplicated target would silently see "no marker" and stop
+    filtering."""
+    if value is None:
+        return True
+    if value == str(ctx.get("key")):
+        return True
+    warnings.append(f"render_if:{value} slide dropped - key={ctx.get('key')!r} did not match")
+    return False
+
+
 def render_pptx(template_bytes, data, warnings):
+    """MUSI zrobic wszystkie duplikacje PRZED jakimkolwiek usunieciem slajdu w
+    tym samym przebiegu. python-pptx liczy nazwe pliku nowego slajdu jako
+    `len(sldIdLst) + 1` (PresentationPart._next_slide_partname) - bez
+    sprawdzenia, czy taki plik juz istnieje. Jesli wczesniej w tym samym
+    przebiegu cokolwiek zostalo usuniete (np. niepasujacy wariant
+    render_if), liczba slajdow sie zmniejsza, a kolejna duplikacja (np. dla
+    repeat:) dostaje numer, ktory juz nalezy do INNEGO, wciaz zywego slajdu
+    dalej w prezentacji - dwa rozne slajdy ladu ja w archiwum pod tym samym
+    "slideN.xml", co PowerPoint naprawia, usuwajac jeden z nich (ZWERYFIKOWANE
+    NA ZYWO: reprodukowane na prawdziwym szablonie, patrz historia zmian -
+    "duplicate slide29.xml/slide30.xml"). Dlatego ta funkcja NAJPIERW w
+    calosci przechodzi original slajdy i wykonuje WSZYSTKIE duplikacje
+    (liczba slajdow tylko rosnie), zbierajac decyzje "usun"/"renderuj", a
+    USUWANIE i RENDEROWANIE odklada na koniec, gdy zadna kolejna duplikacja
+    juz nie nastapi.
+    """
     prs = Presentation(io.BytesIO(template_bytes))
+    to_delete = []
+    to_render = []  # (slide, ctx) par - shapes renderowane dopiero po fazie usuwania
     for slide in list(prs.slides):
         marker = slide_repeat_marker(slide)
+        # Captured once from the PRISTINE slide's own notes, same reason
+        # `marker` is: duplicate_slide() does not copy the notesSlide
+        # relationship, so a duplicated target has no notes of its own to
+        # re-derive this from later.
+        render_if_value = slide_render_if_marker(slide)
         if not marker:
-            render_shapes(slide.shapes, data, warnings)
+            if not render_if_ok(render_if_value, data, warnings):
+                to_delete.append(slide)
+                continue
+            to_render.append((slide, data))
             continue
         items = data.get(marker) or []
         if not items:
             warnings.append(f"repeat:{marker} slide dropped - no items")
-            delete_slide(prs, slide)
+            to_delete.append(slide)
             continue
         # Clone all copies from the PRISTINE template slide FIRST (before any
         # render mutates it), then render each with its own item context.
@@ -204,7 +263,14 @@ def render_pptx(template_bytes, data, warnings):
             if isinstance(item, dict):
                 ctx.update(item)
             ctx[marker] = item
-            render_shapes(target.shapes, ctx, warnings)
+            if not render_if_ok(render_if_value, ctx, warnings):
+                to_delete.append(target)
+                continue
+            to_render.append((target, ctx))
+    for slide in to_delete:
+        delete_slide(prs, slide)
+    for target, ctx in to_render:
+        render_shapes(target.shapes, ctx, warnings)
     out = io.BytesIO()
     prs.save(out)
     return out.getvalue()
