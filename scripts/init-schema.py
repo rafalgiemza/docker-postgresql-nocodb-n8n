@@ -66,8 +66,8 @@ czysty SQL — NocoDB trzyma dla nich własne metadane (i tabele `_nc_m2m_*`),
 więc po samym SQL-u relacje trzeba by i tak odtwarzać w NocoDB. Stąd API.
 
 CZEGO TEN SKRYPT NIE ROBI (do wyklikania ręcznie po uruchomieniu):
-  1. Dokończenia pól typu Button (`offers` "generuj ofertę" i "Generuj opisy
-     pakietów", `meetings` "Generuj analizę", `assessments` "Generuj needs
+  1. Dokończenia pól typu Button (`offers` "generuj ofertę", `offer_packages`
+     "Generuj opis", `meetings` "Generuj analizę", `assessments` "Generuj needs
      summary", `testimonials` "generuj slajd" i "generuj obrazek") —
      create_buttons() tworzy je już
      jako placeholder akcji "Open URL" z formułą `NOW()` (nie wymaga
@@ -112,13 +112,109 @@ CZEGO TEN SKRYPT NIE ROBI (do wyklikania ręcznie po uruchomieniu):
      init-schema` utworzy tabelę i obie relacje `hm` (`offers`↔
      `offer_packages`, `package_variants`↔`offer_packages`) automatycznie —
      wymaga tylko ręcznego "Upgrade Link Field" w UI (patrz wyżej), jak przy
-     każdej nowej relacji `hm`. Trigger generowania (decyzja 2026-08-30):
-     JEDEN zbiorczy przycisk `offers`."Generuj opisy pakietów" (BUTTONS,
-     create_buttons() tworzy placeholder jak przy pozostałych) — klik na
-     ofercie ma wygenerować `generated_text` dla WSZYSTKICH `offer_packages`
-     polinkowanych do niej naraz, nie po jednym przycisku na wiersz.
+     każdej nowej relacji `hm`. Trigger generowania (decyzja 2026-08-30,
+     ZMIENIONA tego samego dnia): przycisk `offer_packages`."Generuj opis"
+     (BUTTONS, create_buttons() tworzy placeholder jak przy pozostałych) —
+     PER WIERSZ, nie zbiorczy na `offers` jak pierwotnie ustalono — klik
+     generuje/regeneruje `generated_text` TYLKO dla tego jednego pakietu.
+     Powód zmiany: zbiorczy przycisk na ofercie nadpisywałby `ai_status`
+     (i wywołał ponowne LLM) też dla pakietów już zaakceptowanych przez
+     człowieka, nie tylko dla nowych/odrzuconych.
      Renderowanie slajdów 5/6/7 z tych danych w W9 (n8n) to nadal osobna,
      nie zaczęta robota — patrz TODO.md.
+     Zmiana z 2026-09-16: `package_variants` rozbite na DWA katalogi -
+     `package_variants_cores` (glowne pakiety, dynamiczna liczba slajdow
+     uzasadnienia, pola name/description + link `slides` - patrz poprawka
+     z 2026-09-17 nizej) i `package_variants_adons` (dodatki/skille o
+     STALYCH slajdach w szablonie, pola name/default_hours/key) - patrz
+     .ai/slajdy.md. Personalizowany wybor
+     per recommendation przenosi sie z `offer_packages` na dwie nowe
+     tabele-laczace: `selected_package_variants_cores` i
+     `selected_package_variants_adons` (kazda: pole `hours` + link do
+     wlasciwego katalogu). `offer_packages` i `package_variants` ZNIKAJA z
+     TABLES/RELATIONS/BUTTONS ponizej - ale skrypt TYLKO TWORZY, nigdy nie
+     usuwa: na juz wdrozonej produkcji (prod od 2026-08-10) te dwie tabele
+     NADAL beda tam istniec po `make init-schema` i trzeba je usunac
+     RECZNIE w UI NocoDB (razem z danymi - warianty_slajd_4.txt/10
+     pakietow), jesli maja zniknac naprawde. Dochodzi tez nowa relacja
+     `offers` hm `recommendations` OBOK istniejacej `participants` hm
+     `recommendations` (nie w jej miejsce). Downstream NIEZAKTUALIZOWANE w
+     tej zmianie (do zrobienia osobno): W9
+     (docs/archive/fable/W9_generate_offer.json) i W12
+     (docs/archive/fable/W12_offer_package_texts.json) nadal czytaja stare
+     `recommendations`->`recommendation_packages` i
+     `offer_packages`->`package_variants`; `scripts/import-packages.py`
+     nadal importuje do `package_variants`. Wszystkie trzeba przepiac na
+     nowe tabele, zanim stare zostana faktycznie usuniete z bazy.
+     Zmiana z 2026-09-17: `offers.total_price` przestaje byc zwyklym,
+     recznie wpisywanym Currency - liczy sie automatycznie z wybranych
+     pakietow/dodatkow (hours x price kazdego wiersza
+     selected_package_variants_cores/adons). NocoDB Rollup agreguje TYLKO
+     jedna kolumne z jednej relacji (jeden "hop"), a total_price potrzebuje
+     danych dwa hopy nizej (offers -> recommendations -> selected_*), wiec
+     COMPUTED_FIELDS nizej buduje lancuch Formula/Rollup: `line_total`
+     (Formula na kazdej z selected_*) -> `cores_subtotal`/`adons_subtotal`
+     (Rollup na recommendations) -> `package_total` (Formula na
+     recommendations) -> `offers.total_price` (Rollup, uidt zmienione z
+     Currency na Rollup - stad total_price ZNIKA z listy zwyklych pol
+     `offers` w TABLES i jest tworzone osobno w create_computed_fields()).
+     Dodano tez pole `price` (Currency, stawka za godzine) na
+     selected_package_variants_cores/adons - wczesniej mialy tylko `hours`.
+     Kontrakt Rollup (fk_relation_column_id/fk_rollup_column_id/
+     rollup_function) NIE jest zgadywany - to dokladny ksztalt zaobserwowany
+     w prawdziwym dumpie docs/archive/fable/schema_map.json na polu
+     `offer_packages.hours` (recznie utworzone w NocoDB UI 2026-09-16).
+     NA JUZ WDROZONEJ BAZIE `offers.total_price` istnieje jako zwykle
+     Currency (recznie wpisywane) - create_tables()/create_computed_fields()
+     pomijaja pola po samym TYTULE, wiec `make init-schema` NIE zamieni go
+     samo na Rollup; trzeba je RECZNIE usunac w UI NocoDB przed ponownym
+     uruchomieniem skryptu, inaczej Rollup nigdy nie powstanie (patrz punkt
+     5 w komunikacie koncowym skryptu). Caly lancuch hours*price -> ... ->
+     total_price NIE byl jeszcze przetestowany end-to-end na zywej bazie -
+     sprawdz w UI po pierwszym uruchomieniu.
+     Poprawka z 2026-09-17: `package_variants_cores.slides` NIE jest polem
+     liczbowym (pierwotna wersja z tego samego dnia, wyzej) - to Links (hm)
+     do NOWEJ tabeli `package_core_slides` (pola: name/title/description).
+     Kazdy pakiet core dostaje 0-3 wiersze tej tabeli, po jednym na kazdy
+     slajd uzasadnienia - dokladnie tyle samo elastycznosci ("dopisz slajd"),
+     ile dawalo bezposrednie edytowanie szablonu PRZED przemodelowaniem na
+     cores/adons, tylko teraz jako dane w NocoDB zamiast recznej edycji pptx.
+     NA JUZ WDROZONEJ BAZIE `package_variants_cores.slides` istnieje jako
+     zwykle pole Number (utworzone przy pierwszym, blednym przebiegu tej
+     samej zmiany) - dokladnie ten sam problem co z `offers.total_price`
+     wyzej: create_relations() pomija pola po samym TYTULE, wiec `make
+     init-schema` NIE zamieni go samo na Links; usun je RECZNIE w UI NocoDB
+     przed ponownym uruchomieniem skryptu.
+     Sync z 2026-09-17 (docs/archive/fable/schema_map.json, dump po recznych
+     poprawkach na zywej bazie): dopisano `package_variants_adons.description`
+     (LongText, analogicznie do package_variants_cores.description - brakowalo
+     go w TABLES) oraz `title` (SingleLineText, pierwsze pole) na obu
+     `selected_package_variants_cores`/`adons` - wczesniej mialy tylko
+     hours/price, co robilo z Number (`hours`) display value; `title`
+     to rozwiazuje. NIEZASTOSOWANE swiadomie: na zywej bazie
+     `package_variants_adons.key` zostalo recznie przekonwertowane na
+     SingleSelect (dump nie zapisuje listy opcji dla SingleSelect - patrz
+     sync_select_options() nizej), ale realna lista opcji nie jest znana
+     temu skryptowi, wiec TABLES nizej zostawia `key` jako SingleLineText -
+     zobacz komentarz przy tym polu.
+     Poprawka z 2026-09-17 (kolejna, po uwadze usera): link `slides` ->
+     `package_core_slides` NIE zyje na katalogu `package_variants_cores`
+     (jak w wersji wyzej) - zyje na `selected_package_variants_cores`.
+     Powod: slajdy uzasadnienia sa spersonalizowane na podstawie assessmentu
+     KONKRETNEJ osoby w KONKRETNEJ rekomendacji, nie sa wspolna trescia dla
+     kazdego, kto kiedykolwiek dostanie ten pakiet z katalogu - dokladnie
+     jak juz dzialaja `hours`/`price` na tej samej tabeli (personalizowane
+     per wybor, katalog trzyma tylko wspolna tresc). NA JUZ WDROZONEJ
+     BAZIE, jesli zdazyles uruchomic poprzednia (bledna) wersje, `slides`
+     istnieje jako Links na `package_variants_cores` zamiast na
+     `selected_package_variants_cores` - usun ta relacje RECZNIE w UI (obie
+     strony: pole na package_variants_cores ORAZ automatycznie utworzone
+     pole zwrotne na package_core_slides) przed ponownym uruchomieniem
+     skryptu, inaczej `create_relations()` utworzy DRUGA, poprawna relacje
+     obok tej bledniej, zamiast ja zastapic. `docs/archive/fable/
+     W9_generate_offer.json` rowniez zaktualizowany: lancuch "Get linked
+     selected cores" -> "Get linked core slides" skrocony o jeden hop
+     (nie trzeba juz przechodzic przez package_variants_cores).
      TABLES/RELATIONS niżej to teraz
      aktualny stan docelowy, nie automatyczny diff.
 
@@ -271,13 +367,19 @@ INDUSTRY = ("Agriculture", "AI", "Automation", "Automotive", "Banking", "Clothin
 CUSTOMER_SEGMENT = ("A) <10", "B) 10-19", "C) >19")
 
 
-def ai_status_field(action=None):
+def ai_status_field(action=None, prefix=None):
     """`action` = etykieta przycisku, ktory faktycznie startuje generowanie w
     tej tabeli (patrz naglowek skryptu, sekcja "CZEGO TEN SKRYPT NIE ROBI" -
     Button na offers/meetings/assessments). feedback-tables-1.md prosil o
     opis "jak wygenerowac tresc" w description - NIE piszemy tu "zmien status
     i odswiez", bo to nieprawda: generowanie startuje przyciskiem, a zmiana
     samego ai_status niczego nie wywoluje.
+
+    `prefix` - jak w gen_status_field/gen_note_field: gdy jedna tabela
+    potrzebuje wiecej niz jednego cyklu ai_status (np. `materials`: osobno
+    dla szkicu tresci i osobno dla zarysu slajdow), bo NocoDB nie pozwoli na
+    dwa pola o tym samym tytule w jednej tabeli. Bez prefixu - zachowanie
+    identyczne jak dotychczas (title="ai_status", dla assessments/offers itp.).
     """
     base = ("Status tresci generowanej przez AI: none (nic nie generowano) -> "
             "pending (automatyzacja wlasnie generuje, czekaj) -> "
@@ -289,7 +391,8 @@ def ai_status_field(action=None):
     else:
         note = (" - przycisk/automatyzacja generujaca tresc dla tej tabeli nie "
                 "jest jeszcze podpieta, do ustalenia")
-    return {"title": "ai_status", "type": "SingleSelect", "options": select(*AI_STATUS),
+    title = f"{prefix}_ai_status" if prefix else "ai_status"
+    return {"title": title, "type": "SingleSelect", "options": select(*AI_STATUS),
             "description": base + note + "."}
 
 
@@ -413,6 +516,46 @@ TABLES = [
             {"title": "file", "type": "Attachment"},
             {"title": "active", "type": "Checkbox", "default_value": False},
             {"title": "notes", "type": "LongText"},
+        ],
+    },
+    {
+        # 2026-09-19: najmniejszy demo-pipeline AI (do pokazania zespolowi) -
+        # ale swiadomie tabela ogolnego uzytku, nie stub jednorazowy: brief ->
+        # szkic tresci (AI) -> czlowiek weryfikuje -> zarys/podzial na slajdy
+        # (AI) -> czlowiek weryfikuje -> gotowy plik (AI/render). Dwie bramki
+        # weryfikacji => dwa NIEZALEZNE cykle ai_status (stad prefixy -
+        # ai_status_field() z jednym, bezprefixowym polem nie wystarczy, gdy
+        # jedna tabela przechodzi przez dwa flow z osobna weryfikacja
+        # kazdego). Krok koncowy (plik) NIE ma bramki czlowieka - to czysty
+        # render, wiec dostaje prostszy cykl gen_status_field/gen_note_field
+        # (jak testimonials.slide_status/image_status), nie kolejny ai_status.
+        "title": "materials",
+        "icon": "📽️",
+        "description": "Demo-pipeline generowania materialow AI (brief -> "
+                       "szkic tresci -> zarys slajdow -> plik), kazdy krok "
+                       "generowany przyciskiem i weryfikowany przez czlowieka "
+                       "przed nastepnym. Ogolnego uzytku, nie tylko demo.",
+        "fields": [
+            {"title": "title", "type": "SingleLineText"},
+            {"title": "brief", "type": "LongText",
+             "description": "Oczekiwane tresci / wymagania od usera - wejscie "
+                            "dla kroku generowania szkicu tresci."},
+            ai_status_field("Generuj szkic treści", prefix="content"),
+            {"title": "content_draft", "type": "LongText",
+             "description": "Szkic tresci wygenerowany przez AI - czlowiek "
+                            "weryfikuje/poprawia w TYM SAMYM polu przed "
+                            "akceptacja (content_ai_status=ai_accepted)."},
+            ai_status_field("Generuj zarys slajdów", prefix="outline"),
+            {"title": "outline", "type": "LongText",
+             "description": "Podzial na slajdy wygenerowany przez AI z "
+                            "zaakceptowanego content_draft - czlowiek "
+                            "weryfikuje/poprawia w TYM SAMYM polu przed "
+                            "akceptacja (outline_ai_status=ai_accepted)."},
+            gen_status_field("file", "Generuj prezentację"),
+            gen_note_field("file", "Generuj prezentację"),
+            {"title": "presentation_file", "type": "Attachment",
+             "description": "Gotowy plik wygenerowany z zaakceptowanego "
+                            "outline (przycisk 'Generuj prezentację')."},
         ],
     },
     {
@@ -562,55 +705,6 @@ TABLES = [
         ],
     },
     {
-        # NOWA 2026-08-30: klientka opisala kolejny krok procesu ofertowego -
-        # po wybraniu pakietu/pakietow (package_variants, slajd 4 "NASZA
-        # REKOMENDACJA") AI generuje SZKIC dluzszego tekstu per wybrany
-        # pakiet na jego WLASNY slajd (5/6/7 - ile pakietow, tyle slajdow),
-        # czlowiek go weryfikuje przed wyslaniem oferty. To wymaga wlasnej
-        # tabeli-laczacej (analogicznie do recommendation_packages), bo
-        # zwykle Links (mm) nie ma gdzie trzymac generated_text/ai_status
-        # per (offer, package_variant).
-        "title": "offer_packages",
-        "icon": "✍️",
-        "description": "Ktore package_variants wybrano do TEJ oferty i w jakiej "
-                       "kolejnosci - sort_order steruje kolejnoscia na slajdzie 4 "
-                       "ORAZ przypisaniem do wlasnego slajdu w dalszej czesci "
-                       "oferty (1=slajd 5, 2=slajd 6, 3=slajd 7 - ile wierszy, "
-                       "tyle slajdow). `generated_text` to szkic AI rozwijajacy "
-                       "`package_variants.short_description` na dluzszy tekst "
-                       "TEGO slajdu, zweryfikowany/poprawiony przez czlowieka "
-                       "przed uzyciem w ofercie. Generowanie NIE ma wlasnego "
-                       "przycisku na tej tabeli (decyzja 2026-08-30): startuje "
-                       "je zbiorczy przycisk `offers`.\"Generuj opisy pakietow\" - "
-                       "jeden klik na ofercie generuje generated_text dla "
-                       "WSZYSTKICH offer_packages polinkowanych do niej naraz.",
-        "fields": [
-            # analogicznie do recommendation_packages.package_name -
-            # display value nie moze byc samym sort_order (liczba)
-            {"title": "package_name", "type": "SingleLineText"},
-            {"title": "sort_order", "type": "Number"},
-            {"title": "generated_text", "type": "LongText",
-             "description": "Szkic AI (potem tekst zweryfikowany przez czlowieka) "
-                            "na wlasny slajd tego pakietu w ofercie (slajd 5/6/7 "
-                            "wg sort_order) - NIE to samo co "
-                            "package_variants.short_description (ten jest "
-                            "krotki, wspolny dla kazdej oferty z tym pakietem; "
-                            "tu jest dluzszy tekst wygenerowany/dopasowany do "
-                            "TEJ konkretnej oferty)."},
-            {"title": "ai_status", "type": "SingleSelect", "options": select(*AI_STATUS),
-             "description": "Status tresci generowanej przez AI: none (nic nie "
-                            "generowano) -> pending (automatyzacja wlasnie "
-                            "generuje, czekaj) -> ai_draft_ready (jest szkic, "
-                            "czeka na weryfikacje czlowieka) -> ai_accepted / "
-                            "ai_rejected (decyzja czlowieka). Tylko ai_accepted "
-                            "moze zasilic oferte. Sama zmiana tego pola NIC nie "
-                            "generuje - przycisk \"Generuj opisy pakietow\" jest "
-                            "na OFERCIE (offers), nie tutaj: generuje SZKICE dla "
-                            "WSZYSTKICH wierszy offer_packages polinkowanych do "
-                            "tej oferty naraz (zbiorczo), potem odswiez."},
-        ],
-    },
-    {
         "title": "offers",
         "icon": "📄",
         "description": "Jedna oferta = jeden wygenerowany dokument; wiele ofert "
@@ -620,9 +714,14 @@ TABLES = [
             {"title": "title", "type": "SingleLineText"},
             {"title": "status", "type": "SingleSelect",
              "options": select("draft", "sent", "accepted", "rejected")},
-            # feedback-tables-1.md: price -> total_price (vs hourly price)
-            {"title": "total_price", "type": "Currency",
-             "options": {"locale": "pl-PL", "code": "PLN"}},
+            # total_price NIE jest tu tworzone jako zwykle pole - od
+            # 2026-09-17 to Rollup wyliczany automatycznie (COMPUTED_FIELDS
+            # nizej, offers.total_price) - patrz naglowek skryptu, "Zmiana
+            # z 2026-09-17". NA JUZ WDROZONEJ BAZIE to pole istnieje jako
+            # zwykle Currency (wpisywane recznie) - trzeba je RECZNIE usunac
+            # w UI NocoDB przed ponownym `make init-schema`, inaczej
+            # create_computed_fields() pominie je jako "juz istnieje" i
+            # Rollup nigdy nie powstanie.
             {"title": "hours", "type": "Number"},
             # feedback-tables-1.md: variant -> product_type, dodane Audyt
             # jezykowy/Job Interview/Webinar (juz w VARIANT), MultiSelect bo
@@ -648,31 +747,103 @@ TABLES = [
         ],
     },
     {
-        "title": "package_variants",
+        # NOWA 2026-09-17, POPRAWIONA tego samego dnia: katalog
+        # POSZCZEGOLNYCH slajdow uzasadnienia - zastepuje pierwotny pomysl z
+        # liczbowym polem `slides` (patrz historia w naglowku skryptu,
+        # "Zmiana z 2026-09-17"). POPRAWKA: link jest z
+        # selected_package_variants_cores (RELATIONS, hm), NIE z
+        # package_variants_cores (katalogu) - slajdy uzasadnienia maja sens
+        # WYLACZNIE per konkretny wybor pakietu w konkretnej rekomendacji
+        # (personalizowana tresc na podstawie assessmentu tej osoby), nie
+        # jako wspolna tresc katalogowa dla wszystkich, ktorzy kiedykolwiek
+        # dostana ten pakiet. Kazdy wiersz = jeden slajd tresci; link
+        # pozwala dopiac 0-3 takich wierszy do jednego WYBORU pakietu -
+        # dokladnie tyle, ile slajdow uzasadnienia ten wybor ma dostac w
+        # ofercie (.ai/slajdy.md: "moze zajac 1-3 slajdow"), tak jak dalo sie
+        # to robic PRZED przemodelowaniem na cores/adons (dowolna liczba
+        # dopisywanych slajdow, nie sztywny licznik).
+        "title": "package_core_slides",
+        "icon": "🖼️",
+        "description": "Pojedynczy spersonalizowany slajd uzasadnienia dla "
+                       "WYBORU pakietu core w konkretnej rekomendacji - 0-3 "
+                       "wiersze na wybor (link "
+                       "selected_package_variants_cores.slides, RELATIONS). "
+                       "`name` to wewnetrzna etykieta/kolejnosc, "
+                       "`title`/`description` to tresc renderowana na "
+                       "slajdzie.",
+        "fields": [
+            {"title": "name", "type": "SingleLineText",
+             "description": "Wewnetrzna etykieta tego slajdu (identyfikacja "
+                            "w UI/kolejnosc) - NIE tresc widoczna na slajdzie."},
+            {"title": "title", "type": "SingleLineText",
+             "description": "Naglowek tego slajdu w wygenerowanej ofercie."},
+            {"title": "description", "type": "LongText",
+             "description": "Tresc/uzasadnienie tego slajdu w wygenerowanej "
+                            "ofercie."},
+        ],
+    },
+    {
+        # NOWA 2026-09-16: zastepuje `package_variants` (usuniete - patrz
+        # naglowek skryptu, "Zmiana z 2026-09-16") - katalog GLOWNYCH
+        # pakietow ("cores"), rozdzielony od `package_variants_adons`
+        # (dodatki/skille) ponizej. .ai/slajdy.md: pakiety maja personalnie
+        # dobierane godziny i uzasadnienie z assessmentu, ktore moze zajac
+        # 1-3 slajdy - DYNAMICZNA liczba, w odroznieniu od adons, ktore maja
+        # STALE sloty w szablonie. POPRAWKA 2026-09-17: same slajdy
+        # uzasadnienia (package_core_slides) NIE wisza pod tym katalogiem -
+        # sa spersonalizowane per wybor, wiec link jest pod
+        # selected_package_variants_cores (patrz ta tabela nizej). Ten
+        # katalog trzyma WYLACZNIE tresc wspolna dla kazdego uzycia pakietu.
+        "title": "package_variants_cores",
         "icon": "🎁",
-        "description": "Katalog gotowych pakietow (Business English, English "
-                       "for IT, English + Business Skills: ..., Job "
-                       "Interview) do krotkich opisow na slajdzie 'NASZA "
-                       "REKOMENDACJA' (warianty_slajd_4.txt, 2026-08-11). "
-                       "Inny byt niz training_descriptions: to gotowy "
-                       "PRODUKT pokazywany klientowi na slajdzie "
-                       "rekomendacji, nie pojedynczy modul do skladania "
-                       "sciezki ETAP 1/ETAP 2.",
+        "description": "Katalog glownych pakietow szkoleniowych (Business "
+                       "English, English for IT, ...). Godziny ORAZ slajdy "
+                       "uzasadnienia sa personalizowane per wybor (patrz "
+                       "selected_package_variants_cores.hours/.slides) - ten "
+                       "katalog trzyma wylacznie wspolna tresc katalogowa "
+                       "(description).",
         "fields": [
             {"title": "name", "type": "SingleLineText"},
-            {"title": "short_description", "type": "LongText",
-             "description": "Kilkuzdaniowy opis pakietu na slajd 'NASZA "
-                            "REKOMENDACJA' - {{package.shortdescription}}."},
+            {"title": "description", "type": "LongText",
+             "description": "Opis katalogowy pakietu - baza pod "
+                            "personalizowany tekst na slajdzie oferty."},
+        ],
+    },
+    {
+        # NOWA 2026-09-16: patrz komentarz przy package_variants_cores wyzej.
+        # Odpowiednik "skilli" z .ai/slajdy.md - STALE sloty w szablonie
+        # pptx, wlaczane/wylaczane przez render_if:key (stad pole `key`).
+        "title": "package_variants_adons",
+        "icon": "🧩",
+        "description": "Katalog dodatkow/skilli o STALYCH slajdach w "
+                       "szablonie (w odroznieniu od package_variants_cores, "
+                       "gdzie liczba slajdow jest dynamiczna). `key` to kod "
+                       "placeholdera w szablonie pptx (render_if:key), ktory "
+                       "wlacza/wylacza wlasciwy staly slajd.",
+        "fields": [
+            {"title": "name", "type": "SingleLineText"},
+            # NOWA 2026-09-17: dopisane recznie w UI (zobaczone w
+            # docs/archive/fable/schema_map.json), dopisane tu zeby nie
+            # zniknelo przy odtworzeniu schematu - analogiczny opis
+            # katalogowy jak package_variants_cores.description.
+            {"title": "description", "type": "LongText",
+             "description": "Opis katalogowy dodatku - baza pod "
+                            "personalizowany tekst na slajdzie oferty."},
             {"title": "default_hours", "type": "Number",
-             "description": "Domyslna/typowa liczba godzin pakietu - "
-                            "{{package.hours}}."},
-            {"title": "lesson_frequency", "type": "Number",
-             "description": "Ile zajec tygodniowo w typowym harmonogramie - "
-                            "{{lessonfrequency}}."},
-            {"title": "lesson_minutes", "type": "Number",
-             "description": "Dlugosc pojedynczych zajec w minutach - "
-                            "{{lesson.minutes}}."},
-            {"title": "active", "type": "Checkbox", "default_value": True},
+             "description": "Domyslna/typowa liczba godzin tego dodatku - "
+                            "nadpisywana per rekomendacja w "
+                            "selected_package_variants_adons.hours."},
+            # NA JUZ WDROZONEJ BAZIE to pole zostalo recznie zmienione w UI
+            # na SingleSelect (docs/archive/fable/schema_map.json,
+            # 2026-09-17) - lista opcji NIE jest znana temu skryptowi (dump
+            # nie zapisuje choices dla SingleSelect, patrz sync_select_options()
+            # nizej) i celowo nie jest tu zgadywana. Zostaje SingleLineText -
+            # jesli odtwarzasz baze od zera i chcesz SingleSelect, przekonwertuj
+            # recznie w UI i wklej tu realna liste opcji.
+            {"title": "key", "type": "SingleLineText",
+             "description": "Kod placeholdera w szablonie pptx "
+                            "(render_if:key) - identyfikuje, KTORY staly "
+                            "slajd dodatku wlaczyc/wylaczyc."},
         ],
     },
     {
@@ -836,6 +1007,74 @@ TABLES = [
         ],
     },
     {
+        # NOWA 2026-09-16: zastepuje offer_packages (usuniete) dla wyboru
+        # GLOWNYCH pakietow - jeden wiersz = jeden package_variants_cores
+        # wybrany do TEJ recommendation, z godzinami dobranymi
+        # indywidualnie (.ai/slajdy.md: "snapshot zamiast override" -
+        # hours tutaj jest WLASNA wartoscia tego wyboru, nie live-lookupem
+        # z katalogu). `title` dopisane 2026-09-17 (zobaczone recznie
+        # dodane w UI, docs/archive/fable/schema_map.json) jako pierwsze
+        # pole - rozwiazuje wczesniejsza obawe o display value = `hours`
+        # (Number). POPRAWKA 2026-09-17 (kolejna): link `slides` ->
+        # package_core_slides zyje TUTAJ, nie na katalogu
+        # package_variants_cores - 0-3 spersonalizowane slajdy uzasadnienia
+        # maja sens wylacznie per KONKRETNY wybor pakietu w konkretnej
+        # rekomendacji (na podstawie assessmentu tej osoby), nie jako
+        # wspolna tresc dla wszystkich, ktorzy kiedykolwiek dostana ten
+        # pakiet z katalogu.
+        "title": "selected_package_variants_cores",
+        "icon": "🧺",
+        "description": "Wybrany glowny pakiet (package_variants_cores) w "
+                       "ramach jednej recommendation, z personalizowanymi "
+                       "godzinami i 0-3 wlasnymi slajdami uzasadnienia "
+                       "(link `slides` -> package_core_slides). Link do "
+                       "package_variants_cores wskazuje dokladnie jeden "
+                       "katalogowy pakiet (RELATIONS).",
+        "fields": [
+            {"title": "title", "type": "SingleLineText"},
+            {"title": "hours", "type": "Number",
+             "description": "Godziny tego pakietu core personalizowane dla "
+                            "TEJ rekomendacji - katalog "
+                            "(package_variants_cores) nie trzyma domyslnych "
+                            "godzin; godziny sa ustalane wylacznie tutaj."},
+            # NOWA 2026-09-17: stawka za godzine tego pakietu w TEJ
+            # rekomendacji - razem z hours zasila line_total (Formula,
+            # COMPUTED_FIELDS nizej: hours*price), ktore rolluje sie dalej
+            # az do offers.total_price.
+            {"title": "price", "type": "Currency",
+             "options": {"locale": "pl-PL", "code": "PLN"},
+             "description": "Stawka za godzine tego pakietu w TEJ "
+                            "rekomendacji - hours x price = line_total "
+                            "(pole liczone, patrz COMPUTED_FIELDS)."},
+        ],
+    },
+    {
+        # NOWA 2026-09-16: analogicznie do selected_package_variants_cores
+        # wyzej, dla dodatkow/skilli (`package_variants_adons`, stale sloty
+        # w szablonie). `title` - patrz komentarz przy
+        # selected_package_variants_cores wyzej.
+        "title": "selected_package_variants_adons",
+        "icon": "🔌",
+        "description": "Wybrany dodatek/skill (package_variants_adons) w "
+                       "ramach jednej recommendation, z personalizowanymi "
+                       "godzinami. Link do package_variants_adons wskazuje "
+                       "dokladnie jeden katalogowy dodatek (RELATIONS).",
+        "fields": [
+            {"title": "title", "type": "SingleLineText"},
+            {"title": "hours", "type": "Number",
+             "description": "Godziny tego dodatku personalizowane dla TEJ "
+                            "rekomendacji - package_variants_adons."
+                            "default_hours to tylko katalogowa podpowiedz, "
+                            "NIE jest tu automatycznie kopiowana."},
+            # NOWA 2026-09-17: analogicznie do selected_package_variants_cores.price.
+            {"title": "price", "type": "Currency",
+             "options": {"locale": "pl-PL", "code": "PLN"},
+             "description": "Stawka za godzine tego dodatku w TEJ "
+                            "rekomendacji - hours x price = line_total "
+                            "(pole liczone, patrz COMPUTED_FIELDS)."},
+        ],
+    },
+    {
         "title": "task_templates",
         "icon": "🔁",
         "description": "Czytane wylacznie przez cron w n8n (W1) - triggery CRON "
@@ -986,6 +1225,9 @@ RELATIONS = [
     # szablon jest aktualny"), W9 juz go NIE uzywa do wyboru - czyta wprost
     # link z offers (patrz W9 "Get offer template").
     ("document_templates", "offers", "hm", "offers"),
+    # wybor szablonu per material (krok 1 demo-pipeline'u) - ta sama
+    # niepewnosc nazwy pola zwrotnego jak wyzej.
+    ("document_templates", "materials", "hm", "materials"),
     # przeniesione z leads (byla tam do 2026-08-10) - dwie oferty dla tego
     # samego leada moga chciec innych referencji w wygenerowanym dokumencie.
     ("offers", "selected_testimonials", "mm", "testimonials"),
@@ -995,21 +1237,33 @@ RELATIONS = [
     # per produkt) - stad mm, nie hm. Kazdy link wskazuje wiersz pricing,
     # z ktorego wzieta zostala kwota w offers.total_price.
     ("offers", "pricing", "mm", "pricing"),
-    # warianty_slajd_4.txt (2026-08-11, import-packages.py) -> package_variants
-    # istnieje juz z danymi. offer_packages to tabela-laczaca (nie plain mm),
-    # bo musi trzymac generated_text/ai_status/sort_order PER (offer,
-    # package_variant) - patrz komentarz przy definicji offer_packages w
-    # TABLES. Ten sam ksztalt relacji co recommendations/recommendation_packages
-    # nizej.
-    ("offers", "packages", "hm", "offer_packages"),
-    ("package_variants", "offer_packages", "hm", "offer_packages"),
     # --- trzy poziomy merytoryczne (v3 "Architektura tabel")
     ("participants", "assessments", "hm", "assessments"),
     ("participants", "recommendations", "hm", "recommendations"),
+    # NOWA 2026-09-16: dochodzi OBOK linku do participants (decyzja usera,
+    # nie w jego miejsce) - rekomendacja jest teraz widoczna zarowno "kto ja
+    # dostaje" (participants) jak i "w ktorej ofercie jest uzyta" (offers).
+    ("offers", "recommendations", "hm", "recommendations"),
     ("participants", "meetings", "mm", "meetings"),
     ("meetings", "assessments", "hm", "assessments"),
     ("recommendations", "packages", "hm", "recommendation_packages"),
     ("training_descriptions", "recommendation_packages", "hm", "recommendation_packages"),
+    # NOWA 2026-09-16: zastepuje offer_packages/package_variants (usuniete) -
+    # wybor GLOWNYCH pakietow ("cores") per recommendation, ten sam ksztalt
+    # relacji co recommendations/recommendation_packages wyzej (junction z
+    # wlasnymi polami, nie plain mm) - patrz komentarz przy definicji
+    # selected_package_variants_cores w TABLES.
+    ("recommendations", "selected_cores", "hm", "selected_package_variants_cores"),
+    ("package_variants_cores", "selected_package_variants_cores", "hm", "selected_package_variants_cores"),
+    # NOWA 2026-09-17, POPRAWIONA tego samego dnia: 0-3 slajdy uzasadnienia
+    # per WYBOR pakietu (NIE per katalogowy package_variants_cores - slajdy
+    # sa spersonalizowane na podstawie assessmentu tej osoby, nie wspolne
+    # dla wszystkich uzyc tego pakietu) - patrz komentarz przy definicji
+    # package_core_slides w TABLES.
+    ("selected_package_variants_cores", "slides", "hm", "package_core_slides"),
+    # analogicznie dla dodatkow/skilli ("adons", stale sloty w szablonie)
+    ("recommendations", "selected_adons", "hm", "selected_package_variants_adons"),
+    ("package_variants_adons", "selected_package_variants_adons", "hm", "selected_package_variants_adons"),
     # --- log
     ("meetings", "activities", "hm", "activities"),
     ("tasks", "activities", "hm", "activities"),
@@ -1031,14 +1285,13 @@ RELATIONS = [
 # przycisk X" w opisie wskazywalo na pole o tej samej nazwie.
 BUTTONS = [
     ("offers", "generuj ofertę"),
-    # decyzja 2026-08-30: JEDEN zbiorczy przycisk na offers, nie po jednym na
-    # kazdym wierszu offer_packages - klik generuje generated_text dla
-    # WSZYSTKICH offer_packages polinkowanych do tej oferty naraz.
-    ("offers", "Generuj opisy pakietów"),
     ("meetings", "Generuj analizę"),
     ("assessments", "Generuj needs summary"),
     ("testimonials", "generuj slajd"),
     ("testimonials", "generuj obrazek"),
+    ("materials", "Generuj szkic treści"),
+    ("materials", "Generuj zarys slajdów"),
+    ("materials", "Generuj prezentację"),
 ]
 
 BUTTON_PLACEHOLDER_NOTE = (
@@ -1047,6 +1300,71 @@ BUTTON_PLACEHOLDER_NOTE = (
     'workflowa n8n: otworz to pole w UI, zmien akcje na "Run Webhook", '
     'wybierz/wklej wlasciwy webhook, zapisz.'
 )
+
+
+# ------------------------------------------------- pola liczone (Formula/Rollup)
+# NOWA 2026-09-17: offers.total_price ma byc wyliczana automatycznie z
+# selected_package_variants_cores/adons (hours x price), patrz naglowek
+# skryptu "Zmiana z 2026-09-17". NocoDB Rollup agreguje TYLKO jedna kolumne
+# z JEDNEJ relacji (jeden "hop") - a total_price potrzebuje danych DWA hopy
+# nizej (offers -> recommendations -> selected_*), wiec lancuch musi isc
+# przez pola posrednie, W TEJ KOLEJNOSCI (kazdy kolejny wpis moze sie
+# odwolywac do poprzedniego):
+#   1. line_total (Formula, na KAZDEJ z selected_package_variants_cores/
+#      adons) = hours * price
+#   2. cores_subtotal / adons_subtotal (Rollup na recommendations) =
+#      SUM(line_total) po wlasciwym linku (selected_cores / selected_adons)
+#   3. package_total (Formula na recommendations) = cores_subtotal +
+#      adons_subtotal
+#   4. offers.total_price (Rollup) = SUM(package_total) po linku
+#      "recommendations"
+# Kontrakt Rollup (fk_relation_column_id/fk_rollup_column_id/
+# rollup_function) NIE jest tu zgadywany - to dokladnie ksztalt zaobserwowany
+# w prawdziwym dumpie docs/archive/fable/schema_map.json na polu
+# offer_packages.hours (recznie utworzone w NocoDB UI 2026-09-16,
+# "_raw_colOptions"). Kontrakt Formula (formula_raw, formuly odwoluja sie do
+# kolumn po TYTULE w {}, nie po id) to ten sam, ktory juz dziala dla BUTTONS
+# wyzej (formula_raw: "NOW()").
+COMPUTED_FIELDS = [
+    {"table": "selected_package_variants_cores", "title": "line_total",
+     "kind": "formula", "formula": "{hours}*{price}",
+     "description": "Kwota za ten wybrany pakiet core w tej rekomendacji "
+                    "(hours x price) - liczone automatycznie, baza dla "
+                    "recommendations.cores_subtotal. Nie edytowac recznie."},
+    {"table": "selected_package_variants_adons", "title": "line_total",
+     "kind": "formula", "formula": "{hours}*{price}",
+     "description": "Kwota za ten wybrany dodatek w tej rekomendacji "
+                    "(hours x price) - liczone automatycznie, baza dla "
+                    "recommendations.adons_subtotal. Nie edytowac recznie."},
+    {"table": "recommendations", "title": "cores_subtotal",
+     "kind": "rollup", "relation_field": "selected_cores",
+     "rollup_table": "selected_package_variants_cores",
+     "rollup_field": "line_total", "function": "sum",
+     "description": "Suma line_total wszystkich wybranych pakietow core w "
+                    "tej rekomendacji - liczone automatycznie."},
+    {"table": "recommendations", "title": "adons_subtotal",
+     "kind": "rollup", "relation_field": "selected_adons",
+     "rollup_table": "selected_package_variants_adons",
+     "rollup_field": "line_total", "function": "sum",
+     "description": "Suma line_total wszystkich wybranych dodatkow w tej "
+                    "rekomendacji - liczone automatycznie."},
+    {"table": "recommendations", "title": "package_total",
+     "kind": "formula", "formula": "{cores_subtotal}+{adons_subtotal}",
+     "description": "Laczna kwota (core + dodatki) tej rekomendacji - "
+                    "liczone automatycznie, baza dla offers.total_price."},
+    {"table": "offers", "title": "total_price",
+     "kind": "rollup", "relation_field": "recommendations",
+     "rollup_table": "recommendations", "rollup_field": "package_total",
+     "function": "sum",
+     "description": "Finalna cena oferty: suma package_total wszystkich "
+                    "powiazanych recommendations (kazda: suma wybranych "
+                    "cores + adons, hours x price). Liczone automatycznie -"
+                    " Rollup jest read-only w NocoDB, nie da sie tu wpisac "
+                    "recznie. NA JUZ WDROZONEJ BAZIE to pole istnieje jako "
+                    "zwykle Currency (recznie wpisywane) - trzeba je "
+                    "RECZNIE usunac w UI przed ponownym make init-schema, "
+                    "inaczej ten wpis zostanie pominiety jako 'juz istnieje'."},
+]
 
 
 # --------------------------------------------------------- v3 -> v2 translacja
@@ -1266,6 +1584,62 @@ def create_buttons(ids, dry_run):
         })
 
 
+def create_computed_fields(ids, dry_run):
+    """Lancuch Formula/Rollup dla offers.total_price - patrz komentarz przy
+    COMPUTED_FIELDS po uzasadnienie kolejnosci. MUSI biec PO
+    create_relations() (rollupy licza fk_relation_column_id z juz
+    istniejacych kolumn Links) i przetwarza COMPUTED_FIELDS w kolejnosci
+    zaleznosci - kazdy kolejny wpis szuka po tytule kolumn utworzonych przez
+    poprzednie (przez table_columns(), nie przez zwracane id, wiec dziala
+    tak samo dla pol nowo utworzonych jak i juz istniejacych na wdrozonej
+    bazie).
+    """
+    for cf in COMPUTED_FIELDS:
+        table_id = ids.get(cf["table"])
+        if not table_id:
+            print(f"!  pomijam {cf['table']}.{cf['title']}: brak id tabeli ({cf['table']})")
+            continue
+        if not dry_run and cf["title"].lower() in existing_fields(table_id):
+            print(f"=  {cf['table']}.{cf['title']}: juz istnieje, pomijam")
+            continue
+        print(f"+  {cf['table']}.{cf['title']} ({cf['kind']})")
+        if dry_run:
+            continue
+        if cf["kind"] == "formula":
+            api("POST", f"/api/v2/meta/tables/{table_id}/columns", json={
+                "title": cf["title"],
+                "column_name": cf["title"],
+                "uidt": "Formula",
+                "formula_raw": cf["formula"],
+                "description": cf["description"],
+            })
+            continue
+        # rollup: relation_field musi juz istniec NA TEJ SAMEJ tabeli
+        # (utworzone przez create_relations()), rollup_field na tabeli
+        # docelowej relacji (utworzone przez wczesniejszy wpis w
+        # COMPUTED_FIELDS albo przez zwykle pole z TABLES).
+        relation_col = table_columns(table_id).get(cf["relation_field"].lower())
+        rollup_table_id = ids.get(cf["rollup_table"])
+        if not relation_col or not rollup_table_id:
+            print(f"!  {cf['table']}.{cf['title']}: brak kolumny relacji "
+                  f"'{cf['relation_field']}' lub tabeli '{cf['rollup_table']}' - pomijam")
+            continue
+        rollup_col = table_columns(rollup_table_id).get(cf["rollup_field"].lower())
+        if not rollup_col:
+            print(f"!  {cf['table']}.{cf['title']}: brak kolumny "
+                  f"'{cf['rollup_field']}' na '{cf['rollup_table']}' - pomijam")
+            continue
+        api("POST", f"/api/v2/meta/tables/{table_id}/columns", json={
+            "title": cf["title"],
+            "column_name": cf["title"],
+            "uidt": "Rollup",
+            "fk_relation_column_id": relation_col["id"],
+            "fk_rollup_column_id": rollup_col["id"],
+            "rollup_function": cf["function"],
+            "description": cf["description"],
+        })
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true",
@@ -1286,6 +1660,8 @@ if __name__ == "__main__":
     sync_table_icons(ids, args.dry_run)
     print(f"\n--- relacje ({len(RELATIONS)}) ---")
     create_relations(ids, args.dry_run)
+    print(f"\n--- pola liczone (Formula/Rollup, {len(COMPUTED_FIELDS)}) ---")
+    create_computed_fields(ids, args.dry_run)
     print(f"\n--- opcje SingleSelect/MultiSelect ---")
     sync_select_options(ids, args.dry_run)
     print(f"\n--- przyciski (placeholder Open URL / NOW()) ---")
@@ -1306,3 +1682,19 @@ if __name__ == "__main__":
     print("  3. Sprawdz display value kazdej tabeli i nazwy pol zwrotnych relacji.")
     print("  4. Ikonki tabel: kontrakt PATCH .../meta/tables/{id} meta.icon "
           "niezweryfikowany na zywo - sprawdz w UI, czy sie zapisaly.")
+    print("  5. offers.total_price (Rollup): jesli na TEJ bazie istnialo juz "
+          "jako zwykle Currency, powyzszy krok je pominal - usun je RECZNIE ")
+    print("     w UI i uruchom skrypt ponownie, zeby powstalo jako Rollup "
+          "(patrz COMPUTED_FIELDS w tym pliku). Kontrakt i caly lancuch "
+          "hours*price -> ... -> total_price juz DZIALA na zywej bazie "
+          "(potwierdzone dumpem 2026-09-17) - ten punkt dotyczy tylko baz, "
+          "gdzie total_price nadal jest starym Currency.")
+    print("  6. selected_package_variants_cores.slides (Links -> "
+          "package_core_slides): jesli na TEJ bazie istnieje jeszcze "
+          "POPRZEDNIA (bledna) wersja tej relacji na package_variants_cores "
+          "(katalogu, nie na wyborze) - usun ja RECZNIE w UI (obie strony: "
+          "pole 'slides' na package_variants_cores i pole zwrotne na "
+          "package_core_slides) przed ponownym uruchomieniem, inaczej "
+          "powstanie DRUGA relacja obok, zamiast ja zastapic. Jesli 'slides' "
+          "na tej bazie nigdy nie istnialo - create_relations() utworzy je "
+          "poprawnie od razu, nic nie trzeba robic.")

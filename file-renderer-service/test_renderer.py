@@ -5,6 +5,7 @@ Run:  pytest file-renderer-service/test_renderer.py -v
 import io
 
 from pptx import Presentation
+from pptx.oxml.ns import qn
 from pptx.util import Inches
 
 from renderer import render_pptx
@@ -40,6 +41,23 @@ def _bytes(prs):
 
 def _textbox_text(slide):
     return slide.shapes[0].text_frame.text
+
+
+def _para_children(slide, para_idx=0):
+    """Ordered (kind, text, bold) tuples for a paragraph's a:r/a:br children -
+    text_frame.text alone can't tell a line break from nothing, and .runs
+    skips a:br entirely."""
+    para = slide.shapes[0].text_frame.paragraphs[para_idx]
+    out = []
+    for el in para._p:
+        if el.tag == qn("a:r"):
+            t = el.find(qn("a:t"))
+            rpr = el.find(qn("a:rPr"))
+            bold = rpr.get("b") if rpr is not None else None
+            out.append(("r", t.text if t is not None else "", bold))
+        elif el.tag == qn("a:br"):
+            out.append(("br", None, None))
+    return out
 
 
 def test_simple_placeholder_resolves():
@@ -164,3 +182,219 @@ def test_lifted_item_keys_shadow_top_level_data_on_that_slide():
             "row": [{"title": "z elementu"}]}
     out = _render(prs, data, warnings)
     assert _textbox_text(list(out.slides)[0]) == "z elementu|z leada"
+
+
+def test_bold_span_becomes_a_real_bold_run_not_literal_asterisks():
+    prs = _new_prs()
+    _add_slide(prs, ["{{module.goal_statement}}"])
+    warnings = []
+    data = {"module": {"goal_statement": "Zwykly tekst **pogrubiony fragment** koniec."}}
+    out = _render(prs, data, warnings)
+    assert _para_children(out.slides[0]) == [
+        ("r", "Zwykly tekst ", "0"),
+        ("r", "pogrubiony fragment", "1"),
+        ("r", " koniec.", "0"),
+    ]
+    assert warnings == []
+
+
+def test_br_and_newline_become_line_break_not_literal_text():
+    prs = _new_prs()
+    _add_slide(prs, ["{{module.goal_statement}}"])
+    warnings = []
+    data = {"module": {"goal_statement": "Pierwszy.<br>Drugi.\nTrzeci."}}
+    out = _render(prs, data, warnings)
+    assert _para_children(out.slides[0]) == [
+        ("r", "Pierwszy.", "0"),
+        ("br", None, None),
+        ("r", "Drugi.", "0"),
+        ("br", None, None),
+        ("r", "Trzeci.", "0"),
+    ]
+    # python-pptx represents each a:br as "\x0b" (soft line break) when
+    # joining paragraph text - a real break marker, not literal "<br>"/"\n".
+    assert _textbox_text(out.slides[0]) == "Pierwszy.\x0bDrugi.\x0bTrzeci."
+
+
+def test_plain_value_without_markup_stays_a_single_run():
+    """No **/<br>/\\n in the resolved value -> untouched fast path, same as
+    before this feature (no gratuitous run-splitting for ordinary text)."""
+    prs = _new_prs()
+    _add_slide(prs, ["{{lead.contact_name}}"])
+    warnings = []
+    out = _render(prs, {"lead": {"contact_name": "Ala"}}, warnings)
+    para = out.slides[0].shapes[0].text_frame.paragraphs[0]
+    assert len(para.runs) == 1
+    assert para.runs[0].text == "Ala"
+
+
+def test_rich_text_preserves_surrounding_plain_runs_and_their_order():
+    prs = _new_prs()
+    _add_slide(prs, ["Cel: ", "{{module.goal_statement}}", " (koniec)"])
+    warnings = []
+    data = {"module": {"goal_statement": "**A**\nB"}}
+    out = _render(prs, data, warnings)
+    assert _textbox_text(out.slides[0]) == "Cel: A\x0bB (koniec)"
+    kinds = [k for k, _, _ in _para_children(out.slides[0])]
+    assert kinds == ["r", "r", "br", "r", "r"]
+
+
+def test_render_if_keeps_matching_variant_and_drops_others():
+    prs = _new_prs()
+    _add_slide(prs, ["boy cover"], notes="render_if:boy")
+    _add_slide(prs, ["girl cover"], notes="render_if:girl")
+    _add_slide(prs, ["man cover"], notes="render_if:man")
+    warnings = []
+    out = _render(prs, {"key": "girl"}, warnings)
+    assert len(out.slides) == 1
+    assert _textbox_text(out.slides[0]) == "girl cover"
+    assert any("render_if:boy" in w for w in warnings)
+    assert any("render_if:man" in w for w in warnings)
+    assert not any("render_if:girl" in w for w in warnings)
+
+
+def test_render_if_missing_key_in_data_drops_all_variants_and_warns():
+    prs = _new_prs()
+    _add_slide(prs, ["boy cover"], notes="render_if:boy")
+    _add_slide(prs, ["girl cover"], notes="render_if:girl")
+    _add_slide(prs, ["man cover"], notes="render_if:man")
+    warnings = []
+    out = _render(prs, {}, warnings)
+    assert len(out.slides) == 0
+    assert len(warnings) == 3
+
+
+def test_render_if_no_repeat_value_mismatch_drops_slide_and_warns():
+    prs = _new_prs()
+    _add_slide(prs, ["variant"], notes="render_if:skill_facilitating")
+    warnings = []
+    out = _render(prs, {"key": "exam_prep"}, warnings)
+    assert len(out.slides) == 0
+    assert any("render_if:skill_facilitating" in w for w in warnings)
+
+
+def test_render_if_combined_with_repeat_filters_per_item():
+    """render_if: value must be captured once from the PRISTINE slide, not
+    re-derived from a duplicated target (which has no notes slide at all -
+    see duplicate_slide) - otherwise this per-package-variant filtering
+    silently breaks."""
+    prs = _new_prs()
+    _add_slide(prs, ["{{package.key}} skill slide"],
+               notes="repeat:package\nrender_if:skill_facilitating")
+    _add_slide(prs, ["{{package.key}} exam slide"],
+               notes="repeat:package\nrender_if:exam_prep")
+    warnings = []
+    data = {"package": [{"key": "skill_facilitating"}, {"key": "exam_prep"}]}
+    out = _render(prs, data, warnings)
+    texts = [_textbox_text(s) for s in out.slides]
+    assert texts == ["skill_facilitating skill slide", "exam_prep exam slide"]
+
+
+def test_render_if_combined_with_repeat_drops_all_copies_when_no_item_matches():
+    prs = _new_prs()
+    _add_slide(prs, ["{{package.key}} exam slide"],
+               notes="repeat:package\nrender_if:exam_prep")
+    warnings = []
+    data = {"package": [{"key": "skill_facilitating"}, {"key": "skill_facilitating"}]}
+    out = _render(prs, data, warnings)
+    assert len(out.slides) == 0
+    assert len([w for w in warnings if "render_if:exam_prep" in w]) == 2
+
+
+def test_delete_before_duplicate_does_not_collide_on_slide_partname():
+    """Regression: python-pptx names a new slide part `slide<len(sldIdLst)+1>.xml`
+    with NO check that name is already taken (PresentationPart.
+    _next_slide_partname). If a slide gets deleted (render_if drop) EARLIER
+    in the same render pass than a repeat: block that needs 1+ duplicates,
+    the slide count shrinks first, and the "next" number computed for the
+    duplicate can collide with an EXISTING later slide's own partname - two
+    different slides then get written to the archive under the identical
+    "slideN.xml" name, which PowerPoint "repairs" by dropping one of them.
+    Reproduced live on a real template (see project history, 2026-09-17)
+    with cover-variant render_if slides ahead of two repeat:packages slides.
+    render_pptx() must do ALL duplication before ANY deletion in the same
+    pass specifically to avoid this - this test asserts that invariant by
+    inspecting the RAW zip part names, since re-opening via python-pptx
+    would silently hide a duplicate-partname corruption instead of catching it.
+    """
+    prs = _new_prs()
+    _add_slide(prs, ["dropped variant"], notes="render_if:no_match")
+    _add_slide(prs, ["{{title}}"], notes="repeat:items")
+    _add_slide(prs, ["trailing slide"])
+    warnings = []
+    data = {"key": "boy", "items": [{"title": "one"}, {"title": "two"}, {"title": "three"}]}
+    out_bytes = render_pptx(_bytes(prs), data, warnings)
+
+    import re
+    import zipfile
+    from collections import Counter
+
+    z = zipfile.ZipFile(io.BytesIO(out_bytes))
+    names = [n for n in z.namelist() if re.match(r"ppt/slides/slide\d+\.xml$", n)]
+    counts = Counter(names)
+    duplicated = {n: c for n, c in counts.items() if c > 1}
+    assert duplicated == {}, f"colliding slide partnames in saved archive: {duplicated}"
+
+    out = Presentation(io.BytesIO(out_bytes))
+    texts = [_textbox_text(s) for s in out.slides]
+    assert texts == ["one", "two", "three", "trailing slide"]
+
+
+def test_plain_slide_without_any_marker_is_unaffected():
+    prs = _new_prs()
+    _add_slide(prs, ["hello"])
+    _add_slide(prs, ["world"], notes="some unrelated note")
+    warnings = []
+    out = _render(prs, {}, warnings)
+    assert [_textbox_text(s) for s in out.slides] == ["hello", "world"]
+    assert warnings == []
+
+
+def test_render_if_value_stops_at_first_invalid_char_same_as_repeat():
+    """render_if:foo-bar is parsed as value "foo" (charset stops at "-"),
+    exactly like repeat:<name> already does - not a special render_if rule."""
+    prs = _new_prs()
+    _add_slide(prs, ["still here"], notes="render_if:foo-bar")
+    warnings = []
+    out = _render(prs, {"key": "foo"}, warnings)
+    assert len(out.slides) == 1
+    assert _textbox_text(out.slides[0]) == "still here"
+    assert warnings == []
+
+
+def test_render_if_marker_starting_with_invalid_char_is_not_recognized_at_all():
+    """Only when the FIRST char right after "render_if:" isn't a valid
+    identifier start (e.g. a digit) does the marker fail to match entirely -
+    the slide then renders unconditionally, no warning."""
+    prs = _new_prs()
+    _add_slide(prs, ["still here"], notes="render_if:123boy")
+    warnings = []
+    out = _render(prs, {"key": "totally_different"}, warnings)
+    assert len(out.slides) == 1
+    assert _textbox_text(out.slides[0]) == "still here"
+    assert warnings == []
+
+
+def test_two_slides_with_same_render_if_value_both_survive():
+    prs = _new_prs()
+    _add_slide(prs, ["first boy"], notes="render_if:boy")
+    _add_slide(prs, ["second boy"], notes="render_if:boy")
+    warnings = []
+    out = _render(prs, {"key": "boy"}, warnings)
+    assert [_textbox_text(s) for s in out.slides] == ["first boy", "second boy"]
+    assert warnings == []
+
+
+def test_rich_text_when_placeholder_split_across_runs():
+    """Slow path (placeholder text itself split across runs by PowerPoint) -
+    the collapsed-into-first-run value still gets bold/break treatment."""
+    prs = _new_prs()
+    _add_slide(prs, ["{{module.goal_", "statement}}"])
+    warnings = []
+    data = {"module": {"goal_statement": "**Cel**\nszczegoly"}}
+    out = _render(prs, data, warnings)
+    assert _textbox_text(out.slides[0]) == "Cel\x0bszczegoly"
+    kinds = [k for k, _, _ in _para_children(out.slides[0])]
+    # trailing "r" is the original second run, blanked (not removed) - same
+    # pre-existing collapse behavior as test_placeholder_split_across_runs_*.
+    assert kinds == ["r", "br", "r", "r"]
