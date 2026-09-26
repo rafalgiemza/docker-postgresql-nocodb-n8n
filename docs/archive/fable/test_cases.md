@@ -2,21 +2,21 @@
 
 Legenda kolumny "Tryb": **AUTO** = w pełni deterministyczny, zaimplementowany w runnerze; **SEMI** = zawiera wywołanie LLM — runner asertuje strukturę wyniku, nie treść; **PROC** = proceduralny (weryfikacja przez `--dry-run` importera albo ręczne wykonanie w n8n).
 
-## W1 — taski cykliczne
+## W0 — taski cykliczne
 
 | ID | Scenariusz | Oczekiwany wynik | Tryb |
 |---|---|---|---|
-| W1-01 | szablon `FREQ=DAILY`, active | task utworzony z `created_by_flow=W1`, due = dziś + offset | AUTO* |
-| W1-02 | `FREQ=WEEKLY;BYDAY=<dzisiejszy>` | task utworzony | AUTO* |
-| W1-03 | `FREQ=WEEKLY;BYDAY=<inny dzień>` | brak taska | AUTO* |
-| W1-04 | `FREQ=MONTHLY;BYMONTHDAY=<dziś>` | task utworzony | AUTO* |
-| W1-05 | drugi run tego samego dnia | brak duplikatu (guard idempotencji) | AUTO* |
-| W1-06 | szablon `active=false` | brak taska | AUTO* |
-| W1-07 | `{{month}}` w tytule | podstawiony `YYYY-MM` | AUTO* |
-| W1-08 | uszkodzony rrule (`FREQ=FOO`) | szablon pominięty, brak wywałki, inne szablony przetworzone | AUTO* |
-| W1-09 | task z szablonu → activity `task_created` z `flow=W1` | wpis w activities | AUTO* |
+| W0-01 | szablon `FREQ=DAILY`, active | task utworzony z `created_by_flow=W0`, due = dziś + offset | AUTO* |
+| W0-02 | `FREQ=WEEKLY;BYDAY=<dzisiejszy>` | task utworzony | AUTO* |
+| W0-03 | `FREQ=WEEKLY;BYDAY=<inny dzień>` | brak taska | AUTO* |
+| W0-04 | `FREQ=MONTHLY;BYMONTHDAY=<dziś>` | task utworzony | AUTO* |
+| W0-05 | drugi run tego samego dnia | brak duplikatu (guard idempotencji) | AUTO* |
+| W0-06 | szablon `active=false` | brak taska | AUTO* |
+| W0-07 | `{{month}}` w tytule | podstawiony `YYYY-MM` | AUTO* |
+| W0-08 | uszkodzony rrule (`FREQ=FOO`) | szablon pominięty, brak wywałki, inne szablony przetworzone | AUTO* |
+| W0-09 | task z szablonu → activity `task_created` z `flow=W0` | wpis w activities | AUTO* |
 
-*W1 ma trigger cron — kopia testowa W1-TEST dostaje dodatkowy węzeł Webhook (`test-w1-run`), którym runner odpala przebieg na żądanie (instrukcja w README).
+*W0 ma trigger cron — kopia testowa W0-TEST dostaje dodatkowy węzeł Webhook (`test-w0-run`), którym runner odpala przebieg na żądanie (instrukcja w README).
 
 ## W2 — zmiana etapu leada
 
@@ -115,6 +115,6 @@ Legenda kolumny "Tryb": **AUTO** = w pełni deterministyczny, zaimplementowany w
 
 | ID | Scenariusz | Oczekiwany wynik | Tryb |
 |---|---|---|---|
-| X-01 | każda auto-akcja W1–W6 | wpis w `activities` z wypełnionym `flow` | AUTO (asercja w każdym teście) |
+| X-01 | każda auto-akcja W0, W2–W6 | wpis w `activities` z wypełnionym `flow` | AUTO (asercja w każdym teście) |
 | X-02 | W4 tier1_closed → insert leada odpala W5 | brak podwójnej sugestii firmy (guard W5-06) | AUTO |
 | X-03 | wszystkie webhooki z wyłączonym "include previous record" | żaden workflow nie wykonuje akcji (guardy) — test dymny konfiguracji | AUTO |

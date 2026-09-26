@@ -3,9 +3,8 @@
 Docker Compose stack z narzędziami wewnętrznymi (CRM/leady, automatyzacje, chat)
 hostowany na 2× Sfera Host VPS PRO (VPS-A produkcja, VPS-B staging; migracja
 z Mikrus 4.1 zakończona 2026-07-17, patrz `post-mortem/vps-migration-decision.md`).
-Pełny kontekst decyzji, architektury i ryzyk:
-[`.ai/PRD.md`](.ai/PRD.md); stan wdrożenia i kolejne kroki:
-[`.ai/IMPLEMENTATION_PLAN.md`](.ai/IMPLEMENTATION_PLAN.md).
+Pełny kontekst decyzji, architektury, ryzyk, stanu wdrożenia i kolejnych
+kroków: [`.ai/PRD.md`](.ai/PRD.md) §13.
 
 ## Usługi
 
@@ -74,8 +73,7 @@ listę wymaganych zmiennych.
 
 ## Dokumentacja
 
-- [`.ai/PRD.md`](.ai/PRD.md) — architektura, ryzyka, kryteria sukcesu
-- [`.ai/IMPLEMENTATION_PLAN.md`](.ai/IMPLEMENTATION_PLAN.md) — stan wdrożenia, kolejność faz
+- [`.ai/PRD.md`](.ai/PRD.md) — architektura, ryzyka, kryteria sukcesu, stan wdrożenia (§13)
 - [`docs/docker.md`](docs/docker.md) — komendy operacyjne, restart/healthcheck audit
 - [`docs/postgresql.md`](docs/postgresql.md) — model baz/ról w Postgresie
 - [`docs/init-minio.md`](docs/init-minio.md) — bootstrap credentiali/dostępu MinIO

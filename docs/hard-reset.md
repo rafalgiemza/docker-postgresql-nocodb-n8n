@@ -19,8 +19,7 @@ docker compose down -v --remove-orphans
 # 3. Sprawdź .env pod kątem wartości NIE-sekretnych — generate-env.sh
 #    losuje tylko placeholdery "change...", więc hosty trzeba
 #    zweryfikować ręcznie: N8N_HOST, NC_HOST, WEBHOOK_URL
-#    (na UAT: giemza.dev; na prod dopiero po DNS od klienta, patrz
-#    .ai/IMPLEMENTATION_PLAN.md FAZA 7)
+#    (na UAT: giemza.dev; na prod dopiero po DNS od klienta)
 
 # 4. (opcjonalnie, głębiej) usuń nieużywane obrazy/sieci/cache budowania
 docker system prune -af
@@ -70,7 +69,7 @@ make seed-extra
 ## Po resecie — co trzeba odtworzyć ręcznie
 
 n8n:
-- zaimportuj workflowy z `docs/archive/fable/W*.json` (Workflows → Import from File) — patrz `file-renderer-service/README.md` dla przykładu (W9)
+- zaimportuj workflowy z `docs/archive/fable/W*.json` (Workflows → Import from File) — patrz `file-renderer-service/README.md` dla przykładu (W1)
 - podepnij odpowiednie credentiale pod node'y i aktywuj workflow
 
 NocoDB:

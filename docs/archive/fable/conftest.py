@@ -76,7 +76,7 @@ def cf7(name, email, phone="", message=""):
 
 
 def button(lead_id):
-    """Synthetic NocoDB Button-field webhook payload (W9)."""
+    """Synthetic NocoDB Button-field webhook payload (W1)."""
     return {"row": {"Id": lead_id}}
 
 

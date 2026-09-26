@@ -70,7 +70,7 @@ upgrade-links: ## Re-run the Links v1 -> LinkToAnotherRecord v3 upgrade standalo
 	./scripts/upgrade-links.sh
 
 # Zrzuca id tabel/pol + cele relacji zywego schematu CRM do JSON - potrzebne
-# do rekonstrukcji workflowow n8n (np. W9) po migracji na v3, patrz naglowek
+# do rekonstrukcji workflowow n8n (np. W1) po migracji na v3, patrz naglowek
 # scripts/dump-crm-schema.py.
 dump-crm-schema: ## Dump live CRM table/field ids + relation targets to docs/archive/fable/schema_map.json
 	./scripts/dump-crm-schema.sh

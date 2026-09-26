@@ -288,7 +288,7 @@ def test_W6b_04_unchanged_status_is_noop(nc, hook):
     nc.wait_quiet("activities", "(flow,eq,W6b)")
 
 
-# ================================================================ W9 (file-renderer-service)
+# ================================================================ W1 (file-renderer-service)
 def make_template_pptx():
     """Two-slide .pptx: one plain slide + one repeat:participants slide,
     exercising the same renderer path as file-renderer-service/test_renderer.py."""
@@ -314,14 +314,14 @@ def make_active_template(nc, name="Test template"):
     return nc.create("offer_templates", {"name": name, "file": att, "active": True})
 
 
-def test_W9_01_generates_offer_with_participants(nc, hook):
+def test_W1_01_generates_offer_with_participants(nc, hook):
     make_active_template(nc)
-    lid = make_lead(nc, contact_name="Klient W9", offer_prep_status="draft_ready")
+    lid = make_lead(nc, contact_name="Klient W1", offer_prep_status="draft_ready")
     p1 = nc.create("participants", {"full_name": "Basia"})
     p2 = nc.create("participants", {"full_name": "Czesiek"})
     nc.link("leads", "participants", lid, [p1, p2])
 
-    hook("w9-generate-offer", button(lid))
+    hook("w1-generate-offer", button(lid))
 
     offers = nc.wait_for("offers", "(status,eq,draft)")
     assert offers[0]["file"], "offer record has no generated file attached"
@@ -331,9 +331,9 @@ def test_W9_01_generates_offer_with_participants(nc, hook):
     nc.wait_for("activities", "(type,eq,offer_draft_ready)")
 
 
-def test_W9_02_missing_template_creates_error_task(nc, hook):
+def test_W1_02_missing_template_creates_error_task(nc, hook):
     lid = make_lead(nc, contact_name="Bez szablonu", offer_prep_status="draft_ready")
-    hook("w9-generate-offer", button(lid))
+    hook("w1-generate-offer", button(lid))
     nc.wait_for("tasks", "(title,like,BŁĄD generowania oferty%)")
     nc.wait_for("activities", "(type,eq,automation_error)")
     nc.wait_quiet("offers", "(status,eq,draft)")

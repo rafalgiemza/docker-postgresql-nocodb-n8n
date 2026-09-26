@@ -7,11 +7,11 @@
 > (`.ai/PRD.md` §5). `schema.sql`, na który ten runbook się powołuje, już nie
 > istnieje w repo. Generowanie pliku oferty — o którym mowa niżej jako
 > "poza zakresem MVP" — zostało zaimplementowane 2026-07-26 jako
-> `file-renderer-service/` + workflow `W9`, patrz `file-renderer-service/README.md` i
+> `file-renderer-service/` + workflow `W1`, patrz `file-renderer-service/README.md` i
 > `.ai/PRD.md` §12/§14 pkt 1. Zostawione jako materiał historyczny, nie do
 > wykonywania.
 
-Runbook dla `.ai/IMPLEMENTATION_PLAN.md` FAZA 3. Zakłada, że `make migrate` i `make seed` już przeszły (widoki `crm.v_*`, role `nocodb_crm_user`/`n8n_crm_user`, dane referencyjne).
+Runbook dla dawnej FAZY 3 (plan wdrożenia z tamtego okresu, `.ai/IMPLEMENTATION_PLAN.md`, usunięty jako zdublowany z `.ai/PRD.md` §13). Zakłada, że `make migrate` i `make seed` już przeszły (widoki `crm.v_*`, role `nocodb_crm_user`/`n8n_crm_user`, dane referencyjne).
 
 ## 1. Dane demo/testowe
 
@@ -69,7 +69,7 @@ Baza zewnętrzna w NocoDB → appdata przez `nocodb_crm_user` (host `postgres`, 
 | `Testimoniale` | linked `v_testimonials` (multi, `included_testimonial_ids`) | |
 | **`[Zatwierdź ofertę]`** | — | Button → webhook WF-6 (krok 3), **zastępuje** `[Generuj ofertę]` z PRD §5 |
 
-**Pominięte na razie** (poza zakresem MVP, patrz IMPLEMENTATION_PLAN.md §6): `Szablon`, `Status generowania`, `⬇ PPTX`/`⬇ PDF`.
+**Pominięte na razie** (poza zakresem MVP): `Szablon`, `Status generowania`, `⬇ PPTX`/`⬇ PDF`.
 
 ## 6. Test pętli end-to-end (kryterium akceptacji FAZY 3)
 

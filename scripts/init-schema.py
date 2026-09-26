@@ -43,8 +43,8 @@ NIE da się wyczytać z dokumentacji:
 WYMAGA RĘCZNEGO DOKOŃCZENIA: relacje `hm` powstają jako kolumny klucza obcego
 (stary typ pola link), a nie jako tabele łączące. W UI NocoDB pokazuje przy
 nich "Upgrade Link Field" — trzeba to kliknąć, bo webhooki NocoDB wystawiają
-pełne rekordy powiązane tylko przez `_nc_m2m_*` (od tego zależy W9, patrz
-`docs/archive/fable/W9_generate_offer.json`, node "Assemble render data"). Relacje `mm`
+pełne rekordy powiązane tylko przez `_nc_m2m_*` (od tego zależy W1, patrz
+`docs/archive/fable/W1_generate_offer.json`, node "Assemble render data"). Relacje `mm`
 dostają tabelę łączącą od razu. TODO: znaleźć parametr API wymuszający nowy
 typ od razu — inaczej ten sam klikany krok wraca przy każdym odtworzeniu.
 
@@ -120,7 +120,7 @@ CZEGO TEN SKRYPT NIE ROBI (do wyklikania ręcznie po uruchomieniu):
      Powód zmiany: zbiorczy przycisk na ofercie nadpisywałby `ai_status`
      (i wywołał ponowne LLM) też dla pakietów już zaakceptowanych przez
      człowieka, nie tylko dla nowych/odrzuconych.
-     Renderowanie slajdów 5/6/7 z tych danych w W9 (n8n) to nadal osobna,
+     Renderowanie slajdów 5/6/7 z tych danych w W1 (n8n) to nadal osobna,
      nie zaczęta robota — patrz TODO.md.
      Zmiana z 2026-09-16: `package_variants` rozbite na DWA katalogi -
      `package_variants_cores` (glowne pakiety, dynamiczna liczba slajdow
@@ -139,9 +139,9 @@ CZEGO TEN SKRYPT NIE ROBI (do wyklikania ręcznie po uruchomieniu):
      pakietow), jesli maja zniknac naprawde. Dochodzi tez nowa relacja
      `offers` hm `recommendations` OBOK istniejacej `participants` hm
      `recommendations` (nie w jej miejsce). Downstream NIEZAKTUALIZOWANE w
-     tej zmianie (do zrobienia osobno): W9
-     (docs/archive/fable/W9_generate_offer.json) i W12
-     (docs/archive/fable/W12_offer_package_texts.json) nadal czytaja stare
+     tej zmianie (do zrobienia osobno): W1
+     (docs/archive/fable/W1_generate_offer.json) i W9
+     (docs/archive/fable/W9_offer_package_texts.json) nadal czytaja stare
      `recommendations`->`recommendation_packages` i
      `offer_packages`->`package_variants`; `scripts/import-packages.py`
      nadal importuje do `package_variants`. Wszystkie trzeba przepiac na
@@ -455,7 +455,7 @@ TABLES = [
              "description": "Opcjonalne nadpisanie participants.position - "
                             "wypelnij tylko gdy stanowisko na moment TEGO "
                             "audytu rozni sie od aktualnego stanowiska "
-                            "uczestnika. W9 (Assemble render data) bierze "
+                            "uczestnika. W1 (Assemble render data) bierze "
                             "position stad, jesli niepuste, w przeciwnym "
                             "razie z participants."},
             # skala z czesciami dziesietnymi (B2.4) - text, nie number
@@ -670,7 +670,7 @@ TABLES = [
             # draft AI -> czystopis (jeden prompt, jeden status) - opisy ponizej
             # wg nocodb_crm_schema_v3.md §2; goals/challenges leca wprost do
             # szablonu oferty jako {{meeting.goals}}/{{meeting.challenges}}
-            # (v3 §"Co sie zmienia w W9 i szablonie oferty") - to jedyne dwa
+            # (v3 §"Co sie zmienia w W1 i szablonie oferty") - to jedyne dwa
             # pola z tej piatki ze zweryfikowanym miejscem docelowym w pliku.
             {"title": "goals", "type": "LongText",
              "description": "Cele klienta wzgledem szkolenia. Generowane przez "
@@ -1077,7 +1077,7 @@ TABLES = [
     {
         "title": "task_templates",
         "icon": "🔁",
-        "description": "Czytane wylacznie przez cron w n8n (W1) - triggery CRON "
+        "description": "Czytane wylacznie przez cron w n8n (W0) - triggery CRON "
                        "w NocoDB CE sa platne, stad n8n.",
         "fields": [
             {"title": "title", "type": "SingleLineText"},
@@ -1222,8 +1222,8 @@ RELATIONS = [
     # przy price/hours/template - jeden lead moze miec wiele ofert (wersji),
     # wiec to co rozni sie per-oferta zyje na offers, nie na leads.
     # `document_templates.active` zostaje jako podpowiedz dla czlowieka ("ten
-    # szablon jest aktualny"), W9 juz go NIE uzywa do wyboru - czyta wprost
-    # link z offers (patrz W9 "Get offer template").
+    # szablon jest aktualny"), W1 juz go NIE uzywa do wyboru - czyta wprost
+    # link z offers (patrz W1 "Get offer template").
     ("document_templates", "offers", "hm", "offers"),
     # wybor szablonu per material (krok 1 demo-pipeline'u) - ta sama
     # niepewnosc nazwy pola zwrotnego jak wyzej.

@@ -398,7 +398,7 @@
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "w9-generate-offer-v11",
+        "path": "w1-generate-offer-v11",
         "options": {}
       },
       "id": "3749caea-7c2c-48ce-aa76-35b3ee494ded",

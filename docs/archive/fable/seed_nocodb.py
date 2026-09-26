@@ -274,7 +274,7 @@ for rec, prj, lead_id in tasks:
         link("tasks", "lead", tid, lead_id)
 link("tasks", "template", create("tasks", {
     "title": f"Raport marketingowy {date.today().isoformat()[:7]}", "status": "todo",
-    "priority": "normal", "assignee": E["kasia"], "created_by_flow": "W1",
+    "priority": "normal", "assignee": E["kasia"], "created_by_flow": "W0",
     "due_date": d(1)}), tt1)                                # task -> template provenance
 
 # ----------------------------------------------------------------- activities (the 'Piotr' timeline)

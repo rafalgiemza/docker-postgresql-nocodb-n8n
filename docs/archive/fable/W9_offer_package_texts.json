@@ -1,0 +1,1043 @@
+{
+  "name": "W12 - Offer package text (offer_packages button -> AI draft, own slide)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "w12-offer-package-text",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "button-generuj-opis",
+      "name": "Button: Generuj opis",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "wh-w12-offer-package-text"
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "operation": "update",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace",
+          "cachedResultUrl": "__NOCODB_BASE_URL__/#/__WORKSPACE_ID__/__PROJECT_ID__/__WORKSPACE_ID__"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "list",
+          "cachedResultName": "CRM Base",
+          "cachedResultUrl": "__NOCODB_BASE_URL__/#/__WORKSPACE_ID__/__PROJECT_ID__/__PROJECT_ID__"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_OFFER_PACKAGES__",
+          "mode": "list",
+          "cachedResultName": "offer_packages",
+          "cachedResultUrl": "__NOCODB_BASE_URL__/#/__WORKSPACE_ID__/__PROJECT_ID__/__TBL_OFFER_PACKAGES__"
+        },
+        "id": "={{ $('Button: Generuj opis').item.json.body.data.rows[0].Id }}",
+        "fieldsMapper": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ai_status": "pending"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        220,
+        0
+      ],
+      "id": "set-ai_status-=-pending",
+      "name": "Set ai_status = pending",
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Buttony NocoDB CE wysylaja caly biezacy wiersz w body.data.rows[0] (jak\n// w W9/W11). Przycisk siedzi TERAZ na offer_packages (decyzja zmieniona\n// 2026-08-30 z pierwotnego zbiorczego przycisku na offers - patrz TODO.md),\n// wiec kazde klikniecie dotyczy DOKLADNIE JEDNEGO pakietu.\n// NIEPEWNE: nazwy pol zwrotnych offer_packages->offers i\n// offer_packages->package_variants (tu zgadywane jako \"offers\"/\n// \"package_variants\", konwencja z scripts/init-schema.py) - zweryfikuj w\n// schema_map.json po make init-schema/upgrade-links (ten sam problem opisany\n// w TODO.md dla document_templates na offers).\nconst row = ($input.first().json.body && $input.first().json.body.data\n  && $input.first().json.body.data.rows && $input.first().json.body.data.rows[0])\n  || $input.first().json;\nreturn [{ json: {\n  offer_package_id: row.Id,\n  package_variant_id: (row.package_variants && row.package_variants.Id) || null,\n  offer_id: (row.offers && row.offers.Id) || null,\n} }];\n"
+      },
+      "id": "guard",
+      "name": "Guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_PACKAGE_VARIANTS__",
+        "id": "={{ $('Guard').item.json.package_variant_id }}"
+      },
+      "id": "get-package_variant",
+      "name": "Get package_variant",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        660,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_OFFERS__",
+        "id": "={{ $('Guard').item.json.offer_id }}"
+      },
+      "id": "get-offer",
+      "name": "Get offer",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        880,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_LEADS__",
+        "id": "={{ $('Get offer').item.json.leads?.Id }}"
+      },
+      "id": "get-lead",
+      "name": "Get lead",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        1100,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_COMPANIES__",
+        "id": "={{ $('Get lead').item.json.companies?.Id }}"
+      },
+      "id": "get-company",
+      "name": "Get company",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        1320,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ !!$('Guard').item.json.package_variant_id }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "wariant-uzupelniony",
+      "name": "Wariant uzupelniony?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1540,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// System prompt (DRAFT - patrz uwaga nizej) siedzi STALE w node'ie \"AI Agent\"\n// -> System Message, nie tutaj (ten sam wzorzec co W11 \"Assemble context\"):\n// metodyk moze go poprawic w UI n8n bez znajomosci JS. Tu skladamy TYLKO\n// dane z CRM w wiadomosc uzytkownika.\n//\n// DRAFT promptu w AI Agent - w odroznieniu od W11 (needs_summary), gdzie\n// klient dostarczyl gotowy tekst do wklejenia 1:1, TEGO promptu klientka\n// jeszcze NIE widziala. Przed uzyciem produkcyjnym: pokazac jej instrukcje\n// (albo od razu kilka wygenerowanych przykladow) do akceptacji/poprawek -\n// dokladnie tak, jak stalo sie z promptem W11 (patrz .ai/PRD.md §12).\nconst guard = $('Guard').item.json;\nconst variant = $('Get package_variant').item.json || {};\nconst lead = $('Get lead').item.json || {};\nconst company = $('Get company').item.json || {};\n\nconst lines = [\n  `Pakiet: ${variant.name || 'brak'}`,\n  `Opis marketingowy (slajd 4): ${variant.short_description || 'brak'}`,\n  `Godziny: ${variant.default_hours ?? 'brak'}`,\n  `Czestotliwosc zajec: ${variant.lesson_frequency ?? 'brak'} x ${variant.lesson_minutes ?? 'brak'} min`,\n  '',\n  `Typ klienta: ${lead.lead_type || 'brak'}`,\n  `Branza: ${lead.industry || 'brak'}`,\n  company.name ? `Firma: ${company.name}` : null,\n  company.communication_processes ? `Procesy komunikacyjne w firmie: ${company.communication_processes}` : null,\n  company.business_impact ? `Wplyw jezyka na biznes: ${company.business_impact}` : null,\n];\n\nconst methodologist = lead.lead_type === 'B2B' ? 'dorota@coaction.pl' : 'aleksandra@coaction.pl';\n\nreturn [{ json: {\n  offer_package_id: guard.offer_package_id,\n  offer_id: guard.offer_id,\n  package_name: variant.name || '',\n  methodologist,\n  user: lines.filter(l => l !== null).join('\\n'),\n} }];\n"
+      },
+      "id": "assemble-prompt",
+      "name": "Assemble prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.user }}",
+        "options": {
+          "systemMessage": "Jestes metodykiem CoAction piszacym rozwiniecie JEDNEGO wybranego\npakietu szkoleniowego na jego wlasny slajd oferty (nastepujacy po slajdzie\n4 \"NASZA REKOMENDACJA\", ktory pokazuje tylko krotkie zdanie o kazdym\nwybranym pakiecie). Tekst, ktory tworzysz, ma pokazac KONKRETNIE, dlaczego\nTEN pakiet pasuje do sytuacji TEGO klienta - nie jest to drugi opis\nmarketingowy pakietu, tylko uzasadnienie decyzji.\n\nDostajesz: nazwe pakietu, jego krotki opis marketingowy (ten sam co na\nslajdzie 4), liczbe godzin/czestotliwosc zajec, oraz kontekst biznesowy\nklienta (branza, typ B2B/B2C, procesy komunikacyjne firmy, wplyw jezyka na\nbiznes - o ile sa uzupelnione).\n\nNapisz 3-5 zdan po polsku: (1) polacz 1-2 konkretne elementy kontekstu\nbiznesowego z tym, co ten pakiet rozwija, (2) pokaz efekt praktyczny - co\nklient bedzie umial robic po tym pakiecie w SWOJEJ codziennej pracy, nie w\noderwaniu od kontekstu. Nie powtarzaj slowo w slowo krotkiego opisu\nmarketingowego pakietu - rozwijaj go, nie parafrazuj. Jesli kontekstu\nbiznesowego brakuje (puste pola), oprzyj sie wylacznie na nazwie i opisie\npakietu, bez zmyslania szczegolow o firmie klienta.\n\nStyl: konsultacyjny, konkretny, bez pustych fraz (\"kompleksowy\",\n\"holistyczny\", \"efektywne wykorzystanie potencjalu\"). Zwroc SAM tekst na\nslajd, bez naglowka i bez nazwy pakietu na poczatku (nazwa jest juz\nosobnym elementem szablonu slajdu)."
+        }
+      },
+      "id": "ai-agent",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.9,
+      "position": [
+        1980,
+        -200
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": "anthropic/claude-sonnet-4.5",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "openrouter-chat-model",
+      "name": "OpenRouter Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1900,
+        -60
+      ],
+      "credentials": {
+        "openRouterApi": {
+          "id": "__OPENROUTER_CRED_ID__",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sukces AI Agenta -> draft generated_text, task weryfikacji, activity.\nconst src = $('Assemble prompt').item.json;\nconst res = $input.first().json;\nconst content = (res.output || '').trim();\nif (!content) throw new Error('Pusta odpowiedz LLM: ' + JSON.stringify(res).slice(0, 400));\nreturn [{ json: { ...src,\n  patch: { Id: src.offer_package_id, generated_text: content, ai_status: 'ai_draft_ready' },\n  task: { title: `Zweryfikuj opis pakietu \"${src.package_name}\" (offer_package #${src.offer_package_id})`,\n          status: 'todo', priority: 'high', assignee: src.methodologist,\n          created_by_flow: 'W12',\n          description: `offer_package:${src.offer_package_id} offer:${src.offer_id}` },\n  activity: { summary: `AI opis pakietu gotowy do weryfikacji (offer_package #${src.offer_package_id})`,\n              type: 'ai_analysis_done', flow: 'W12', triggered_by: 'system',\n              payload: JSON.stringify({ offer_package_id: src.offer_package_id, offer_id: src.offer_id,\n                model: 'anthropic/claude-sonnet-4.5' }) }\n} }];\n"
+      },
+      "id": "parse-llm-response",
+      "name": "Parse LLM response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "operation": "update",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace",
+          "cachedResultUrl": "__NOCODB_BASE_URL__/#/__WORKSPACE_ID__/__PROJECT_ID__/__WORKSPACE_ID__"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "list",
+          "cachedResultName": "CRM Base",
+          "cachedResultUrl": "__NOCODB_BASE_URL__/#/__WORKSPACE_ID__/__PROJECT_ID__/__PROJECT_ID__"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_OFFER_PACKAGES__",
+          "mode": "list",
+          "cachedResultName": "offer_packages",
+          "cachedResultUrl": "__NOCODB_BASE_URL__/#/__WORKSPACE_ID__/__PROJECT_ID__/__TBL_OFFER_PACKAGES__"
+        },
+        "id": "={{ $json.patch.Id }}",
+        "fieldsMapper": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "generated_text": "={{ $json.patch.generated_text }}",
+            "ai_status": "={{ $json.patch.ai_status }}"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        2420,
+        -300
+      ],
+      "id": "update-offer_package-draft-ready",
+      "name": "Update offer_package (draft ready)",
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_TASKS__",
+        "operation": "create",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "={{ $json.task.title }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "={{ $json.task.status }}"
+            },
+            {
+              "fieldName": "priority",
+              "fieldValue": "={{ $json.task.priority }}"
+            },
+            {
+              "fieldName": "assignee",
+              "fieldValue": "={{ $json.task.assignee }}"
+            },
+            {
+              "fieldName": "created_by_flow",
+              "fieldValue": "={{ $json.task.created_by_flow }}"
+            },
+            {
+              "fieldName": "description",
+              "fieldValue": "={{ $json.task.description }}"
+            }
+          ]
+        }
+      },
+      "id": "task-zweryfikuj-opis-pakietu",
+      "name": "Task: zweryfikuj opis pakietu",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2640,
+        -300
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ACTIVITIES__",
+        "operation": "create",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "summary",
+              "fieldValue": "={{ $json.activity.summary }}"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "={{ $json.activity.type }}"
+            },
+            {
+              "fieldName": "flow",
+              "fieldValue": "={{ $json.activity.flow }}"
+            },
+            {
+              "fieldName": "triggered_by",
+              "fieldValue": "={{ $json.activity.triggered_by }}"
+            },
+            {
+              "fieldName": "payload",
+              "fieldValue": "={{ $json.activity.payload }}"
+            }
+          ]
+        }
+      },
+      "id": "log-activity-draft-ready",
+      "name": "Log activity (draft ready)",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2860,
+        -300
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// AI Agent zawiodl po probach retry. Task NAJPIERW (potrzebujemy jego Id do\n// linku), dopiero potem wpis w POLU WYNIKOWYM (generated_text) - dokladnie\n// wzorzec \"Loguj blad w polu needs_summary\" z W11, zastosowany konsekwentnie\n// (user: \"wszedzie gdzie uzywamy AI... bledy logujemy w polu gdzie mial byc\n// wynik + link do taska\").\nconst src = $('Assemble prompt').item.json;\nconst err = $input.first().json;\nreturn [{ json: { ...src,\n  task: { title: `BLAD generowania opisu pakietu \"${src.package_name}\" (offer_package #${src.offer_package_id})`,\n          status: 'todo', priority: 'high', assignee: src.methodologist,\n          created_by_flow: 'W12',\n          description: `offer_package:${src.offer_package_id} offer:${src.offer_id}\\n`\n            + JSON.stringify(err).slice(0, 500) },\n  activity: { summary: `Generowanie opisu pakietu NIEUDANE (offer_package #${src.offer_package_id})`,\n              type: 'automation_error', flow: 'W12', triggered_by: 'system',\n              payload: JSON.stringify({ offer_package_id: src.offer_package_id, error: err }).slice(0, 800) },\n} }];\n"
+      },
+      "id": "prepare-llm-error-payload",
+      "name": "Prepare LLM error payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_TASKS__",
+        "operation": "create",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "={{ $json.task.title }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "={{ $json.task.status }}"
+            },
+            {
+              "fieldName": "priority",
+              "fieldValue": "={{ $json.task.priority }}"
+            },
+            {
+              "fieldName": "assignee",
+              "fieldValue": "={{ $json.task.assignee }}"
+            },
+            {
+              "fieldName": "created_by_flow",
+              "fieldValue": "={{ $json.task.created_by_flow }}"
+            },
+            {
+              "fieldName": "description",
+              "fieldValue": "={{ $json.task.description }}"
+            }
+          ]
+        }
+      },
+      "id": "task-opis-pakietu---blad-generowania",
+      "name": "Task: opis pakietu - blad generowania",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2420,
+        -100
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Task juz istnieje ($json.Id = jego Id, z poprzedniego node'a \"create\") -\n// zbuduj komunikat + link do niego, zeby wpisac go w generated_text (pole,\n// w ktorym mial byc wynik). ai_status='none' (nie 'ai_rejected'): transient\n// blad LLM ma zostac klikalny ponownie od razu, bez akcji czlowieka.\nconst taskId = $json.Id;\nconst src = $('Prepare LLM error payload').item.json;\nconst TASK_URL = `__NOCODB_BASE_URL__/__WORKSPACE_ID__/__PROJECT_ID__/__TBL_TASKS__/__VIEW_TASKS_ID__/tasks-tasks?rowId=${taskId}`;\nreturn [{ json: {\n  offer_package_id: src.offer_package_id,\n  ai_status: 'none',\n  generated_text: `Generowanie nie powiodlo sie. Szczegoly w tasku: <a href=\"${TASK_URL}\">link</a>`,\n  activity: src.activity,\n} }];\n"
+      },
+      "id": "prepare-error-field-update",
+      "name": "Prepare error field update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "operation": "update",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace",
+          "cachedResultUrl": "__NOCODB_BASE_URL__/#/__WORKSPACE_ID__/__PROJECT_ID__/__WORKSPACE_ID__"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "list",
+          "cachedResultName": "CRM Base",
+          "cachedResultUrl": "__NOCODB_BASE_URL__/#/__WORKSPACE_ID__/__PROJECT_ID__/__PROJECT_ID__"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_OFFER_PACKAGES__",
+          "mode": "list",
+          "cachedResultName": "offer_packages",
+          "cachedResultUrl": "__NOCODB_BASE_URL__/#/__WORKSPACE_ID__/__PROJECT_ID__/__TBL_OFFER_PACKAGES__"
+        },
+        "id": "={{ $json.offer_package_id }}",
+        "fieldsMapper": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "generated_text": "={{ $json.generated_text }}",
+            "ai_status": "={{ $json.ai_status }}"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        2860,
+        -100
+      ],
+      "id": "update-offer_package-error",
+      "name": "Update offer_package (error)",
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ACTIVITIES__",
+        "operation": "create",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "summary",
+              "fieldValue": "={{ $json.activity.summary }}"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "={{ $json.activity.type }}"
+            },
+            {
+              "fieldName": "flow",
+              "fieldValue": "={{ $json.activity.flow }}"
+            },
+            {
+              "fieldName": "triggered_by",
+              "fieldValue": "={{ $json.activity.triggered_by }}"
+            },
+            {
+              "fieldName": "payload",
+              "fieldValue": "={{ $json.activity.payload }}"
+            }
+          ]
+        }
+      },
+      "id": "log-activity-error",
+      "name": "Log activity (error)",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        3080,
+        -100
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// offer_packages bez wybranego package_variant (wiersz utworzony, ale link\n// nie uzupelniony) - nie wolaj LLM na pusto. Lead/company sa juz pobrane\n// (Get offer/Get lead/Get company sa PRZED tym IF), wiec metodolog jest\n// znany - w odroznieniu od W11 \"Prepare missing-data payload\", gdzie\n// assignee zostal pusty (methodologist = '' w zywym pliku).\nconst guard = $('Guard').item.json;\nconst lead = $('Get lead').item.json || {};\nconst methodologist = lead.lead_type === 'B2B' ? 'dorota@coaction.pl' : 'aleksandra@coaction.pl';\nreturn [{ json: {\n  offer_package_id: guard.offer_package_id,\n  task: { title: `Uzupelnij wariant pakietu przed generowaniem opisu (offer_package #${guard.offer_package_id})`,\n          status: 'todo', priority: 'normal', assignee: methodologist,\n          created_by_flow: 'W12',\n          description: `offer_package:${guard.offer_package_id} offer:${guard.offer_id}` },\n  activity: { summary: `Opis pakietu: brak wybranego wariantu (offer_package #${guard.offer_package_id})`,\n              type: 'automation_error', flow: 'W12', triggered_by: 'user',\n              payload: JSON.stringify({ offer_package_id: guard.offer_package_id }) },\n} }];\n"
+      },
+      "id": "prepare-missing-variant-payload",
+      "name": "Prepare missing-variant payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_TASKS__",
+        "operation": "create",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "={{ $json.task.title }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "={{ $json.task.status }}"
+            },
+            {
+              "fieldName": "priority",
+              "fieldValue": "={{ $json.task.priority }}"
+            },
+            {
+              "fieldName": "assignee",
+              "fieldValue": "={{ $json.task.assignee }}"
+            },
+            {
+              "fieldName": "created_by_flow",
+              "fieldValue": "={{ $json.task.created_by_flow }}"
+            },
+            {
+              "fieldName": "description",
+              "fieldValue": "={{ $json.task.description }}"
+            }
+          ]
+        }
+      },
+      "id": "task-uzupelnij-wariant-pakietu",
+      "name": "Task: uzupelnij wariant pakietu",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        1980,
+        260
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ten sam wzorzec co \"Prepare error field update\" - task najpierw, potem\n// link w POLU WYNIKOWYM. ai_status='ai_rejected' (nie 'none'): to wymaga\n// akcji czlowieka (uzupelnij wariant), samo ponowne klikniecie przycisku nic\n// nie zmieni bez tego - jak w W11 (tam ten sam przypadek dostaje\n// 'ai_rejected', nie 'none').\nconst taskId = $json.Id;\nconst src = $('Prepare missing-variant payload').item.json;\nconst TASK_URL = `__NOCODB_BASE_URL__/__WORKSPACE_ID__/__PROJECT_ID__/__TBL_TASKS__/__VIEW_TASKS_ID__/tasks-tasks?rowId=${taskId}`;\nreturn [{ json: {\n  offer_package_id: src.offer_package_id,\n  ai_status: 'ai_rejected',\n  generated_text: `Brak wybranego wariantu pakietu. Szczegoly w tasku: <a href=\"${TASK_URL}\">link</a>`,\n  activity: src.activity,\n} }];\n"
+      },
+      "id": "prepare-missing-variant-field-update",
+      "name": "Prepare missing-variant field update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "operation": "update",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace",
+          "cachedResultUrl": "__NOCODB_BASE_URL__/#/__WORKSPACE_ID__/__PROJECT_ID__/__WORKSPACE_ID__"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "list",
+          "cachedResultName": "CRM Base",
+          "cachedResultUrl": "__NOCODB_BASE_URL__/#/__WORKSPACE_ID__/__PROJECT_ID__/__PROJECT_ID__"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_OFFER_PACKAGES__",
+          "mode": "list",
+          "cachedResultName": "offer_packages",
+          "cachedResultUrl": "__NOCODB_BASE_URL__/#/__WORKSPACE_ID__/__PROJECT_ID__/__TBL_OFFER_PACKAGES__"
+        },
+        "id": "={{ $json.offer_package_id }}",
+        "fieldsMapper": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "generated_text": "={{ $json.generated_text }}",
+            "ai_status": "={{ $json.ai_status }}"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        2420,
+        260
+      ],
+      "id": "update-offer_package-missing-variant",
+      "name": "Update offer_package (missing variant)",
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ACTIVITIES__",
+        "operation": "create",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "summary",
+              "fieldValue": "={{ $json.activity.summary }}"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "={{ $json.activity.type }}"
+            },
+            {
+              "fieldName": "flow",
+              "fieldValue": "={{ $json.activity.flow }}"
+            },
+            {
+              "fieldName": "triggered_by",
+              "fieldValue": "={{ $json.activity.triggered_by }}"
+            },
+            {
+              "fieldName": "payload",
+              "fieldValue": "={{ $json.activity.payload }}"
+            }
+          ]
+        }
+      },
+      "id": "log-activity-missing-data",
+      "name": "Log activity (missing data)",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2640,
+        260
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Button: Generuj opis": {
+      "main": [
+        [
+          {
+            "node": "Set ai_status = pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set ai_status = pending": {
+      "main": [
+        [
+          {
+            "node": "Guard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guard": {
+      "main": [
+        [
+          {
+            "node": "Get package_variant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get package_variant": {
+      "main": [
+        [
+          {
+            "node": "Get offer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get offer": {
+      "main": [
+        [
+          {
+            "node": "Get lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get lead": {
+      "main": [
+        [
+          {
+            "node": "Get company",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get company": {
+      "main": [
+        [
+          {
+            "node": "Wariant uzupelniony?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wariant uzupelniony?": {
+      "main": [
+        [
+          {
+            "node": "Assemble prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare missing-variant payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse LLM response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare LLM error payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse LLM response": {
+      "main": [
+        [
+          {
+            "node": "Update offer_package (draft ready)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update offer_package (draft ready)": {
+      "main": [
+        [
+          {
+            "node": "Task: zweryfikuj opis pakietu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Task: zweryfikuj opis pakietu": {
+      "main": [
+        [
+          {
+            "node": "Log activity (draft ready)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare LLM error payload": {
+      "main": [
+        [
+          {
+            "node": "Task: opis pakietu - blad generowania",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Task: opis pakietu - blad generowania": {
+      "main": [
+        [
+          {
+            "node": "Prepare error field update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare error field update": {
+      "main": [
+        [
+          {
+            "node": "Update offer_package (error)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update offer_package (error)": {
+      "main": [
+        [
+          {
+            "node": "Log activity (error)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare missing-variant payload": {
+      "main": [
+        [
+          {
+            "node": "Task: uzupelnij wariant pakietu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Task: uzupelnij wariant pakietu": {
+      "main": [
+        [
+          {
+            "node": "Prepare missing-variant field update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare missing-variant field update": {
+      "main": [
+        [
+          {
+            "node": "Update offer_package (missing variant)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update offer_package (missing variant)": {
+      "main": [
+        [
+          {
+            "node": "Log activity (missing data)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

@@ -31,7 +31,7 @@ L3 Adam Nowicki (B2C para, new) ──┬── P5 Adam
 | `leads` → L3 Adam → `participants` | one-to-many | 2 osoby (para) — wariant B2C grupowy |
 | `leads` → L1 Piotr → `selected_testimonials` ORAZ `testimonials` → T1 → `used_in_leads` | **many-to-many** | link widoczny z obu stron |
 | `meetings` → "Audyt — Jan Dąbrowski" → `participant` | many-to-one | dokładnie 1 uczestnik; discovery Marty bez uczestnika |
-| `tasks` → task "Raport marketingowy..." → `template` | many-to-one | proweniencja taska z szablonu (W1) |
+| `tasks` → task "Raport marketingowy..." → `template` | many-to-one | proweniencja taska z szablonu (W0) |
 | `tasks` → "Newsletter lipcowy" | opcjonalność linku | task marketingowy BEZ leada — łącznik tylko do projektu |
 | `activities` → filtr po L1, sort po `created_at` | one-to-many + timeline | 7 wpisów czyta się jak dziennik scenariusza "Piotr" |
 | widok Kanban na `leads` po `stage` | — | 4 karty w 4 różnych kolumnach |

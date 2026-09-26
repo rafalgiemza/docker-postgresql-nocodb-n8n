@@ -164,8 +164,8 @@ Historia ocen: jeden wiersz na audyt. Najnowsza ocena = `sort=-UpdatedAt`,
 bez osobnej flagi „aktualna".
 
 > **Uwaga migracyjna:** tabela już istnieje pod nazwą `Assesments` (literówka),
-> ID `my2chrbzjb4425x`, z danymi i podpięta w W9. **Zmień tytuł w UI NocoDB,
-> nie twórz nowej** — ID tabeli przy zmianie tytułu zostaje, więc W9 działa
+> ID `my2chrbzjb4425x`, z danymi i podpięta w W1. **Zmień tytuł w UI NocoDB,
+> nie twórz nowej** — ID tabeli przy zmianie tytułu zostaje, więc W1 działa
 > dalej bez zmian. Sprawdź po zmianie, czy NocoDB przemianował też fizyczną
 > tabelę w Postgresie (`crm."Assesments"`), czy tylko etykietę.
 
@@ -255,7 +255,7 @@ Jedna oferta = jeden wygenerowany dokument. Wiele ofert na lead (wersje, wariant
 | `version` | Number | n8n | kolejny numer wersji dla tego leada — pod „historię ofert" (§10) |
 | `sent_at` | Date | n8n | ustawiane przy wysyłce |
 | `valid_until` | Date | człowiek | termin ważności oferty |
-| przycisk `generate offer` | Button → webhook W9 | — | **przeniesiony z `leads`** |
+| przycisk `generate offer` | Button → webhook W1 | — | **przeniesiony z `leads`** |
 | `ai_status` | — | — | **nie dodawaj** — oferta nie jest generowana przez LLM, tylko z szablonu |
 
 **Usuń:** `Text` (śmieciowa kolumna).
@@ -267,7 +267,7 @@ Jedna oferta = jeden wygenerowany dokument. Wiele ofert na lead (wersje, wariant
 > wymogu „możliwość powrotu do historii ofert" (§10). Nawet jeśli lead się
 > zmieni, wiadomo dokładnie, co wysłano.
 
-**Konsekwencja dla W9:** przycisk na `offers` oznacza, że workflow dostaje
+**Konsekwencja dla W1:** przycisk na `offers` oznacza, że workflow dostaje
 w payloadzie wiersz oferty, nie leada — trzeba przejść po Linku do leada
 i dalej po uczestnikach. Dziś jest odwrotnie. To zmiana w `Assemble render data`.
 
@@ -328,7 +328,7 @@ Skoro nie ma jeszcze produkcji ani danych — uogólnij teraz:
 |---|---|
 | tytuł tabeli | `offer_templates` → `document_templates` |
 | nowe pole `kind` | SingleSelect: `offer` / `audit_report` / `inne` |
-| filtr w W9 | `(active,eq,true)` → `(active,eq,true)~and(kind,eq,offer)` |
+| filtr w W1 | `(active,eq,true)` → `(active,eq,true)~and(kind,eq,offer)` |
 
 **Ale `offers` zostaje `offers` — nie łącz go w `documents`.** To nie jest
 argument o koszcie migracji (dziś zerowym), tylko o modelu: oferta ma cenę,
@@ -413,7 +413,7 @@ Przeszła na żywo na VPS-B 2026-08-03. Efekt: 36 tabel w `appdata`, schemat
    obcego; NocoDB pokazuje przy nich „Upgrade Link Field". Kliknij wszystkie.
    Po tym `\dt crm.*` daje 36 tabel.
    > To nie jest kosmetyka: webhooki NocoDB wystawiają pełne rekordy powiązane
-   > wyłącznie przez `_nc_m2m_*`, a od tego zależy W9 (node „Assemble render
+   > wyłącznie przez `_nc_m2m_*`, a od tego zależy W1 (node „Assemble render
    > data" czyta `_nc_m2m_Leads_Participants[].Participants`). Krytyczne
    > minimum to `leads.participants`.
 8. **Pola Button** (`offers` „generuj ofertę", `meetings` „generuj analizę",
@@ -426,7 +426,7 @@ Przeszła na żywo na VPS-B 2026-08-03. Efekt: 36 tabel w `appdata`, schemat
    taski" per osoba) — patrz `nocodb_crm_schema_v2.md`, sekcja Widoki.
 
 **Uwaga o workflowach:** odtworzenie bazy zmienia wszystkie ID tabel i pól —
-W1–W6b i W9 wymagają podmiany (`fable/README.md` §1). Przy przejściu na v3 i tak
+W0–W6b wymagają podmiany (`fable/README.md` §1). Przy przejściu na v3 i tak
 wymagają przeróbki pod nowe pola, więc to nie jest strata dodatkowa.
 
 **Drobiazg:** dwie tabele łączące mają nazwy ucięte do limitu identyfikatora
@@ -436,7 +436,7 @@ relacji o długich nazwach warto sprawdzić, czy nie kolidują.
 
 ---
 
-## Co się zmienia w W9 i szablonie oferty
+## Co się zmienia w W1 i szablonie oferty
 
 Po tej migracji generator dostanie dane, których dziś nie ma:
 

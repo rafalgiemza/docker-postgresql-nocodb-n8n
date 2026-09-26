@@ -1,4 +1,4 @@
-# Generowanie ofert PPTX/DOCX — file-renderer-service + W9
+# Generowanie ofert PPTX/DOCX — file-renderer-service + W1
 
 Feature: przycisk "Generuj ofertę" na leadzie → n8n zbiera dane i szablon,
 woła mikroserwis, który renderuje PPTX lub DOCX → n8n zapisuje wynik jako plik
@@ -21,7 +21,7 @@ tej separacji nie dałoby się go sensownie testować.
 `NOCODB_*`, zero odczytów/zapisów do bazy. To **czysty renderer**: dostaje
 plik szablonu + dane, zwraca gotowy plik. Wszystko inne — skąd wziąć
 szablon, jak złożyć dane, gdzie zapisać wynik, kiedy stworzyć rekord
-`offers` — robi workflow `W9` w n8n. Model danych CRM może się zmieniać
+`offers` — robi workflow `W1` w n8n. Model danych CRM może się zmieniać
 (nowe pole, nowa tabela ocen) bez dotykania tego serwisu w ogóle.
 
 ## Kontrakty endpointów
@@ -225,12 +225,12 @@ i regenerację), `warnings` (LongText), `lead` (Links → leads).
   (gdyby zespół potrzebował tabeli z wierszami generowanymi z listy w danych).
 - Serwis zakłada, że `data` przysłane przez n8n jest poprawne — literówka
   w nazwie pola w Edit Fields → pusty string + warning, nie błąd. Dlatego
-  W9 wrzuca `warnings` do opisu taska review — przejrzyj je przy pierwszych
+  W1 wrzuca `warnings` do opisu taska review — przejrzyj je przy pierwszych
   ofertach.
 - Nazwa w `repeat:<nazwa>` i prefiks placeholdera muszą być identyczne
   (patrz kontrakt szablonu) — to jedyna reguła narzucona przez serwis,
   wszystko inne w `data` jest w pełni dowolne.
-- **W9 czyta uczestników i referencje wprost z payloadu przycisku NocoDB**
+- **W1 czyta uczestników i referencje wprost z payloadu przycisku NocoDB**
   (`_nc_m2m_Leads_Participants[].Participants`,
   `_nc_m2m_Leads_Testimonials[].Testimonials`) zamiast dociągać je osobnymi
   zapytaniami — dlatego workflow ma 13, a nie 21 node'ów. Cena: to dokładnie
@@ -240,7 +240,7 @@ i regenerację), `warnings` (LongText), `lead` (Links → leads).
 - **Endpoint `/links/{fieldId}/records/{id}` zwraca tylko `Id` + wartość
   wyświetlaną**, nie pełny rekord (zweryfikowane: `{{t.title}}` się
   rozwiązywało, `{{t.content}}` nie). Dlatego oceny NIE są dociągane po
-  linku: W9 pobiera **całą tabelę `Assesments` jednym zapytaniem** i dopasowuje
+  linku: W1 pobiera **całą tabelę `Assesments` jednym zapytaniem** i dopasowuje
   je do uczestników po `Participant.Id`, biorąc rekord o najnowszym
   `UpdatedAt`. Przy dużej liczbie ocen (setki+) to zacznie być kosztowne —
   wtedy dołóż filtr `where` po stronie zapytania.

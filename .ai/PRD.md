@@ -42,9 +42,9 @@ lead ma czytelny timeline, nikt nie przepisuje danych między systemami.
 
 ## 3. Zakres
 
-**Faza 1 (ten dokument):** model danych, widoki, workflowy W1–W6b, intake
+**Faza 1 (ten dokument):** model danych, widoki, workflowy W0, W2–W6b, intake
 z 3 źródeł z kaskadą dopasowań, import legacy, Test Runner, lustro xlsx dla CEO
-(okres przejściowy). Generowanie pliku oferty (W9 + `file-renderer-service`) doszło
+(okres przejściowy). Generowanie pliku oferty (W1 + `file-renderer-service`) doszło
 2026-07-26 jako naturalna kontynuacja po `draft_ready` — patrz §12, §14 pkt 1.
 
 **Poza zakresem fazy 1 (ustalone):** formularze przed-audytowe, dashboardy SQL,
@@ -138,7 +138,7 @@ projects ──< tasks >── task_templates
   markery `lead:{id}` / `meeting:{id}` w opisie wiążą taski pipeline'ów.
 - `activities` — append-only log, pisze WYŁĄCZNIE n8n; timeline leada + debug
   (`flow`, `payload` JSON, typ `automation_error`).
-- `task_templates` (RRULE dla W1), `projects`, `testimonials` (biblioteka
+- `task_templates` (RRULE dla W0), `projects`, `testimonials` (biblioteka
   referencji, many-to-many z leads).
 - `offer_templates` — szablony `.pptx`/`.docx` jako Attachment, `active` (jeden
   na raz); `offers` — wygenerowane oferty (`file` Attachment, `status`,
@@ -160,7 +160,7 @@ stara/nowa wartość w każdym workflow na update (triggery per-pole są płatne
 |---|---|
 | moje taski ze wszystkich projektów | `tasks` Grid per osoba (filtr assignee, locked) |
 | kalendarz moich tasków | `tasks` Calendar po `due_date` per osoba |
-| taski cykliczne | `task_templates` + W1 (cron n8n; workflows NocoDB płatne) |
+| taski cykliczne | `task_templates` + W0 (cron n8n; workflows NocoDB płatne) |
 | kanban etapów leadów | `leads` Kanban po `stage`, filtr `state=open` |
 | dodaj lead ręcznie | `leads` Form view |
 | kalendarz spotkań | `meetings` Calendar po `starts_at` |
@@ -172,23 +172,28 @@ stara/nowa wartość w każdym workflow na update (triggery per-pole są płatne
 
 | WF | Trigger | Funkcja |
 |---|---|---|
-| W1 | cron 06:00 | taski cykliczne z szablonów (RRULE: DAILY/WEEKLY;BYDAY/MONTHLY;BYMONTHDAY), idempotentny |
+| W0 | cron 06:00 | taski cykliczne z szablonów (RRULE: DAILY/WEEKLY;BYDAY/MONTHLY;BYMONTHDAY), idempotentny |
 | W2 | leads update | kamienie milowe + state przy zmianie stage; task "uzupełnij powód utraty"; mail do ownera |
 | W3 | tasks insert+update | powiadomienie mail do assignee (łata brak notyfikacji w NocoDB CE) |
 | W4 v2 | 3 webhooki: Tally / CF7 / Bookings | adaptery → wspólna kaskada dopasowań (niżej) |
 | W5 | leads insert | dedup firmy po domenie e-mail (lista domen publicznych!), pending_confirmation + komentarz; guard: pomija leady z już podlinkowaną firmą |
 | W6a | meetings update | transkrypcja → OpenRouter → `ai_analysis` → weryfikacja; akceptacja → cele (routing B2B→Dorota / B2C→Aleksandra); braki/odrzuty → taski naprawcze |
 | W6b | leads update | cele → referencje → walidacja linków → task "złóż ofertę" + `draft_ready` |
-| W9 | leads (przycisk „Generuj ofertę") | woła `file-renderer-service` → renderuje PPTX/DOCX z aktywnego szablonu + danych leada → `offers` (`status=draft`) → task review (+`warnings`) albo task błędu |
+| W1 | leads (przycisk „Generuj ofertę") | woła `file-renderer-service` → renderuje PPTX/DOCX z aktywnego szablonu + danych leada → `offers` (`status=draft`) → task review (+`warnings`) albo task błędu |
+| W8 | assessments (przycisk „Generuj needs summary") | ocena CEFR + `auditor_notes` (audyt/demo) + notatki Przemka z ostatniego spotkania `discovery` leada → prompt klienta (5 sekcji, patrz §12) → OpenRouter → `assessments.needs_summary` (`ai_draft_ready`) → task weryfikacji (routing B2B→Dorota / B2C→Aleksandra); brak ocen CEFR → task zamiast wywołania LLM |
+| W9 | offer_packages (przycisk „Generuj opis") — **zaprojektowany, NIE wdrożony**, patrz §12 | dla TEGO JEDNEGO wiersza (pakiet ze slajdu 4 "NASZA REKOMENDACJA" wybrany do tej oferty): `AI Agent` → dłuższy tekst na jego własny slajd (5/6/7) → `generated_text` (`ai_draft_ready`) → task weryfikacji; brak wybranego wariantu na wierszu → `ai_status=ai_rejected` + task "uzupełnij wariant" zamiast wywołania LLM; błąd LLM → `ai_status=none` (klikalne od razu ponownie) — w obu przypadkach błędu komunikat + link do naprawczego taska wpisany wprost w `generated_text` |
 
 > Te workflowy **zastępują** `n8n-workflows/wf1-wf6*.json` (stary pipeline
 > lead→discovery→audit→recommendation→offer z generowaniem PPTX) — te pliki
-> zostają w repo jako historyczne, nieużywane. Importowalne wersje: `docs/archive/fable/W1_
+> zostają w repo jako historyczne, nieużywane. Importowalne wersje: `docs/archive/fable/W0_
 > recurring_tasks.json` … `docs/archive/fable/W6b_offer_pipeline.json` + `docs/archive/fable/W4v2_
-> intake_matching.json` (zastępuje `W4_new_lead_intake.json`) + `docs/archive/fable/W9_
-> generate_offer.json` (§12, §14), spakowane też w
+> intake_matching.json` (zastępuje `W4_new_lead_intake.json`) + `docs/archive/fable/W1_
+> generate_offer.json` (§12, §14) + `docs/archive/fable/W8_assessment_needs_summary.json`
+> (§12) + `docs/archive/fable/W9_offer_package_texts.json` (draft, §12 — WSZYSTKIE
+> ID w pliku to placeholdery, tabele które czyta/pisze jeszcze nie istnieją na
+> żywej bazie), spakowane też w
 > `docs/archive/fable/n8n_workflows_coaction.zip` (**uwaga:** ten zip powstał przed
-> dodaniem W9 — nie zawiera go, do regeneracji przy najbliższej okazji) z
+> dodaniem W1 — nie zawiera go, do regeneracji przy najbliższej okazji) z
 > instrukcją placeholderów/webhooków (`docs/archive/fable/README.md`).
 
 **Kaskada intake (W4 v2):** Tier 1 dokładny e-mail (jedyna auto-akcja: otwarty
@@ -242,13 +247,13 @@ zastępuje szczegółów w źródłowych plikach.
 |---|---|
 | `docs/archive/fable/nocodb_crm_schema_v2.md` (+ `v1.md`, wcześniejsza iteracja) | pełny schemat 9 tabel + zasady |
 | `docs/archive/fable/crm_flow.mermaid`, `docs/archive/fable/crm_erd.mermaid`, `docs/archive/fable/crm_intake_matching.mermaid` | diagramy: cykl życia leada, ERD, kaskada intake |
-| `docs/archive/fable/W1..W6b*.json` + `docs/archive/fable/README.md` (`docs/archive/fable/n8n_workflows_coaction.zip`) | importowalne workflowy + instrukcja placeholderów/webhooków |
+| `docs/archive/fable/W0*.json`, `W2..W6b*.json` + `docs/archive/fable/README.md` (`docs/archive/fable/n8n_workflows_coaction.zip`) | importowalne workflowy + instrukcja placeholderów/webhooków |
 | `docs/archive/fable/W4v2_intake_matching.json` | intake 3 źródeł + kaskada (zastępuje W4) |
 | `docs/archive/fable/W0_seed_sample_data.json`, `docs/archive/fable/seed_nocodb.py`, `docs/archive/fable/sample_data_overview.md` | dane przykładowe (2 drogi) + mapa relacji |
 | `docs/archive/fable/import_legacy_excel.py` | migracja legacy z dry-run |
-| `docs/archive/fable/test_runner_coaction.zip` (`docs/archive/fable/test_cases.md`, `docs/archive/fable/conftest.py`, `docs/archive/fable/test_workflows.py`, `docs/archive/fable/nocodb.py`) | katalog przypadków + harness pytest, grupa `W9` dodana 2026-07-26 |
+| `docs/archive/fable/test_runner_coaction.zip` (`docs/archive/fable/test_cases.md`, `docs/archive/fable/conftest.py`, `docs/archive/fable/test_workflows.py`, `docs/archive/fable/nocodb.py`) | katalog przypadków + harness pytest, grupa `W1` dodana 2026-07-26 |
 | `docs/archive/fable/meta.json` | eksport żywej struktury "CoAction TEST Base" z NocoDB (2026-07-17) — dowód, że model jest wdrożony, nie tylko zaprojektowany |
-| `docs/archive/fable/W9_generate_offer.json` | workflow „Generuj ofertę" — dodany 2026-07-26, patrz §7/§12 |
+| `docs/archive/fable/W1_generate_offer.json` | workflow „Generuj ofertę" — dodany 2026-07-26, patrz §7/§12 |
 | `docs/archive/fable/nocodb_crm_schema_v3.md` + `scripts/init-schema.py` | docelowy model danych (faza 2) + skrypt tworzący cały schemat w pustej bazie |
 
 Wyjątek od "wszystko w `docs/archive/fable/`": **`file-renderer-service/`** (poza `docs/archive/fable/`, dodany
@@ -283,14 +288,16 @@ komponentów (`scripts/`, `wordpress/`), nie jako artefakt sesji Fable.
 ## 12. Backlog (faza 2)
 
 Tabela `offers` + generowanie oferty PPTX/www z pól `participants` i
-`testimonials`; formularze przed-audytowe dla uczestników; AI-draft
-`needs_summary` z transkrypcji; dashboard SQL (czas new→won, konwersja per
-source, per branża); asercje mailowe w Test Runnerze (MailHog API); rozszerzenie
-parsera RRULE (YEARLY/INTERVAL); wyszukiwanie po zamkniętej historii (Postgres
-FTS); sunset lustra xlsx.
+`testimonials`; formularze przed-audytowe dla uczestników; dashboard SQL (czas
+new→won, konwersja per source, per branża); asercje mailowe w Test Runnerze
+(MailHog API); rozszerzenie parsera RRULE (YEARLY/INTERVAL); wyszukiwanie po
+zamkniętej historii (Postgres FTS); sunset lustra xlsx; AI-draft dla
+`leads.training_goals`/`recommendations` (cele szkoleniowe + dobór sytuacji
+komunikacyjnych z zamkniętej listy — drugi i trzeci prompt klienta z brief'u
+do `needs_summary`, patrz niżej, jeszcze nie zaimplementowane).
 
 **Generowanie oferty jako plik (PPTX) — zrealizowane 2026-07-26** (decyzja
-podjęta, patrz §14 pkt 1) jako `file-renderer-service/` + workflow `W9`. Świadomie
+podjęta, patrz §14 pkt 1) jako `file-renderer-service/` + workflow `W1`. Świadomie
 **nie** jest to wskrzeszenie starego `crm-api` z poprzedniej wersji PRD —
 NocoDB-native, prostsze:
 - Kontrakt: FastAPI + `python-pptx`, bezstanowy, `POST /generate {lead_id}`,
@@ -308,6 +315,82 @@ NocoDB-native, prostsze:
 - Szczegóły, kontrakt szablonu, świadome ograniczenia i testy:
   `file-renderer-service/README.md`.
 
+**AI-draft `assessments.needs_summary` — zrealizowane 2026-08-30** jako
+workflow `W8` (§7, `docs/archive/fable/W8_assessment_needs_summary.json`).
+Klient dostarczył gotowy prompt (dziś ręcznie wklejany do chata przy tworzeniu
+slajdu 3 oferty "Potrzeba szkoleniowa") — W8 automatyzuje dokładnie ten
+ręczny krok, bez zmiany treści promptu:
+- Wejście promptu to **notatki, nie transkrypcja** — inaczej niż backlogowy
+  zapis wyżej sugerował. Metodyk uzupełnia ręcznie na wierszu `assessments`
+  oceny CEFR + `strengths`/`gaps`/`auditor_notes` (notatki po demo/audycie),
+  W8 dokłada notatki Przemka z ostatniego spotkania `meeting_type=discovery`
+  tego leada (`meetings.notes`) i dopiero wtedy woła OpenRouter.
+- Prompt klienta ma 5 sekcji (wynik audytu → kontekst biznesowy → dotychczasowa
+  nauka i jej ograniczenia → wnioski z audytu → rekomendacja) i jest wpisany
+  wprost w node `Assemble prompt` — świadomie NIE jest polem w NocoDB (jedna
+  wersja promptu, edytowana w n8n, nie do majstrowania przez zespół w UI).
+- Ten sam wzorzec statusu co reszta bazy: brak wypełnionych ocen CEFR →
+  task "uzupełnij audyt" zamiast wołania LLM (`ai_status` w ogóle nie rusza z
+  `none`); sukces → `ai_status=ai_draft_ready` + task weryfikacji (routing
+  B2B→Dorota / B2C→Aleksandra, jak w W6a); błąd OpenRouter (po 3 próbach
+  retry) → `ai_status` wraca na `none` (przycisk znów klikalny) + task
+  naprawczy — `assessments.ai_status` nie ma osobnej wartości "error" w
+  konwencji `none/pending/ai_draft_ready/ai_accepted/ai_rejected`.
+- **Poza zakresem W8** (backlog, patrz wyżej): drugi i trzeci prompt z tego
+  samego brief'u klienta — cele szkoleniowe (`leads.training_goals` /
+  `recommendations.headline`+`rationale`, ETAP 1/ETAP 2) i dobór sytuacji
+  komunikacyjnych z zamkniętej listy (`recommendation_packages` →
+  `training_descriptions`) — naturalna kontynuacja tego samego wzorca, osobny
+  workflow, nie zbudowany teraz.
+
+**AI-draft `offer_packages.generated_text` (slajdy 5/6/7 oferty) —
+zaprojektowane 2026-08-30, NIE wdrożone.** Kolejny krok po slajdzie 4 "NASZA
+REKOMENDACJA" (§5, tabela `offer_packages`): dla każdego wybranego pakietu AI
+dopisuje dłuższy tekst na jego WŁASNY slajd, człowiek weryfikuje przed
+wysyłką. Workflow `W9` (§7, `docs/archive/fable/W9_offer_package_texts.json`)
+to gotowy DRAFT tego samego wzorca co żywy W8 — webhook
+`responseMode: lastNode`, zapisy przez node'y `nocoDb`/`update` (nie
+`httpRequest`), LLM przez `AI Agent` + `OpenRouter Chat Model` (nie surowe
+wywołanie API), `ai_status=pending` ustawiane PRZED wywołaniem AI (dosłownie
+drugi node po webhooku, jak w W8), błędy logowane w POLU WYNIKOWYM
+(`generated_text`) z linkiem do naprawczego taska zamiast cichego resetu
+statusu — teraz konsekwentnie w KAŻDEJ gałęzi błędu (LLM i brak danych), bo
+wiersz `offer_packages` zawsze już istnieje, zanim przycisk mógł być
+kliknięty.
+
+**Trigger — przeszedł przez dwie iteracje, druga jest ostateczna:** pierwotnie
+jeden zbiorczy przycisk na `offers` ("Generuj opisy pakietów"), generujący N
+tekstów jednym klikiem (fan-out po stronie n8n, bez dedykowanego node'a
+pętli). Zmienione po Twojej uwadze: taki zbiorczy klik nadpisywałby
+`ai_status` (i odpalał ponowne, płatne wywołanie LLM) też dla pakietów już
+zaakceptowanych przez człowieka, nie tylko dla nowych/odrzuconych.
+**Ostatecznie: przycisk PER WIERSZ na `offer_packages`** ("Generuj opis") —
+klik dotyczy zawsze dokładnie jednego pakietu, więc regeneracja jednego nie
+rusza pozostałych. Konsekwencja uboczna: graf workflowu jest teraz prostszy
+(25 node'ów zamiast 27) i strukturalnie niemal identyczny z W8 — zniknęły
+`Fan out packages`, sprawdzanie "czy w ogóle są wybrane pakiety" i agregacja
+wielu wyników w jeden task; pytanie "czy `AI Agent` odpala się raz na każdy z
+N itemów" (kiedyś zweryfikowane przez dokumentację n8n — root node'y
+wykonują się raz na item, w odróżnieniu od sub-node'ów jak
+`OpenRouter Chat Model` — [docs.n8n.io](https://docs.n8n.io/integrations/builtin/cluster-nodes/root-nodes/n8n-nodes-langchain.agent/))
+przestało być istotne, bo teraz zawsze płynie dokładnie 1 item.
+
+Trzy rzeczy odróżniają ten plik od W1/W8 (obie zweryfikowane na żywo) i
+czynią go draftem, nie gotowym importem:
+1. **Wszystkie ID w pliku to placeholdery** (`__TBL_...__` itd.) — tabele
+   `offer_packages`/`package_variants` nie istnieją jeszcze w `schema_map.json`
+   (wymaga `make init-schema` → `make dump-crm-schema` → podmiana, patrz
+   `docs/archive/fable/README.md`).
+2. **Nazwy pól zwrotnych relacji są zgadywane** (`offers`→`leads`,
+   `offer_packages`→`offers`/`package_variants`) — ta sama, wcześniej już
+   spotkana niepewność co przy `document_templates` na `offers` (`TODO.md`);
+   do zweryfikowania w UI/dumpie po utworzeniu tabel.
+3. **System prompt jest DRAFTEM napisanym przeze mnie, NIE promptem od
+   klientki** — w odróżnieniu od W8, gdzie klientka dostarczyła gotowy tekst
+   do wklejenia 1:1. Przed użyciem produkcyjnym: pokazać jej instrukcje (albo
+   od razu kilka wygenerowanych przykładów) do akceptacji/poprawek, tak jak
+   stało się z promptem W8.
+
 ## 13. Status / najbliższe kroki
 
 - [x] schemat, seed (przeszedł na realnej bazie), workflowy, importer, testy — dostarczone (patrz §10)
@@ -324,14 +407,14 @@ NocoDB-native, prostsze:
 - [ ] rozstrzygnięcie otwartych pytań biznesowych, patrz §14
 - [ ] `file-renderer-service` na żywej bazie: utworzyć tabele `document_templates`/`offers`,
       `NC_CRM_BASE_ID` w `.env`, `docker compose up -d --build file-renderer-service`,
-      import W9, pierwszy szablon `.pptx`, przebieg grupy testów `W9` na VPS-B
+      import W1, pierwszy szablon `.pptx`, przebieg grupy testów `W1` na VPS-B
       — patrz `file-renderer-service/README.md`
 
 ## 14. Otwarte pytania (do potwierdzenia z klientem/CEO)
 
 1. ~~**Generowanie oferty jako plik (PPTX/PDF)**~~ — **rozstrzygnięte
    2026-07-26: tak, MVP obejmuje realny plik.** Wdrożone jako `file-renderer-service`
-   + `W9` (§7, §12) — NocoDB-native, PPTX-only (bez PDF/LibreOffice/kolejki,
+   + `W1` (§7, §12) — NocoDB-native, PPTX-only (bez PDF/LibreOffice/kolejki,
    patrz §12 dlaczego). Pozostaje do potwierdzenia z Przemkiem operacyjnie:
    akceptacja, że NIE edytuje PPTX ręcznie po wygenerowaniu (poprawki → nowy
    szablon albo nowe dane leada + regeneracja, nie ręczna edycja pliku).

@@ -9,11 +9,11 @@ i asertuje wynik przez API NocoDB. Zero mocków — testowany jest prawdziwy
 1. **Baza CRM-TEST**: zduplikuj produkcyjną bazę w NocoDB (Base → Duplicate,
    bez rekordów) albo odtwórz schemat. NIGDY nie podawaj runnerowi produkcyjnego base_id —
    fixture `clean` czyści WSZYSTKIE tabele przed i po każdym teście.
-2. **Kopie workflowów**: dla W1–W6 zrób kopie z suffiksem `-TEST`, wykonaj sed
+2. **Kopie workflowów**: dla W0, W2–W6 zrób kopie z suffiksem `-TEST`, wykonaj sed
    z ID tabel bazy TEST i zmień ścieżki webhooków na `test-...`
-   (np. `test-w2-stage-change`). Aktywuj kopie. Uwaga W1: kopia dostaje
-   dodatkowy node Webhook (path `test-w1-run`) podpięty równolegle do crona,
-   żeby runner mógł odpalać przebieg na żądanie (przypadki W1-01..09).
+   (np. `test-w2-stage-change`). Aktywuj kopie. Uwaga W0: kopia dostaje
+   dodatkowy node Webhook (path `test-w0-run`) podpięty równolegle do crona,
+   żeby runner mógł odpalać przebieg na żądanie (przypadki W0-01..09).
 3. **MailHog** jako SMTP-atrapa (inaczej node'y Send Email wywalą flow):
    ```yaml
    mailhog:
@@ -38,11 +38,11 @@ pytest -v tests/
 
 ## Zakres
 
-- `test_cases.md` — pełny katalog (W1–W6b, importer, przekrojowe) z trybami
+- `test_cases.md` — pełny katalog (W0, W2–W6b, importer, przekrojowe) z trybami
   AUTO / SEMI / PROC.
 - `test_workflows.py` — zaimplementowane przypadki AUTO dla W2, W3, W4 (tiery
   deterministyczne), W5, W6a (gałęzie bez LLM), W6b. Przypadki SEMI (LLM)
-  i W1 (wymaga node'a test-w1-run) do dopisania wg tego samego wzorca —
+  i W0 (wymaga node'a test-w0-run) do dopisania wg tego samego wzorca —
   szkielet asercji strukturalnych: `wait_for("meetings", "(ai_analysis,isnot,null)")`.
 - Przypadki PROC (importer) weryfikujesz przez `--dry-run` na spreparowanym
   xlsx — katalog IMP-01..10 to gotowa checklista.

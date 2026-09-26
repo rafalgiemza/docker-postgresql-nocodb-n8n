@@ -1,0 +1,715 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "w13-recommendation-rationale",
+        "options": {}
+      },
+      "id": "59b7da07-ec8a-4803-b4ee-42ad82c2890a",
+      "name": "Button: Uzupełnij rationale",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        1408
+      ],
+      "webhookId": "wh-w13-recommendation-rationale"
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "wpgg1mff",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace",
+          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "p6w78auzu6sjdoo",
+          "mode": "list",
+          "cachedResultName": "CRM Base",
+          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo"
+        },
+        "table": {
+          "__rl": true,
+          "value": "mlh3vnu5zj8r13b",
+          "mode": "list",
+          "cachedResultName": "recommendations",
+          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo/mlh3vnu5zj8r13b"
+        },
+        "id": "={{ $json.body.data.rows[0].Id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "c8noile6psa0f4z",
+          "mode": "list",
+          "cachedResultName": "selected_cores"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "c1h48nbw5nky4ja",
+                  "mode": "list",
+                  "cachedResultName": "Id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "ce8z7npxtrx0vsw",
+                  "mode": "list",
+                  "cachedResultName": "hours"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        -1360,
+        1264
+      ],
+      "id": "1d859ca0-7069-46fc-b935-23e4425dba6f",
+      "name": "Get linked selected cores",
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "wpgg1mff",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace",
+          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "p6w78auzu6sjdoo",
+          "mode": "list",
+          "cachedResultName": "CRM Base",
+          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo"
+        },
+        "table": {
+          "__rl": true,
+          "value": "mphv4ex7ev4iaom",
+          "mode": "list",
+          "cachedResultName": "selected_package_variants_cores",
+          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo/mphv4ex7ev4iaom"
+        },
+        "id": "={{ $json.id_fields.Id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "cnme5gecigszaty",
+          "mode": "list",
+          "cachedResultName": "package_variants_cores"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "cuz1hvbi1rr4ook",
+                  "mode": "list",
+                  "cachedResultName": "Id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "c9f1pcbuqv2stb4",
+                  "mode": "list",
+                  "cachedResultName": "name"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "c2k3mvrtzfbdhwg",
+                  "mode": "list",
+                  "cachedResultName": "description"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        -1120,
+        1264
+      ],
+      "id": "b9f61be9-4957-4661-b73b-a95b636e9ede",
+      "name": "Get core package details",
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "tag-core-hours",
+              "name": "_hours",
+              "type": "number",
+              "value": "={{ $('Get linked selected cores').item.json.fields.hours }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "4d8a7a34-ecfc-40fb-8662-0a9c7e7c96a4",
+      "name": "Tag core with hours",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -880,
+        1264
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "wpgg1mff",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace",
+          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "p6w78auzu6sjdoo",
+          "mode": "list",
+          "cachedResultName": "CRM Base",
+          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo"
+        },
+        "table": {
+          "__rl": true,
+          "value": "mlh3vnu5zj8r13b",
+          "mode": "list",
+          "cachedResultName": "recommendations",
+          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo/mlh3vnu5zj8r13b"
+        },
+        "id": "={{ $json.body.data.rows[0].Id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "c5tqkh9s4a4fuhu",
+          "mode": "list",
+          "cachedResultName": "selected_others"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "cads4zpynii8u7q",
+                  "mode": "list",
+                  "cachedResultName": "Id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "c9vi4u1xqbs6fp4",
+                  "mode": "list",
+                  "cachedResultName": "hours"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        -1360,
+        1552
+      ],
+      "id": "471c5769-dbeb-4aff-afa7-808182b84466",
+      "name": "Get linked selected others",
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "wpgg1mff",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace",
+          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "p6w78auzu6sjdoo",
+          "mode": "list",
+          "cachedResultName": "CRM Base",
+          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo"
+        },
+        "table": {
+          "__rl": true,
+          "value": "mcu6amcxkvkng0q",
+          "mode": "list",
+          "cachedResultName": "selected_package_variants_others",
+          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo/mcu6amcxkvkng0q"
+        },
+        "id": "={{ $json.id_fields.Id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "cek8ihsuhlyhyts",
+          "mode": "list",
+          "cachedResultName": "package_variants_others"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "c1llk4mpl4wyhtg",
+                  "mode": "list",
+                  "cachedResultName": "Id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "ch2rmo2c8u59or1",
+                  "mode": "list",
+                  "cachedResultName": "name"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "cxx7aapfj0ogzau",
+                  "mode": "list",
+                  "cachedResultName": "description"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        -1120,
+        1552
+      ],
+      "id": "298d4d93-5e67-4ee9-a41d-07957898ca6b",
+      "name": "Get other package details",
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "tag-other-hours",
+              "name": "_hours",
+              "type": "number",
+              "value": "={{ $('Get linked selected others').item.json.fields.hours }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "9690cc6d-2778-4b0a-8887-66a3e2349fc9",
+      "name": "Tag other with hours",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -880,
+        1552
+      ]
+    },
+    {
+      "parameters": {
+        "numberInputs": 2
+      },
+      "id": "08253c0b-3b06-4243-afd2-ba0b8ad6fd5f",
+      "name": "Combine fetched data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        -640,
+        1408
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sklej rationale z wybranych pakietow core (z dopiskiem o formacie sesji,\n// stala fraza dla wszystkich core - w NocoDB nie ma na to osobnego pola) i\n// others (bez dopisku - to jednorazowe dodatki, nie mają cyklu sesji).\n// Tytul/opis biora sie z katalogu package_variants_cores/others, godziny z\n// konkretnie wybranej instancji (selected_package_variants_cores/others.hours).\nconst cores = $('Tag core with hours').isExecuted ? $('Tag core with hours').all().map(x => x.json) : [];\nconst others = $('Tag other with hours').isExecuted ? $('Tag other with hours').all().map(x => x.json) : [];\n\nconst lines = [];\nfor (const c of cores) {\n  const f = c.fields || {};\n  if (!f.name) continue;\n  lines.push(`✅ ${f.name} – ${c._hours} godzin (2x60 min lub 1x90 min)`);\n  lines.push((f.description || '').trim());\n}\nfor (const o of others) {\n  const f = o.fields || {};\n  if (!f.name) continue;\n  lines.push(`✅ ${f.name} – ${o._hours} godzin`);\n  lines.push((f.description || '').trim());\n}\n\nreturn [{\n  json: {\n    recommendation_id: $('Button: Uzupełnij rationale').first().json.body.data.rows[0].Id,\n    rationale: lines.join('\\n'),\n    has_packages: (cores.length + others.length) > 0\n  }\n}];"
+      },
+      "id": "6d8bcdb9-7ae3-42ed-a8ac-311d6a992745",
+      "name": "Build rationale",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        1408
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.has_packages }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "8ebe4ed6-025d-4876-bbd4-67f45d5e8799",
+      "name": "Has selected packages?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        1408
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "operation": "update",
+        "workspaceId": {
+          "__rl": true,
+          "value": "wpgg1mff",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace",
+          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "p6w78auzu6sjdoo",
+          "mode": "list",
+          "cachedResultName": "CRM Base",
+          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo"
+        },
+        "table": {
+          "__rl": true,
+          "value": "mlh3vnu5zj8r13b",
+          "mode": "list",
+          "cachedResultName": "recommendations",
+          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo/mlh3vnu5zj8r13b"
+        },
+        "id": "={{ $json.recommendation_id }}",
+        "fieldsMapper": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "rationale": "={{ $json.rationale }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "rationale",
+              "displayName": "rationale",
+              "type": "string",
+              "display": true,
+              "defaultMatch": false,
+              "readOnly": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        80,
+        1312
+      ],
+      "id": "be04d1d7-a5c9-4cd3-ac2a-ddff4643050e",
+      "name": "Update recommendation rationale",
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "operation": "create",
+        "workspaceId": "wpgg1mff",
+        "projectId": "p6w78auzu6sjdoo",
+        "table": "m6yowcup74i30v7",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "=Uzupełnij pakiety dla rekomendacji #{{ $('Button: Uzupełnij rationale').first().json.body.data.rows[0].Id }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "todo"
+            },
+            {
+              "fieldName": "priority",
+              "fieldValue": "high"
+            },
+            {
+              "fieldName": "assignee",
+              "fieldValue": "rafalgiemza@gmail.com"
+            },
+            {
+              "fieldName": "created_by_flow",
+              "fieldValue": "W13"
+            },
+            {
+              "fieldName": "description",
+              "fieldValue": "=Rekomendacja #{{ $('Button: Uzupełnij rationale').first().json.body.data.rows[0].Id }}: brak wybranych pakietów (selected_cores/selected_others) — nie można wygenerować rationale. Wybierz przynajmniej jeden pakiet core lub other i kliknij przycisk ponownie."
+            }
+          ]
+        }
+      },
+      "id": "f44762f2-5195-43ec-83c0-f17afc59701d",
+      "name": "Task: uzupełnij pakiety rekomendacji",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        80,
+        1520
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "operation": "create",
+        "workspaceId": "wpgg1mff",
+        "projectId": "p6w78auzu6sjdoo",
+        "table": "m6yowcup74i30v7",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "=BŁĄD zapisu rationale (rekomendacja #{{ $('Button: Uzupełnij rationale').first().json.body.data.rows[0].Id }})"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "todo"
+            },
+            {
+              "fieldName": "priority",
+              "fieldValue": "high"
+            },
+            {
+              "fieldName": "assignee",
+              "fieldValue": "rafalgiemza@gmail.com"
+            },
+            {
+              "fieldName": "created_by_flow",
+              "fieldValue": "W13"
+            },
+            {
+              "fieldName": "description",
+              "fieldValue": "={{ JSON.stringify($json).slice(0,500) }}"
+            }
+          ]
+        }
+      },
+      "id": "84c6cb90-0b4d-4969-be02-c78402b49d41",
+      "name": "Task: rationale update failed",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        320,
+        1408
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Button: Uzupełnij rationale": {
+      "main": [
+        [
+          {
+            "node": "Get linked selected cores",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get linked selected others",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get linked selected cores": {
+      "main": [
+        [
+          {
+            "node": "Get core package details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get core package details": {
+      "main": [
+        [
+          {
+            "node": "Tag core with hours",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag core with hours": {
+      "main": [
+        [
+          {
+            "node": "Combine fetched data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get linked selected others": {
+      "main": [
+        [
+          {
+            "node": "Get other package details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get other package details": {
+      "main": [
+        [
+          {
+            "node": "Tag other with hours",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag other with hours": {
+      "main": [
+        [
+          {
+            "node": "Combine fetched data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Combine fetched data": {
+      "main": [
+        [
+          {
+            "node": "Build rationale",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build rationale": {
+      "main": [
+        [
+          {
+            "node": "Has selected packages?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has selected packages?": {
+      "main": [
+        [
+          {
+            "node": "Update recommendation rationale",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Task: uzupełnij pakiety rekomendacji",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update recommendation rationale": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Task: rationale update failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "429e202ed2fd6bce58bf2c7e6fd66d0222fa48d863edbdd52b4193bfbb06e11e"
+  }
+}

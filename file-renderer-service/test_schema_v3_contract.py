@@ -32,7 +32,7 @@ def _text(slide):
     return slide.shapes[0].text_frame.text
 
 
-# The shape n8n (W9) will send once schema v3 is in place. `module` is
+# The shape n8n (W1) will send once schema v3 is in place. `module` is
 # deliberately FLAT - one row per (participant, module) pair - see
 # test_nested_repeat_is_not_supported below for why.
 DATA = {

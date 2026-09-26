@@ -64,8 +64,7 @@ docker compose ps   # poczekaj aż wszystko "healthy"
 
 ## Krok 3 — DNS
 
-W panelu, gdzie zarządzana jest domena `giemza.dev` (Cloudflare — patrz
-`.ai/IMPLEMENTATION_PLAN.md` FAZA 7), przepnij rekordy **A** dla
+W panelu, gdzie zarządzana jest domena `giemza.dev` (Cloudflare), przepnij rekordy **A** dla
 `n8n`/`back-office`/`minio`/`chat`/`status`/`beszel` z IP starego
 `coaction-test` na IP nowego serwera.
 

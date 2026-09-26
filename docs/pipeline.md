@@ -7,7 +7,7 @@
 > `n8n_crm_user`, i `schema.sql`, który też już nie istnieje. Zastąpione
 > modelem NocoDB-native (`.ai/PRD.md` §5): odpowiedniki tej funkcjonalności
 > (intake leada, zmiana etapu, powiadomienia o taskach, dedup firm, pipeline
-> AI ze spotkania) żyją teraz jako `docs/archive/fable/W1_recurring_tasks.json`,
+> AI ze spotkania) żyją teraz jako `docs/archive/fable/W0_recurring_tasks.json`,
 > `W2_stage_change.json`, `W3_task_notifications.json`, `W4_new_lead_intake.json`
 > (+ `W4v2_intake_matching.json`), `W5_company_dedup.json`, `W6a_meeting_ai_pipeline.json`,
 > `W6b_offer_pipeline.json` — łączą się z NocoDB przez jego REST API (node
