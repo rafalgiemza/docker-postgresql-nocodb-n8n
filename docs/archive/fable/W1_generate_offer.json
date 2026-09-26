@@ -32,13 +32,13 @@
           ]
         }
       },
-      "id": "14398d5b-2f0f-4ab0-a374-4779a0416571",
+      "id": "ec6d2e5f-37cf-4ff4-af44-56c45b428d19",
       "name": "Log activity",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        3808,
-        144
+        464,
+        384
       ],
       "credentials": {
         "nocoDbApiToken": {
@@ -83,13 +83,13 @@
           ]
         }
       },
-      "id": "14dbbb08-95a8-4abc-a2b6-67fe9344838c",
+      "id": "c29cb890-4192-402b-84ae-e372fd2bc66f",
       "name": "Task: review offer",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        3584,
-        144
+        240,
+        384
       ],
       "credentials": {
         "nocoDbApiToken": {
@@ -109,13 +109,13 @@
         "jsonBody": "={{ JSON.stringify([{ Id: $('Assemble offer data').first().json.offer_id, file: $json.body, data_json: JSON.stringify($('Assemble offer data').first().json.data), warnings: ($('Call offer-service').first().json.headers['x-warnings'] ?? '[]') }]) }}",
         "options": {}
       },
-      "id": "fee3f1ce-9192-45e4-b53d-c27632529678",
+      "id": "908022ce-3f3d-4d2f-901d-07c7ff8c64c8",
       "name": "Update offer record",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3136,
-        144
+        -208,
+        384
       ],
       "credentials": {
         "nocoDbApiToken": {
@@ -149,13 +149,13 @@
           }
         }
       },
-      "id": "8fde6323-3512-4145-9a5d-a3ac5564d52d",
+      "id": "ebcaa03c-4ec7-4dac-9d56-22b656f3d28f",
       "name": "Upload offer file",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2912,
-        144
+        -432,
+        384
       ],
       "credentials": {
         "nocoDbApiToken": {
@@ -196,13 +196,13 @@
           ]
         }
       },
-      "id": "ccc7e24a-ad16-4fdd-a84e-3fd66707b753",
+      "id": "a4385532-be61-4bfe-b9a1-4c341c0ffbe5",
       "name": "Log error",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        2912,
-        336
+        -432,
+        576
       ],
       "credentials": {
         "nocoDbApiToken": {
@@ -247,13 +247,13 @@
           ]
         }
       },
-      "id": "b8abcacd-8fd5-4c9f-8975-6c24cf2fed53",
+      "id": "bd1f217e-6da5-4b06-90eb-c4bb3cb15dd7",
       "name": "Task: generation failed",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        2688,
-        336
+        -656,
+        576
       ],
       "credentials": {
         "nocoDbApiToken": {
@@ -266,13 +266,13 @@
       "parameters": {
         "jsCode": "// Call offer-service nie ustawia Content-Disposition, a URL /render nie ma\n// nazwy pliku - n8n zapisuje binarke bez fileName/rozszerzenia. Ustawiamy je\n// tu recznie, biorac rozszerzenie z szablonu (file[0].title), zeby wgrany\n// plik mial to samo rozszerzenie co szablon (pptx/docx), nie zadne.\nconst offerRow = $('Button: Generate offer').first().json.body.data.rows[0];\nconst templateFile = ($('Get offer template').first().json.file || [])[0];\nconst nameOrUrl = templateFile?.title || templateFile?.url || '';\nconst ext = (nameOrUrl.split('.').pop() || 'pptx').toLowerCase();\nconst safeTitle = (offerRow.title || `offer-${offerRow.Id}`).replace(/[^\\w\\-. ]+/g, '_');\nconst fileName = `${safeTitle}.${ext}`;\n\nconst items = $input.all();\nfor (const item of items) {\n  if (item.binary?.offer) {\n    item.binary.offer.fileName = fileName;\n  }\n}\nreturn items;"
       },
-      "id": "9213e23a-5110-4ae1-87e7-4304d7dd41ae",
+      "id": "fa4258fb-8c94-43fa-88c5-7d0ef91468de",
       "name": "Set offer filename",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2688,
-        144
+        -656,
+        384
       ]
     },
     {
@@ -305,13 +305,13 @@
           "timeout": 120000
         }
       },
-      "id": "6d8f1541-6b74-4532-977f-32c60508c98a",
+      "id": "e2b8a63f-4d47-42fc-a653-062750aba230",
       "name": "Call offer-service",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2464,
-        112
+        -880,
+        384
       ],
       "onError": "continueErrorOutput"
     },
@@ -327,13 +327,13 @@
           }
         }
       },
-      "id": "f6e19629-b3e5-4e0c-8763-ee927842d2c6",
+      "id": "e427824e-70a7-46c9-a54b-d250c35e0b82",
       "name": "Download template file",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2240,
-        112
+        -1104,
+        384
       ]
     },
     {
@@ -344,13 +344,13 @@
         "table": "mqgpfabhfov332s",
         "id": "={{ $('Button: Generate offer').first().json.body.data.rows[0].document_templates.Id }}"
       },
-      "id": "d6ae7d26-9682-4ce9-8a97-541f986c5556",
+      "id": "9c6e5459-9e14-4b3d-9f7a-5d08a2ca09f4",
       "name": "Get offer template",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        2016,
-        112
+        -1328,
+        384
       ],
       "credentials": {
         "nocoDbApiToken": {
@@ -363,13 +363,13 @@
       "parameters": {
         "numberInputs": 5
       },
-      "id": "f7133152-48ad-43c0-bcf8-bee8e43c7b76",
+      "id": "cee956fd-8f3c-4b8e-84ea-0801d6fa21e4",
       "name": "Combine fetched data",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
       "position": [
-        1568,
-        64
+        -1776,
+        336
       ]
     },
     {
@@ -380,13 +380,13 @@
         "table": "mu3q5qy30ypld45",
         "id": "={{ $json.id_fields.Id }}"
       },
-      "id": "bdb8d382-314f-4ba9-960d-4f33ff47eb31",
+      "id": "58d1fb3c-0292-40ae-a32d-bd4120dc8b1d",
       "name": "Get lead",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        0,
-        48
+        -2000,
+        0
       ],
       "credentials": {
         "nocoDbApiToken": {
@@ -398,153 +398,18 @@
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "w1-generate-offer-v11",
+        "path": "W1-generate-offer-v12",
         "options": {}
       },
-      "id": "3749caea-7c2c-48ce-aa76-35b3ee494ded",
+      "id": "2a7d814e-a49f-40c1-ab0d-f5387e2879a6",
       "name": "Button: Generate offer",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -672,
-        48
+        -3568,
+        288
       ],
       "webhookId": "wh-w9-generate-offer"
-    },
-    {
-      "parameters": {
-        "authentication": "nocoDbApiToken",
-        "resource": "linkrow",
-        "workspaceId": {
-          "__rl": true,
-          "value": "wpgg1mff",
-          "mode": "list",
-          "cachedResultName": "CoAction Workspace",
-          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff"
-        },
-        "projectId": {
-          "__rl": true,
-          "value": "p6w78auzu6sjdoo",
-          "mode": "list",
-          "cachedResultName": "CRM Base",
-          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo"
-        },
-        "table": {
-          "__rl": true,
-          "value": "mu3q5qy30ypld45",
-          "mode": "list",
-          "cachedResultName": "leads",
-          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo/mu3q5qy30ypld45"
-        },
-        "id": "={{ $json.Id }}",
-        "linkFieldName": {
-          "__rl": true,
-          "value": "ccet55yxqc97b87",
-          "mode": "list",
-          "cachedResultName": "participants"
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.nocoDb",
-      "typeVersion": 4,
-      "position": [
-        224,
-        112
-      ],
-      "id": "6703f09a-0512-42a8-bba7-5cf38905e469",
-      "name": "Get linked participants",
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "authentication": "nocoDbApiToken",
-        "resource": "linkrow",
-        "workspaceId": {
-          "__rl": true,
-          "value": "wpgg1mff",
-          "mode": "list",
-          "cachedResultName": "CoAction Workspace",
-          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff"
-        },
-        "projectId": {
-          "__rl": true,
-          "value": "p6w78auzu6sjdoo",
-          "mode": "list",
-          "cachedResultName": "CRM Base",
-          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo"
-        },
-        "table": {
-          "__rl": true,
-          "value": "mp0hv96znmqubxa",
-          "mode": "list",
-          "cachedResultName": "participants",
-          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo/mp0hv96znmqubxa"
-        },
-        "id": "={{ $json.id_fields.Id }}",
-        "linkFieldName": {
-          "__rl": true,
-          "value": "cq5tvs4r6xbhg97",
-          "mode": "list",
-          "cachedResultName": "recommendations"
-        },
-        "options": {
-          "fields": {
-            "items": [
-              {
-                "field": {
-                  "__rl": true,
-                  "value": "cyvnmtd0lkh9st3",
-                  "mode": "list",
-                  "cachedResultName": "Id"
-                }
-              },
-              {
-                "field": {
-                  "__rl": true,
-                  "value": "c5x2ru9ybdrcreq",
-                  "mode": "list",
-                  "cachedResultName": "title"
-                }
-              },
-              {
-                "field": {
-                  "__rl": true,
-                  "value": "c5lp995rbjg9csx",
-                  "mode": "list",
-                  "cachedResultName": "headline"
-                }
-              },
-              {
-                "field": {
-                  "__rl": true,
-                  "value": "c4x5rn13rijtn09",
-                  "mode": "list",
-                  "cachedResultName": "rationale"
-                }
-              }
-            ]
-          }
-        }
-      },
-      "type": "n8n-nodes-base.nocoDb",
-      "typeVersion": 4,
-      "position": [
-        448,
-        304
-      ],
-      "id": "29eb1776-265f-4ff0-ba36-ea1dfa67fa9c",
-      "name": "Get linked recommendations",
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      }
     },
     {
       "parameters": {
@@ -624,10 +489,10 @@
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 4,
       "position": [
-        1344,
-        112
+        -2000,
+        384
       ],
-      "id": "d7e9daf3-79d4-4700-b3f0-b303d02fd400",
+      "id": "f164e48b-754d-4f81-b2bb-6758686c31ec",
       "name": "Get linked recomendation packages",
       "credentials": {
         "nocoDbApiToken": {
@@ -774,10 +639,10 @@
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 4,
       "position": [
-        1120,
-        -80
+        -2224,
+        192
       ],
-      "id": "767eb5cd-3ab1-49a0-a697-60ddaacb3982",
+      "id": "3d01fd2e-278d-4e42-9354-8c9f88d7a3d8",
       "name": "Get linked assesments",
       "credentials": {
         "nocoDbApiToken": {
@@ -794,20 +659,20 @@
               "id": "tag-assessment-participant-id",
               "name": "_participant_id",
               "type": "number",
-              "value": "={{ $('Get linked participants').item.json.id_fields.Id }}"
+              "value": "={{ $('Get linked participant').item.json.id_fields.Id }}"
             }
           ]
         },
         "includeOtherFields": true,
         "options": {}
       },
-      "id": "ca2d7caf-6d30-4da3-a531-da35c9d4aa13",
+      "id": "4a6f83e6-f4ea-406f-82ca-7d32e30cf777",
       "name": "Tag assessment with participant",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1344,
-        -80
+        -2000,
+        192
       ]
     },
     {
@@ -818,20 +683,31 @@
               "id": "tag-recommendation-participant-id",
               "name": "_participant_id",
               "type": "number",
-              "value": "={{ $('Get linked participants').item.json.id_fields.Id }}"
+              "value": "={{ $json.id_fields.Id }}"
+            },
+            {
+              "id": "tag-recommendation-fields",
+              "name": "fields",
+              "type": "object",
+              "value": "={{ $('Get linked recommendations').item.json.fields }}"
+            },
+            {
+              "id": "tag-recommendation-id-fields",
+              "name": "id_fields",
+              "type": "object",
+              "value": "={{ $('Get linked recommendations').item.json.id_fields }}"
             }
           ]
         },
-        "includeOtherFields": true,
         "options": {}
       },
-      "id": "efeebcf0-ecb3-439c-bbd4-1366e9ad7761",
+      "id": "00aee00a-cc97-4a1a-af0e-3828b3f88f1d",
       "name": "Tag recommendation with participant",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        672,
-        304
+        -2672,
+        576
       ]
     },
     {
@@ -872,25 +748,25 @@
               "id": "a-data-assessment",
               "name": "data.assessment",
               "type": "object",
-              "value": "={{ (() => { const parts = $('Get linked participants').all().map(p => p.json); if (!parts.length) return {}; const pid = parts[0].id_fields.Id; const asses = $('Tag assessment with participant').all().map(x => x.json).filter(x => x._participant_id === pid).sort((x,y) => y.id_fields.Id - x.id_fields.Id); const af = asses[0] ? asses[0].fields : {}; return { needs_summary: af.needs_summary, position: af.position }; })() }}"
+              "value": "={{ (() => { const parts = $('Get linked participant').all().map(p => p.json); if (!parts.length) return {}; const pid = parts[0].id_fields.Id; const asses = $('Tag assessment with participant').all().map(x => x.json).filter(x => x._participant_id === pid).sort((x,y) => y.id_fields.Id - x.id_fields.Id); const af = asses[0] ? asses[0].fields : {}; return { needs_summary: af.needs_summary, position: af.position }; })() }}"
             },
             {
               "id": "a-data-a",
               "name": "data.a",
               "type": "object",
-              "value": "={{ (() => { const parts = $('Get linked participants').all().map(p => p.json); if (!parts.length) return {}; const pid = parts[0].id_fields.Id; const asses = $('Tag assessment with participant').all().map(x => x.json).filter(x => x._participant_id === pid).sort((x,y) => y.id_fields.Id - x.id_fields.Id); const af = asses[0] ? asses[0].fields : {}; return { o: af.cefr_overall, r: af.cefr_range, a: af.cefr_accuracy, f: af.cefr_fluency, c: af.cefr_communication }; })() }}"
+              "value": "={{ (() => { const parts = $('Get linked participant').all().map(p => p.json); if (!parts.length) return {}; const pid = parts[0].id_fields.Id; const asses = $('Tag assessment with participant').all().map(x => x.json).filter(x => x._participant_id === pid).sort((x,y) => y.id_fields.Id - x.id_fields.Id); const af = asses[0] ? asses[0].fields : {}; return { o: af.cefr_overall, r: af.cefr_range, a: af.cefr_accuracy, f: af.cefr_fluency, c: af.cefr_communication }; })() }}"
             },
             {
               "id": "a-data-recomendation",
               "name": "data.recomendation",
               "type": "object",
-              "value": "={{ (() => { const parts = $('Get linked participants').all().map(p => p.json); if (!parts.length) return {}; const pid = parts[0].id_fields.Id; const recs = $('Tag recommendation with participant').all().map(x => x.json).filter(x => x._participant_id === pid).sort((x,y) => y.id_fields.Id - x.id_fields.Id); const rf = recs[0] ? recs[0].fields : {}; return { headline: rf.headline, rationale: rf.rationale }; })() }}"
+              "value": "={{ (() => { const parts = $('Get linked participant').all().map(p => p.json); if (!parts.length) return {}; const pid = parts[0].id_fields.Id; const recs = $('Tag recommendation with participant').all().map(x => x.json).filter(x => x._participant_id === pid).sort((x,y) => y.id_fields.Id - x.id_fields.Id); const rf = recs[0] ? recs[0].fields : {}; return { headline: rf.headline, rationale: rf.rationale }; })() }}"
             },
             {
               "id": "a-data-participants",
               "name": "data.participants",
               "type": "array",
-              "value": "={{ (() => { const parts = $('Get linked participants').all().map(p => p.json); const asses = $('Tag assessment with participant').all().map(x => x.json); const recs = $('Tag recommendation with participant').all().map(x => x.json); return parts.map(p => { const pid = p.id_fields.Id; const a = asses.filter(x => x._participant_id === pid).sort((x,y) => y.id_fields.Id - x.id_fields.Id)[0]; const r = recs.filter(x => x._participant_id === pid).sort((x,y) => y.id_fields.Id - x.id_fields.Id)[0]; const af = a ? a.fields : {}; return { full_name: p.fields.full_name, position: p.fields.position, a: { o: af.cefr_overall, r: af.cefr_range, a: af.cefr_accuracy, f: af.cefr_fluency, c: af.cefr_communication }, assessment: { needs_summary: af.needs_summary, position: af.position }, recommendation: r ? { headline: r.fields.headline, rationale: r.fields.rationale } : {} }; }); })() }}"
+              "value": "={{ (() => { const parts = $('Get linked participant').all().map(p => p.json); const asses = $('Tag assessment with participant').all().map(x => x.json); const recs = $('Tag recommendation with participant').all().map(x => x.json); return parts.map(p => { const pid = p.id_fields.Id; const a = asses.filter(x => x._participant_id === pid).sort((x,y) => y.id_fields.Id - x.id_fields.Id)[0]; const r = recs.filter(x => x._participant_id === pid).sort((x,y) => y.id_fields.Id - x.id_fields.Id)[0]; const af = a ? a.fields : {}; return { full_name: p.fields.full_name, position: p.fields.position, a: { o: af.cefr_overall, r: af.cefr_range, a: af.cefr_accuracy, f: af.cefr_fluency, c: af.cefr_communication }, assessment: { needs_summary: af.needs_summary, position: af.position }, recommendation: r ? { headline: r.fields.headline, rationale: r.fields.rationale } : {} }; }); })() }}"
             },
             {
               "id": "a-data-packages",
@@ -914,14 +790,14 @@
         },
         "options": {}
       },
-      "id": "f58ea654-e21c-4ffa-bee6-5fbd67393cb0",
+      "id": "79b1334f-4bdb-4f09-956f-1d905be74348",
       "name": "Assemble offer data",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "executeOnce": true,
       "position": [
-        1792,
-        112
+        -1552,
+        384
       ]
     },
     {
@@ -961,10 +837,10 @@
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 4,
       "position": [
-        -224,
-        48
+        -2224,
+        0
       ],
-      "id": "900dc92f-7640-44a0-9193-15dd937aa679",
+      "id": "a16110da-06ab-4143-bd89-bacdd26f291f",
       "name": "Get linked lead",
       "credentials": {
         "nocoDbApiToken": {
@@ -1218,10 +1094,10 @@
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 4,
       "position": [
-        -448,
-        48
+        -3344,
+        288
       ],
-      "id": "78b44fcc-17b8-40f0-9c58-f39853d4009e",
+      "id": "aaff53d5-89ce-4850-9f9d-035fe596f7bb",
       "name": "Set offer generation status: in_progres",
       "credentials": {
         "nocoDbApiToken": {
@@ -1475,10 +1351,10 @@
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 4,
       "position": [
-        3360,
-        144
+        16,
+        384
       ],
-      "id": "2c5e6606-958d-4f38-a266-1df7949e0524",
+      "id": "22e1fdf3-e32b-44ae-91e4-942304210e0c",
       "name": "Set offer generation status: done",
       "credentials": {
         "nocoDbApiToken": {
@@ -1561,10 +1437,10 @@
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 4,
       "position": [
-        896,
-        304
+        -2448,
+        576
       ],
-      "id": "bfce94c7-28d3-4785-8f1f-429e934c3471",
+      "id": "98b0b0e5-0e4a-4456-9126-5d54d9140fbe",
       "name": "Get linked selected cores",
       "credentials": {
         "nocoDbApiToken": {
@@ -1639,10 +1515,10 @@
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 4,
       "position": [
-        1120,
-        304
+        -2224,
+        576
       ],
-      "id": "506ebaf5-10c1-4077-b9f0-4cce31b6d892",
+      "id": "b629549e-71ff-4d90-a959-149319c7cbb1",
       "name": "Get linked core slides",
       "credentials": {
         "nocoDbApiToken": {
@@ -1666,13 +1542,13 @@
         "includeOtherFields": true,
         "options": {}
       },
-      "id": "e1d4a410-fd7f-45d9-946d-873b50854fc4",
+      "id": "fc86e28f-8f2a-47dc-81e5-08918da86a6b",
       "name": "Tag package slide with hours",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1344,
-        304
+        -2000,
+        576
       ]
     },
     {
@@ -1690,13 +1566,13 @@
         "includeOtherFields": true,
         "options": {}
       },
-      "id": "2f116266-bf86-404d-b419-8074a5645bb9",
+      "id": "d3f91634-1116-4f4b-8e0c-006d701f62b6",
       "name": "Tag package variant adon with selection data",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1344,
-        496
+        -2000,
+        768
       ]
     },
     {
@@ -1944,10 +1820,10 @@
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 4,
       "position": [
-        2688,
-        -48
+        -656,
+        192
       ],
-      "id": "ad8c2df8-f7be-49a7-a4ac-82147062d8f4",
+      "id": "ce091b10-4f74-4e18-a206-a7142d86a7a9",
       "name": "Set offer generation status: almost",
       "credentials": {
         "nocoDbApiToken": {
@@ -2030,10 +1906,10 @@
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 4,
       "position": [
-        1120,
-        496
+        -2224,
+        768
       ],
-      "id": "f08bcfa9-8970-4b5f-b381-166e43b3e5fd",
+      "id": "7ac48762-9e78-4dc2-a049-49663b03b88c",
       "name": "Get linked package variant adon",
       "credentials": {
         "nocoDbApiToken": {
@@ -2108,11 +1984,175 @@
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 4,
       "position": [
-        896,
-        496
+        -2448,
+        768
       ],
-      "id": "b6796fb3-8a99-4927-854c-0dd078ffb0d3",
+      "id": "2d4e80ae-a683-453c-abae-3a7f26628207",
       "name": "Get linked selected others",
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "wpgg1mff",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace",
+          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "p6w78auzu6sjdoo",
+          "mode": "list",
+          "cachedResultName": "CRM Base",
+          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo"
+        },
+        "table": {
+          "__rl": true,
+          "value": "m9qxcsnv8ro29cd",
+          "mode": "list",
+          "cachedResultName": "offers",
+          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo/m9qxcsnv8ro29cd"
+        },
+        "id": "={{ $json.id_fields.Id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "c4arz5upwooebnm",
+          "mode": "list",
+          "cachedResultName": "recommendations"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "cyvnmtd0lkh9st3",
+                  "mode": "list",
+                  "cachedResultName": "Id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "c5x2ru9ybdrcreq",
+                  "mode": "list",
+                  "cachedResultName": "title"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "c5lp995rbjg9csx",
+                  "mode": "list",
+                  "cachedResultName": "headline"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "c4x5rn13rijtn09",
+                  "mode": "list",
+                  "cachedResultName": "rationale"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        -3120,
+        384
+      ],
+      "id": "e486b72a-8d3b-4cf5-8979-09e3bb8937bd",
+      "name": "Get linked recommendations",
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "wpgg1mff",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace",
+          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "p6w78auzu6sjdoo",
+          "mode": "list",
+          "cachedResultName": "CRM Base",
+          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo"
+        },
+        "table": {
+          "__rl": true,
+          "value": "mlh3vnu5zj8r13b",
+          "mode": "list",
+          "cachedResultName": "recommendations",
+          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo/mlh3vnu5zj8r13b"
+        },
+        "id": "={{ $json.id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "cr1z25q9c8f6pz3",
+          "mode": "list",
+          "cachedResultName": "participants"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "cb5yokmb9t369qd",
+                  "mode": "list",
+                  "cachedResultName": "Id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "ct794wosc8x7s27",
+                  "mode": "list",
+                  "cachedResultName": "full_name"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "cxr5oxnnobiq0rx",
+                  "mode": "list",
+                  "cachedResultName": "position"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        -2896,
+        384
+      ],
+      "id": "d1910977-07a1-41e3-8009-4f9843766e80",
+      "name": "Get linked participant",
       "credentials": {
         "nocoDbApiToken": {
           "id": "9gq205HbXOk9D3Jm",
@@ -2181,12 +2221,12 @@
       "main": [
         [
           {
-            "node": "Set offer filename",
+            "node": "Set offer generation status: almost",
             "type": "main",
             "index": 0
           },
           {
-            "node": "Set offer generation status: almost",
+            "node": "Set offer filename",
             "type": "main",
             "index": 0
           }
@@ -2240,11 +2280,6 @@
             "node": "Combine fetched data",
             "type": "main",
             "index": 0
-          },
-          {
-            "node": "Get linked participants",
-            "type": "main",
-            "index": 0
           }
         ]
       ]
@@ -2254,33 +2289,6 @@
         [
           {
             "node": "Set offer generation status: in_progres",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Get linked participants": {
-      "main": [
-        [
-          {
-            "node": "Get linked assesments",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Get linked recommendations",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Get linked recommendations": {
-      "main": [
-        [
-          {
-            "node": "Tag recommendation with participant",
             "type": "main",
             "index": 0
           }
@@ -2367,6 +2375,11 @@
       "main": [
         [
           {
+            "node": "Get linked recommendations",
+            "type": "main",
+            "index": 0
+          },
+          {
             "node": "Get linked lead",
             "type": "main",
             "index": 0
@@ -2429,6 +2442,11 @@
         ]
       ]
     },
+    "Set offer generation status: almost": {
+      "main": [
+        []
+      ]
+    },
     "Get linked package variant adon": {
       "main": [
         [
@@ -2445,6 +2463,33 @@
         [
           {
             "node": "Get linked package variant adon",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get linked recommendations": {
+      "main": [
+        [
+          {
+            "node": "Get linked participant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get linked participant": {
+      "main": [
+        [
+          {
+            "node": "Get linked assesments",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Tag recommendation with participant",
             "type": "main",
             "index": 0
           }
