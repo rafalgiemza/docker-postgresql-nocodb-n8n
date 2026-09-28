@@ -398,3 +398,132 @@ def test_rich_text_when_placeholder_split_across_runs():
     # trailing "r" is the original second run, blanked (not removed) - same
     # pre-existing collapse behavior as test_placeholder_split_across_runs_*.
     assert kinds == ["r", "br", "r", "r"]
+
+
+def _run_style(el):
+    """Full style dict for one a:r element - unlike _para_children (bold
+    only), used by the Phase 1 tests below that need italic/underline/
+    strike/code-font/hyperlink too."""
+    t = el.find(qn("a:t"))
+    rpr = el.find(qn("a:rPr"))
+    latin = rpr.find(qn("a:latin")) if rpr is not None else None
+    hlink = rpr.find(qn("a:hlinkClick")) if rpr is not None else None
+    return {
+        "text": t.text if t is not None else "",
+        "bold": rpr.get("b") if rpr is not None else None,
+        "italic": rpr.get("i") if rpr is not None else None,
+        "underline": rpr.get("u") if rpr is not None else None,
+        "strike": rpr.get("strike") if rpr is not None else None,
+        "font": latin.get("typeface") if latin is not None else None,
+        "hlink_rid": hlink.get(qn("r:id")) if hlink is not None else None,
+    }
+
+
+def _para_runs(slide, para_idx=0):
+    para = slide.shapes[0].text_frame.paragraphs[para_idx]
+    return [_run_style(el) for el in para._p if el.tag == qn("a:r")]
+
+
+def test_italic_span_becomes_a_real_italic_run():
+    prs = _new_prs()
+    _add_slide(prs, ["{{v}}"])
+    warnings = []
+    out = _render(prs, {"v": "przed _kursywa_ po"}, warnings)
+    runs = _para_runs(out.slides[0])
+    assert [(r["text"], r["italic"]) for r in runs] == [
+        ("przed ", "0"), ("kursywa", "1"), (" po", "0"),
+    ]
+    assert warnings == []
+
+
+def test_underline_span_becomes_a_real_underline_run():
+    prs = _new_prs()
+    _add_slide(prs, ["{{v}}"])
+    warnings = []
+    out = _render(prs, {"v": "przed <u>podkreslenie</u> po"}, warnings)
+    runs = _para_runs(out.slides[0])
+    assert [(r["text"], r["underline"]) for r in runs] == [
+        ("przed ", "none"), ("podkreslenie", "sng"), (" po", "none"),
+    ]
+    assert warnings == []
+
+
+def test_single_word_strikethrough_becomes_a_real_strike_run():
+    prs = _new_prs()
+    _add_slide(prs, ["{{v}}"])
+    warnings = []
+    out = _render(prs, {"v": "przed ~slowo~ po"}, warnings)
+    runs = _para_runs(out.slides[0])
+    assert [(r["text"], r["strike"]) for r in runs] == [
+        ("przed ", "noStrike"), ("slowo", "sngStrike"), (" po", "noStrike"),
+    ]
+    assert warnings == []
+
+
+def test_multi_word_strikethrough_stays_literal_text():
+    """NocoDB's own strike syntax is single-tilde/single-word (~word~, not
+    GFM's ~~word~~) - deliberately NOT extended to spans with spaces, so a
+    stray "~" in ordinary prose (e.g. "~10 godzin") can't misfire across an
+    unrelated later "~"."""
+    prs = _new_prs()
+    _add_slide(prs, ["{{v}}"])
+    warnings = []
+    out = _render(prs, {"v": "~dwa slowa~ bez zmian"}, warnings)
+    assert _textbox_text(out.slides[0]) == "~dwa slowa~ bez zmian"
+    assert warnings == []
+
+
+def test_inline_code_gets_monospace_font():
+    prs = _new_prs()
+    _add_slide(prs, ["{{v}}"])
+    warnings = []
+    out = _render(prs, {"v": "wpisz `kod` tutaj"}, warnings)
+    runs = _para_runs(out.slides[0])
+    assert [(r["text"], r["font"]) for r in runs] == [
+        ("wpisz ", None), ("kod", "Consolas"), (" tutaj", None),
+    ]
+    assert warnings == []
+
+
+def test_link_becomes_a_real_hyperlink_run():
+    prs = _new_prs()
+    _add_slide(prs, ["{{v}}"])
+    warnings = []
+    out = _render(prs, {"v": "zobacz [tutaj](https://example.com/oferta)"}, warnings)
+    runs = _para_runs(out.slides[0])
+    link_run = next(r for r in runs if r["text"] == "tutaj")
+    assert link_run["hlink_rid"] is not None
+    slide_part = out.slides[0].part
+    assert slide_part.rels[link_run["hlink_rid"]].target_ref == "https://example.com/oferta"
+    assert warnings == []
+
+
+def test_bold_italic_underline_combine_on_one_run():
+    """Nested marks (**_<u>...**) apply all three flags to the same run,
+    not just the outermost one - confirms richtext.py's recursive style
+    carry-through, not just independent non-overlapping regexes."""
+    prs = _new_prs()
+    _add_slide(prs, ["{{v}}"])
+    warnings = []
+    out = _render(prs, {"v": "**_<u>wszystko naraz</u>_**"}, warnings)
+    runs = _para_runs(out.slides[0])
+    assert len(runs) == 1
+    r = runs[0]
+    assert (r["text"], r["bold"], r["italic"], r["underline"]) == (
+        "wszystko naraz", "1", "1", "sng",
+    )
+    assert warnings == []
+
+
+def test_plain_value_with_trailing_space_stays_a_single_run():
+    """Regression guard: mistune strips block-edge whitespace internally -
+    richtext.segments() must re-attach it so an everyday value like "Ala "
+    doesn't gratuitously split into two runs (or lose the space)."""
+    prs = _new_prs()
+    _add_slide(prs, ["{{v}}"])
+    warnings = []
+    out = _render(prs, {"v": "Ala "}, warnings)
+    para = out.slides[0].shapes[0].text_frame.paragraphs[0]
+    assert len(para.runs) == 1
+    assert para.runs[0].text == "Ala "
+    assert warnings == []

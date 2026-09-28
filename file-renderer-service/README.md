@@ -196,15 +196,32 @@ i regenerację), `warnings` (LongText), `lead` (Links → leads).
   potrafi rozbić jeden `{{...}}` na kilka runów o różnym stylu). Serwis
   radzi sobie z takim rozbiciem, ale wtedy cały tekst akapitu przyjmuje styl
   pierwszego fragmentu.
-- **2026-09-07 (tylko PPTX, patrz niżej):** wartość ZWRÓCONA przez
-  placeholder (np. AI-generowany `{{module.goal_statement}}`/
-  `{{package.generated_text}}`) MOŻE zawierać `**pogrubienie**` i
-  `<br>`/prawdziwy `\n` — te dwa są rozpoznawane i zamieniane na prawdziwe
-  pogrubienie / złamanie linii w wygenerowanym pliku, nie wpadają jako
-  literalne `**`/`<br>` na slajd. Nic więcej z markdown/HTML nie jest
-  wspierane (list, nagłówków, linków itd. serwis nie rozumie — zostają jako
-  tekst). DOCX (`docx_renderer.py`) NIE MA jeszcze tej obsługi — placeholder
-  tam nadal wchodzi jako czysty tekst 1:1, `**`/`<br>` wyjdą dosłownie.
+- **2026-09-26 (PPTX i DOCX, rozszerzone — "Faza 1" z
+  `.ai/offers/plan-september.md`):** wartość ZWRÓCONA przez placeholder
+  (np. pole NocoDB Long Text z włączonym "rich text"/markdown, albo
+  AI-generowany `{{module.goal_statement}}`/`{{package.generated_text}}`)
+  jest parsowana jako markdown (`richtext.py`, biblioteka `mistune` + dwie
+  własne reguły dla składni specyficznej dla NocoDB) i zamieniana na
+  prawdziwe formatowanie runu, zgodne ze stylem z szablonu (dziedziczy
+  font/rozmiar/kolor, zmienia tylko poniższe atrybuty):
+
+  | Markdown | Efekt |
+  |---|---|
+  | `**pogrubienie**` | pogrubienie |
+  | `_kursywa_` | kursywa |
+  | `<u>podkreslenie</u>` | podkreślenie (składnia NocoDB — markdown nie ma tego natywnie) |
+  | `~słowo~` | przekreślenie — **tylko pojedyncze słowo** (bez spacji w środku; NocoDB używa pojedynczej tyldy, nie `~~` z GFM) |
+  | `` `kod` `` | font monospace (Consolas) |
+  | `[tekst](url)` | prawdziwy hyperlink |
+  | `<br>` / `\n` | złamanie linii (soft break, ten sam akapit) |
+
+  Style łączą się (np. `**_<u>...</u>_**` daje pogrubienie+kursywę+
+  podkreślenie na tym samym runie). Nagłówki/listy/cytaty/blok kodu/obrazki
+  (`#`, `- item`, `> cytat`, ```` ``` ````, `![alt](url)`) na razie
+  **degradują do zwykłego tekstu** (bez crasha, ale bez własnego
+  formatowania) — to Faza 2 (bloki wielowierszowe) i Faza 3 (obrazki),
+  patrz `.ai/offers/plan-september.md`. Brak warningów dla tych
+  niewspieranych-jeszcze elementów (świadoma decyzja na Fazę 1).
 
 ### PPTX (specyficzne)
 - Repeat działa na całych slajdach, nie na wierszach tabeli. Gdyby kiedyś
@@ -255,6 +272,11 @@ i regenerację), `warnings` (LongText), `lead` (Links → leads).
   placeholdera między runy, pusta lista / brak klucza → drop slajdu z ostrzeżeniem,
   brakująca/zagnieżdżona wartość → pusty string + warning.
 - `test_docx_renderer.py` — DOCX: placeholdery w paragrafach i tabelach, brakujące
-  wartości → pusty string + warning, obsługa float/int, headers/footers.
+  wartości → pusty string + warning, obsługa float/int, headers/footers,
+  bold/italic/underline/strike/code/link/break (Faza 1).
+- `test_richtext.py` — parser markdown sam w sobie (`richtext.py`): każdy
+  wspierany styl osobno i w kombinacji, reguła "strike tylko dla
+  pojedynczego słowa", zachowanie białych znaków na brzegach wartości,
+  degradacja nagłówków/list/cytatów/bloku kodu/obrazków do zwykłego tekstu.
 - `test_app.py` — integracja: realne wywołanie endpointów `/render` i `/render-docx`
   (przez FastAPI bezpośrednio), sprawdza wynikowe pliki i nagłówek `X-Warnings`.
