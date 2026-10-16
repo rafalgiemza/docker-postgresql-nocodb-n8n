@@ -8,7 +8,7 @@ DC_CMD = docker compose -f docker-compose.yml
 LATEST_TS := $(shell ls -1t ./backups/appdata_*.sql 2>/dev/null | head -n 1 | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}')
 RESTORE_TS ?= $(LATEST_TS)
 
-.PHONY: help init init-env config up down restart pull ps versions logs dump-appdata-schema seed-extra backup backup-prune restore init-schema upgrade-links dump-crm-schema init-data init-appdata-db add-rag-db
+.PHONY: help init init-env config up down restart pull ps versions logs dump-appdata-schema seed-extra backup backup-prune restore init-schema demo-schema-init upgrade-links dump-crm-schema init-data init-appdata-db add-rag-db
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -55,6 +55,13 @@ dump-appdata-schema: ## Dump current schema of a running appdata DB into appdata
 init-schema: ## Create the full CRM schema (17 tables + relations) in NocoDB, then upgrade links to v3
 	./scripts/init-schema.sh
 	./scripts/upgrade-links.sh
+
+# DEMO koncepcji schematu v4 (docs/crm-schema-v4-proposal.md): 8 tabel demo_*
+# + relacje miedzy nimi, bez dotykania istniejacych tabel CRM. Same wymagania co
+# init-schema. Po pokazie tabele demo_* usuwa sie recznie w UI. Patrz naglowek
+# scripts/demo-schema-init.py.
+demo-schema-init: ## Create the demo_* tables for the v4 concept demo (does not touch existing CRM tables)
+	python3 scripts/demo-schema-init.py
 
 # Naprawia pola relacji utworzone przez init-schema.py: NocoDB tworzy je w
 # starym formacie "Link to another record" v1 (bez fizycznej tabeli łączącej
