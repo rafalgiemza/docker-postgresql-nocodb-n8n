@@ -10,7 +10,10 @@ dwoma przykładami do pokazu koncepcji schematu v4
   B2B - Acme Sp. z o.o. Marek (szef, płaci, był tylko na discovery i demo)
         kupuje szkolenie dla 2 z 3 audytowanych pracowników. Szansa jest
         WYGRANA (`Umowa podpisana`): participants = Ewa i Piotr, Karol ma
-        audyt i ocenę, ale nie jest participantem.
+        audyt i ocenę, ale nie jest participantem. Lead ma 3 osoby w procesie
+        decyzyjnym (Marek, Joanna z HR, Tomasz z finansów) - dwie ostatnie
+        nigdy nie są attendee ani participantem, są tylko w `leads.persons`.
+        Pole `audited` szansy pokazuje, kto jest po audycie.
 
 Oba przykłady na kanbanie stoją na różnych etapach, a participants jest
 puste u Anny i wypełnione u Acme - to jest kontrast, który ma być widać.
@@ -146,13 +149,15 @@ def seed_b2c():
                position="Product Manager")
     lead = rec("demo_leads", lead_name="Anna Nowak – formularz", lead_type="B2C",
                lead_source="Google", qualification="SQL", received_at=d(-30))
-    lnk("demo_persons", "leads", anna, lead)
+    lnk("demo_leads", "persons", lead, anna)
 
     opp = rec("demo_sale_opportunities", name="Anna Nowak – kurs 1:1", segment="B2C",
               stage=ANNA_STAGE, state="open", deal_value=4800)
     lnk("demo_persons", "bought_opportunities", anna, opp)
     lnk("demo_leads", "opportunities", lead, opp)
     # participants celowo PUSTE: powstaje dopiero przy podpisaniu umowy.
+    # audited: Anna ma już audyt za sobą (n8n dopisze to po utworzeniu oceny).
+    lnk("demo_sale_opportunities", "audited", opp, anna)
 
     history(opp, [("Nowa", 28), ("Badanie potrzeb", 24), ("Audyt", 17), ("Demo", 6)])
 
@@ -179,11 +184,17 @@ def seed_b2b():
                 position="Sales Manager")
     karol = rec("demo_persons", full_name="Karol Mazur", email="karol@acme.example",
                 position="Developer")
-    lnk("demo_companies", "persons", acme, [marek, ewa, piotr, karol])
+    # Dwie osoby z procesu decyzyjnego, które nigdy nie są attendee ani
+    # participantem - żyją tylko w `leads.persons`.
+    joanna = rec("demo_persons", full_name="Joanna Lis", email="joanna.lis@acme.example",
+                 position="HR Director")
+    tomasz = rec("demo_persons", full_name="Tomasz Brzeziński",
+                 email="tomasz.brzezinski@acme.example", position="CFO")
+    lnk("demo_companies", "persons", acme, [marek, ewa, piotr, karol, joanna, tomasz])
 
     lead = rec("demo_leads", lead_name="Acme – audyty dla 3 pracowników", lead_type="B2B",
                lead_source="Recommendation", qualification="SQL", received_at=d(-30))
-    lnk("demo_persons", "leads", marek, lead)
+    lnk("demo_leads", "persons", lead, [marek, joanna, tomasz])
 
     opp = rec("demo_sale_opportunities", name="Acme – audyty i kurs", segment="B2B",
               stage="Umowa podpisana", state="won", deal_value=9600)
@@ -192,6 +203,8 @@ def seed_b2b():
     lnk("demo_leads", "opportunities", lead, opp)
     # Participants = tylko Ewa i Piotr. Marek płaci (kupujący), Karol miał audyt.
     lnk("demo_sale_opportunities", "participants", opp, [ewa, piotr])
+    # Po audycie są wszyscy trzej; "nie zapisany" to audited minus participants.
+    lnk("demo_sale_opportunities", "audited", opp, [ewa, piotr, karol])
 
     history(opp, [("Nowa", 28), ("Badanie potrzeb", 24), ("Audyt", 18), ("Demo", 9),
                   ("Oferta wysłana", 7), ("Umowa wysłana", 3), ("Umowa podpisana", 1)])
@@ -252,4 +265,5 @@ if __name__ == "__main__":
     print(f"\nGotowe: {COUNTS['created']} rekordów, {COUNTS['linked']} linków.")
     print("Sprawdź w UI: kanban demo_sale_opportunities po `stage` (Anna: Demo, "
           "otwarta; Acme: Umowa podpisana), karta Marka (kupujący) vs Karola "
-          "(attendee audytu, bez participants) vs Ewy (participant).")
+          "(po audycie, bez participants) vs Ewy (participant) vs Joanny "
+          "(tylko w leadzie).")

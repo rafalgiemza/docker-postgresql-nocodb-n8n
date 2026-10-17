@@ -161,11 +161,10 @@ TABLES = [
 # (właściciel, tytuł pola, typ relacji, tabela docelowa, tytuł pola ZWROTNEGO)
 # Konwencja jak w init-schema.py: relację "wiele-do-jednego" tworzymy jako `hm`
 # na tabeli "jedynej"; pole zwrotne na tabeli "wielu" to właśnie klucz obcy
-# (np. demo_leads.person), dlatego ma dostać nazwę po roli, nie po tabeli.
+# (np. demo_assessments.person), dlatego ma dostać nazwę po roli, nie po tabeli.
 REL_SPEC = [
     ("demo_companies", "persons", "hm", "demo_persons", "company"),
     ("demo_companies", "opportunities", "hm", "demo_sale_opportunities", "company"),
-    ("demo_persons", "leads", "hm", "demo_leads", "person"),
     ("demo_persons", "bought_opportunities", "hm", "demo_sale_opportunities", "person"),
     ("demo_persons", "assessments", "hm", "demo_assessments", "person"),
     ("demo_persons", "tasks", "hm", "demo_tasks", "person"),
@@ -175,7 +174,12 @@ REL_SPEC = [
     ("demo_sale_opportunities", "tasks", "hm", "demo_tasks", "sale_opportunity"),
     ("demo_meetings", "assessments", "hm", "demo_assessments", "meeting"),
     # many-to-many: pola zwrotne lądują na demo_persons
+    # lead = osoba LUB grupa osób zaangażowanych w decyzję; te osoby mogą nigdy
+    # nie trafić do attendees ani participants
+    ("demo_leads", "persons", "mm", "demo_persons", "leads"),
     ("demo_sale_opportunities", "participants", "mm", "demo_persons", "participant_in"),
+    # kto jest po audycie (wgląd na karcie szansy)
+    ("demo_sale_opportunities", "audited", "mm", "demo_persons", "audited_in"),
     ("demo_meetings", "attendees", "mm", "demo_persons", "attended_meetings"),
 ]
 RELATIONS = [(o, f, t, tg) for o, f, t, tg, _rev in REL_SPEC]
@@ -270,8 +274,8 @@ if __name__ == "__main__":
     print("     jak w make init-schema: docker exec docker-postgres-1 psql -U postgres \\")
     print("       -d appdata -c \"\\dt crm.demo_*\"")
     print("  2. Pola relacji pokazują powiązane rekordy (nie sam licznik) i mają")
-    print("     role-nazwy: demo_leads.person, demo_sale_opportunities.person /")
-    print("     .company / .source_lead, demo_persons.company /")
+    print("     role-nazwy: demo_sale_opportunities.person / .company /")
+    print("     .source_lead, demo_persons.company / .leads / .audited_in /")
     print("     .participant_in / .attended_meetings.")
     print("  3. Widoki do wyklikania: Kanban demo_sale_opportunities po `stage`;")
     print("     grid demo_leads z filtrem qualification != SQL; karta rekordu")

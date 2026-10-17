@@ -24,8 +24,10 @@ Zasady nowego modelu:
 
    | Rola | Jak zapisana | Od kiedy |
    |---|---|---|
+   | Osoba w leadzie (zaangażowana w decyzję) | link `leads` ↔ `persons` (M2M) | zgłoszenie; może nigdy nie zostać attendee ani participantem |
    | Kupujący | `sale_opportunities.person` | utworzenie szansy |
    | Attendee | link `meetings` ↔ `persons` | zaplanowanie spotkania (discovery, audyt, demo) |
+   | Po audycie | link `sale_opportunities.audited` ↔ `persons` | wykonanie audytu |
    | Participant | link `sale_opportunities` ↔ `persons` (bez własnej tabeli i statusów) | **dopiero po podpisaniu umowy** |
 3. **Lead = wejście do lejka, szansa = to, co sprzedajemy.** Szansa należy do
    osoby i firmy, nie do leada. Lead jest tylko źródłem atrybucji
@@ -42,10 +44,11 @@ companies ──< persons                        persons.company (0..1)
 companies ──< leads                          (bez zmian)
 companies ──< sale_opportunities             NOWE
 
-persons ──< leads                            leads.person (wymagane)
+persons >──< leads                           leads.persons (M2M, min. 1; osoba lub grupa osób)
 persons ──< sale_opportunities               sale_opportunities.person (wymagane, główny kontakt)
 persons >──< meetings                        NOWE ("attendees")
 persons >──< sale_opportunities              NOWE ("participants", ustawiane po podpisaniu umowy)
+persons >──< sale_opportunities              NOWE ("audited", kto jest po audycie)
 persons ──< assessments                      assessments.person (było: przez participants)
 persons ──< recommendations                  recommendations.person (było: przez participants)
 
@@ -96,8 +99,8 @@ Zgłoszenie i jego kwalifikacja. Bez etapów sprzedaży i wartości.
 
 | Pole | Typ | Uwagi |
 |---|---|---|
-| `lead_name` | SingleLineText | tytuł; np. „Jan Kowalski – Acme" (wypełnia n8n) |
-| `person` | link → `persons` | **nowe**, wymagane |
+| `lead_name` | SingleLineText | tytuł; np. „Acme – audyty dla 3 pracowników" (wypełnia n8n) |
+| `persons` | link M2M → `persons` | **nowe**, min. 1; lead to osoba lub grupa osób zaangażowanych w decyzję (np. szef, HR, finanse). Te osoby zostają w leadzie i mogą nigdy nie zostać attendee ani participantem |
 | `company` | link → `companies` | bez zmian (intake i `company_match_status`) |
 | `received_at` | DateTime | **nowe**; „Data wpłynięcia" z Excela, dla importu |
 | `lead_type` | SingleSelect B2C/B2B | bez zmian |
@@ -136,6 +139,7 @@ Szansa sprzedaży = to, co jest dziś kanbanem po `stage` w `leads`.
 | `offer_prep_status`, `training_goals` | SingleSelect, LongText | używane przez W1/W6b |
 | `offer_sent_at`, `contract_sent_at`, `closed_at` | Date | pisze n8n, bez zmian |
 | `service_end_date` | Date | **opcjonalne**, pod widok odnowień; patrz pytanie 5 |
+| `audited` | link M2M → `persons` | kto jest po audycie; dopisywany przy utworzeniu oceny (`assessments`) przez n8n. „Nie zapisany" = `audited` minus `participants` |
 | `participants` | link M2M → `persons` | osoby szkolone; wypełniane przy podpisaniu umowy (sekcja 3.5) |
 | `notes`, `legacy_id` | LongText, Number | |
 
@@ -166,8 +170,8 @@ Skutki:
 - Przed umową wszyscy ludzie są attendees spotkań (discovery, audyt, demo).
   Dla B2B z 15 audytowanymi i 10 zapisanymi: 15 osób to attendees audytów
   z ocenami, a 10 trafia do linku participants.
-- „Nie zapisani" to attendees audytu, których nie ma w participants. Osobny
-  status nie jest potrzebny.
+- „Nie zapisani" to osoby z pola `audited` szansy, których nie ma w
+  participants. Osobny status nie jest potrzebny.
 - Zniknęły statusy `candidate`, `audit_scheduled`, `audited`, `enrolled`,
   `not_enrolled`. Koszt: nie da się śledzić kandydata, który nie ma jeszcze
   zaplanowanego spotkania. Zastępują to zadania („umów audyt z X") podpięte do
@@ -231,8 +235,10 @@ przejdzie kwalifikację do `SQL`. Reguły, żeby flow było bezpieczne przy
 ponownym uruchomieniu:
 
 - sprawdź, czy istnieje szansa z tym `source_lead`; jeśli tak, nic nie rób,
-- utwórz `sale_opportunities` z `person`, `company`, `segment`, `owner`,
-  `source_lead`, etapem początkowym i `name`,
+- utwórz `sale_opportunities` z `person` (główny kontakt wybrany z
+  `leads.persons`; dla leada z jedną osobą oczywisty, dla grupy wskazuje go
+  handlowiec), `company`, `segment`, `owner`, `source_lead`, etapem początkowym
+  i `name`,
 - zapisz pierwszy wiersz w `sale_opportunity_stage_history`,
 - utwórz zadanie „umów badanie potrzeb".
 
@@ -304,6 +310,11 @@ później bez przebudowy tego modelu.
 
 ### Decyzje już podjęte
 
+- `leads.persons` jest M2M: lead to osoba lub grupa osób zaangażowanych w
+  decyzję. Te osoby zostają w leadzie i mogą nigdy nie zostać attendee ani
+  participantem.
+- `sale_opportunities.audited` (M2M do `persons`) pokazuje, kto jest po audycie.
+
 - Participant to osoba po podpisaniu umowy, zapisana jako link na szansie
   (sekcja 3.5). Przed umową wszyscy są attendees.
 - Oceny i rekomendacje należą do `persons`, nie do tabeli pośredniej.
@@ -322,7 +333,7 @@ etapy klienta). „Pisze" wskazuje, kto zapisuje dane: człowiek czy n8n.
 | Tabela | Wpis |
 |---|---|
 | `persons` | szukaj po e-mailu; jeśli brak: `full_name`, `email`, `phone` |
-| `leads` | `person` = Anna, `lead_name`, `lead_type` = B2C, `lead_source`, `contact_channel` = Formularz, `received_at`, `qualification` = unqualified, `owner` |
+| `leads` | `persons` = Anna, `lead_name`, `lead_type` = B2C, `lead_source`, `contact_channel` = Formularz, `received_at`, `qualification` = unqualified, `owner` |
 | `activities` | wpis o zgłoszeniu (`summary`, `payload` z formularza), podpięty do leada |
 | `tasks` | „Zakwalifikuj leada: Anna Nowak", podpięte do leada |
 
@@ -362,7 +373,7 @@ Po spotkaniu:
 |---|---|
 | `meetings` | `meeting_type` = audit, `starts_at`, `status` = scheduled, `owner` = metodyczka, link do szansy; po spotkaniu `status` = done, `notes`, `transcript` |
 | `meetings` ↔ `persons` | Anna jako attendee |
-| `sale_opportunities` | `stage` = audit (+ wiersz historii) |
+| `sale_opportunities` | `stage` = audit (+ wiersz historii); po utworzeniu oceny `audited` += Anna (n8n) |
 | `assessments` | `person` = Anna, link do spotkania audytowego, `assessed_at`, `cefr_*`, `strengths`, `gaps`, `auditor_notes`, `self_assessment`, `manager_needs` |
 | `assessments` (AI) | przycisk „Generuj needs summary": `needs_summary`, `ai_status` ai_draft_ready → ai_accepted po weryfikacji |
 | `persons` | `assigned_methodologist`, jeśli już wiadomo |
