@@ -41,12 +41,23 @@ SMTP = {"smtp": {"id": None, "name": "SMTP"}}
 FROM_EMAIL = "info@coaction-test.pl"
 
 
+class MissingField(Exception):
+    pass
+
+
+ALLOW_MISSING = False   # --check: brakujace pola zastepuje placeholderem
+
+
+def have(table, field):
+    return table in SM and field in SM[table]["fields"]
+
+
 def fid(table, field):
-    try:
+    if have(table, field):
         return SM[table]["fields"][field]["id"]
-    except KeyError:
-        sys.exit(f"Brak pola {table}.{field} w schema_map.json: "
-                 f"uruchom `make dump-crm-schema` po `make init-schema`.")
+    if ALLOW_MISSING:
+        return f"__FIELD_{table}_{field}__"
+    raise MissingField(f"{table}.{field}")
 
 
 def ids_of_base():
@@ -94,6 +105,10 @@ class Flow:
             main.append([])
         main[out].append({"node": b, "type": "main", "index": 0})
 
+    def to_ai(self, a, b, kind="ai_languageModel"):
+        self.conn.setdefault(a, {}).setdefault(kind, [[]])[0].append(
+            {"node": b, "type": kind, "index": 0})
+
     def chain(self, *names):
         for a, b in zip(names, names[1:]):
             self.to(a, b)
@@ -102,9 +117,10 @@ class Flow:
         names = {n["name"] for n in self.nodes}
         for a, outs in self.conn.items():
             assert a in names, f"{self.name}: połączenie z nieistniejącego {a}"
-            for lst in outs["main"]:
-                for c in lst:
-                    assert c["node"] in names, f"{self.name}: {a} -> brak {c['node']}"
+            for kind, groups in outs.items():
+                for lst in groups:
+                    for c in lst:
+                        assert c["node"] in names, f"{self.name}: {a} -> brak {c['node']}"
         def strings(o):
             if isinstance(o, str):
                 yield o
@@ -786,6 +802,353 @@ return $('Create recurring task').all().map(c => ({ json: { task_id: c.json.Id }
     return f
 
 
+# ================================================================== AI helpers
+OPENROUTER = {"openRouterApi": {"id": "sd2Yv1RgXeRJ2gk9", "name": "OpenRouter account"}}
+
+
+def ai_agent(f, name, system_message, text_expr, col, row, model_name="OpenRouter Chat Model"):
+    """AI Agent + sub-node modelu (zasady: .ai/rules/ai-n8n.md §3). Prompt
+    metodyczny siedzi w System Message, nie w kodzie."""
+    a = f.add(name, "@n8n/n8n-nodes-langchain.agent", 1.9,
+              {"promptType": "define", "text": text_expr,
+               "options": {"systemMessage": system_message}}, col, row,
+              onError="continueErrorOutput")
+    m = f.add(model_name, "@n8n/n8n-nodes-langchain.lmChatOpenRouter", 1,
+              {"model": "anthropic/claude-sonnet-4.5", "options": {"timeout": 60000}},
+              col, row + 1, creds=OPENROUTER)
+    f.to_ai(m, a)
+    return a
+
+
+# ================================================================== W6a
+MEETING_SYSTEM_MESSAGE = """Jesteś asystentem szkoły językowej CoAction (angielski dla IT i biznesu). Analizujesz transkrypcję i notatki ze spotkania discovery z klientem i wyciągasz z nich dane do oferty.
+
+Zasady:
+- Opieraj się WYŁĄCZNIE na transkrypcji i notatkach. Niczego nie dopisuj od siebie; jeśli czegoś nie ma w rozmowie, wpisz "brak danych w rozmowie".
+- Pisz po polsku, konkretnie, językiem biznesowym, bez ogólników. Teksty trafiają na slajdy oferty, więc pisz je tak, żeby klient mógł je przeczytać.
+- Zwróć WYŁĄCZNIE obiekt JSON (bez komentarza i bez bloku kodu) z dokładnie takimi kluczami:
+  "goals": cele klienta wobec szkolenia,
+  "challenges": wyzwania i problemy zgłaszane podczas spotkania,
+  "participant_types": jacy ludzie i jakie role będą uczestniczyć w szkoleniu (skrót, nie lista imion),
+  "business_context": kontekst biznesowy firmy lub klienta wynikający z rozmowy,
+  "communication_situations": konkretne sytuacje komunikacyjne po angielsku, w których klient bierze udział (np. negocjacje z dostawcą, prezentacje dla zarządu); to one zasilają audyt językowy."""
+
+
+def build_w6a():
+    f = Flow("W6a - Meeting analysis (button: Generuj analizę)")
+    need = [("meetings", "tasks"), ("meetings", "activities"), ("employees", "tasks"),
+            ("sale_opportunities", "activities")]
+    FIELD = field_map_js(need)
+    wh = webhook(f, "Button: Generuj analizę", "w6a-meeting-analysis", 0, 3)
+    b = base(f, 1, 3)
+    pending = nc(f, "Set ai_status: pending", "update", "meetings", 2, 3,
+                 id="={{ $('Button: Generuj analizę').first().json.body.data.rows[0].Id }}",
+                 fields={"ai_status": "pending"})
+    guard = code(f, "Guard", """
+// Przycisk NocoDB (payload v3) wysyla wiersz spotkania razem z relacjami.
+const body = $('Button: Generuj analizę').first().json.body || $('Button: Generuj analizę').first().json;
+const row = (body.data && body.data.rows && body.data.rows[0]) || body;
+const idOf = o => (o && (o.Id || (Array.isArray(o) && o[0] && o[0].Id))) || null;
+const names = a => Array.isArray(a) ? a.map(x => x.full_name || x.title).filter(Boolean) : [];
+const transcript = String(row.transcript || '').trim();
+const notes = String(row.notes || '').trim();
+return [{ json: { meeting_id: row.Id, title: row.title || ('spotkanie #' + row.Id),
+  meeting_type: row.meeting_type || '', starts_at: row.starts_at || '',
+  attendees: names(row.attendees), transcript, notes,
+  owner_id: idOf(row.owner), opp_id: idOf(row.sale_opportunity),
+  enough: transcript.length >= 50 } }];
+""", 3, 3)
+    enough = if_(f, "Transcript long enough?", "={{ $json.enough }}", 4, 3)
+    # --- brak danych: ai_rejected + jedno zadanie provide_input
+    reject = nc(f, "Reject: transcript missing", "update", "meetings", 5, 5,
+                id="={{ $('Guard').first().json.meeting_id }}",
+                fields={"ai_status": "ai_rejected",
+                        "ai_analysis_raw": "Brak transkrypcji (min. 50 znaków). Wklej transkrypcję w pole transcript i kliknij „Generuj analizę” ponownie."})
+    g_tasks = http_links_get(f, "Get tasks linked to the meeting", "meetings", "tasks",
+                             "$('Guard').first().json.meeting_id", 6, 5)
+    open_t = code(f, "Is the input task still missing?", """
+const list = $input.first().json.list || [];
+const open = list.some(t => t.task_type === 'provide_input' && t.status !== 'done' && t.status !== 'cancelled');
+const g = $('Guard').first().json;
+return open ? [] : [{ json: { title: `Wklej transkrypcję: ${g.title}`, due: new Date().toISOString().slice(0, 10) } }];
+""", 7, 5)
+    task = nc(f, "Task: paste the transcript", "create", "tasks", 8, 5, fields={
+        "title": "={{ $json.title }}", "task_type": "provide_input", "status": "todo",
+        "priority": "high", "due_date": "={{ $json.due }}", "created_by_flow": "W6a"})
+    t_prep = code(f, "Prepare task links", "const FIELD = " + FIELD + ";\n" + LINK_HELPER + """
+const g = $('Guard').first().json;
+const tid = $input.first().json.Id;
+return [link('employees', 'tasks', g.owner_id, tid), link('meetings', 'tasks', g.meeting_id, tid)].filter(Boolean);
+""", 9, 5)
+    t_links = http_links_batch(f, "Link the task to the owner and the meeting", 10, 5)
+    # --- analiza AI
+    ctx = code(f, "Assemble context", """
+const g = $('Guard').first().json;
+const text = [
+  `Spotkanie: ${g.title}`,
+  g.meeting_type ? `Typ: ${g.meeting_type}` : '',
+  g.starts_at ? `Data: ${g.starts_at}` : '',
+  g.attendees.length ? `Uczestnicy: ${g.attendees.join(', ')}` : '',
+  g.notes ? `\\nNOTATKI:\\n${g.notes}` : '',
+  `\\nTRANSKRYPCJA:\\n${g.transcript}`,
+].filter(Boolean).join('\\n');
+return [{ json: { user: text } }];
+""", 5, 1)
+    agent = ai_agent(f, "AI Agent", MEETING_SYSTEM_MESSAGE, "={{ $json.user }}", 6, 1)
+    parse = code(f, "Parse AI output", """
+const KEYS = ['goals', 'challenges', 'participant_types', 'business_context', 'communication_situations'];
+const raw = String(($input.first().json.output || $input.first().json.text || '')).trim();
+const m = raw.match(/\\{[\\s\\S]*\\}/);
+let obj = null;
+try { obj = m ? JSON.parse(m[0]) : null; } catch (e) { obj = null; }
+if (!obj || KEYS.some(k => typeof obj[k] !== 'string')) {
+  return [{ json: { ok: false, error_message: 'Model zwrócił odpowiedź w nieoczekiwanym formacie.', raw } }];
+}
+return [{ json: { ok: true, raw, ...Object.fromEntries(KEYS.map(k => [k, obj[k]])) } }];
+""", 7, 1)
+    ok = if_(f, "AI output valid?", "={{ $json.ok }}", 8, 1)
+    save = nc(f, "Save analysis (draft)", "update", "meetings", 9, 0,
+              id="={{ $('Guard').first().json.meeting_id }}", fields={
+                  "goals": "={{ $json.goals }}", "challenges": "={{ $json.challenges }}",
+                  "participant_types": "={{ $json.participant_types }}",
+                  "business_context": "={{ $json.business_context }}",
+                  "communication_situations": "={{ $json.communication_situations }}",
+                  "ai_analysis_raw": "={{ $json.raw }}", "ai_status": "ai_draft_ready"})
+    act = nc(f, "Log activity: AI analysis ready", "create", "activities", 10, 0, fields={
+        "summary": "={{ 'Analiza AI spotkania gotowa do weryfikacji: ' + $('Guard').first().json.title }}",
+        "type": "ai_analysis_done", "flow": "W6a", "triggered_by": "user",
+        "payload": "={{ JSON.stringify({ meeting_id: $('Guard').first().json.meeting_id }) }}"})
+    a_prep = code(f, "Prepare activity links", "const FIELD = " + FIELD + ";\n" + LINK_HELPER + """
+const g = $('Guard').first().json;
+const aid = $input.first().json.Id;
+return [link('meetings', 'activities', g.meeting_id, aid),
+        link('sale_opportunities', 'activities', g.opp_id, aid)].filter(Boolean);
+""", 11, 0)
+    a_links = http_links_batch(f, "Link the activity to the meeting and the opportunity", 12, 0)
+    # --- błąd AI: reset statusu + komunikat w polu, bez zadania
+    err_prep = code(f, "Prepare AI error", """
+const e = $input.first().json;
+const msg = e.error_message || (e.error && (e.error.message || String(e.error))) || 'nieznany błąd';
+return [{ json: { message: 'Analiza AI nie powiodła się (' + msg + '). Kliknij „Generuj analizę” ponownie; jeśli błąd się powtarza, sprawdź transkrypcję.' } }];
+""", 9, 2)
+    err_save = nc(f, "Reset status and write the error", "update", "meetings", 10, 2,
+                  id="={{ $('Guard').first().json.meeting_id }}",
+                  fields={"ai_status": "none", "ai_analysis_raw": "={{ $json.message }}"})
+    err_act = nc(f, "Log activity: AI analysis failed", "create", "activities", 11, 2, fields={
+        "summary": "={{ 'Analiza AI spotkania nie powiodła się: ' + $('Guard').first().json.title }}",
+        "type": "automation_error", "flow": "W6a", "triggered_by": "user",
+        "payload": "={{ JSON.stringify({ meeting_id: $('Guard').first().json.meeting_id, error: $('Prepare AI error').first().json.message }) }}"})
+
+    f.chain(wh, b, pending, guard, enough)
+    f.to(enough, ctx, 0)
+    f.to(enough, reject, 1)
+    f.chain(reject, g_tasks, open_t, task, t_prep, t_links)
+    f.chain(ctx, agent)
+    f.to(agent, parse, 0)
+    f.to(agent, err_prep, 1)
+    f.chain(parse, ok)
+    f.to(ok, save, 0)
+    f.to(ok, err_prep, 1)
+    f.chain(save, act, a_prep, a_links)
+    f.chain(err_prep, err_save, err_act)
+    return f
+
+
+# ================================================================== W7
+# Mapowanie rezerwacji cal.com -> meeting_type. Klucz: slug typu wydarzenia
+# albo eventTypeId (deterministyczne atrybuty rezerwacji; tytul jest dla ludzi).
+# Uzupelnij po utworzeniu typow wydarzen w cal.com (patrz plan migracji).
+MEETING_TYPE_BY_SLUG = {"discovery": "discovery", "audyt": "audit", "audit": "audit",
+                        "demo": "demo"}
+MEETING_TYPE_BY_EVENT_TYPE_ID = {}   # np. {"123456": "discovery"}
+
+
+def build_w7():
+    f = Flow("W7 - cal.com bookings -> meetings (webhook)")
+    for fld in (("meetings", "attendees"), ("meetings", "activities"),
+                ("employees", "meetings"), ("sale_opportunities", "meetings"),
+                ("sale_opportunities", "activities"), ("persons", "bought_opportunities")):
+        fid(*fld)   # wczesny, czytelny błąd, gdy etap 2 nie jest zdumpowany
+    lookups = [("bought_opportunities", fid("persons", "bought_opportunities"))]
+    for extra in ("to_be_audited_in", "participant_in"):   # dochodzą w etapie 3
+        if have("persons", extra):
+            lookups.append((extra, fid("persons", extra)))
+    FIELD = field_map_js([("meetings", "attendees"), ("meetings", "activities"),
+                          ("employees", "meetings"), ("sale_opportunities", "meetings"),
+                          ("sale_opportunities", "activities")])
+    wh = webhook(f, "cal.com: booking event", "w7-calcom-booking", 0, 4)
+    b = base(f, 1, 4)
+    norm = code(f, "Normalize booking", """
+// Webhook cal.com: { triggerEvent, payload: {...} }. Struktura niezweryfikowana na
+// zywej instancji - kod toleruje drobne roznice nazw pol.
+const b = $input.first().json.body || $input.first().json;
+const kind = ({ BOOKING_CREATED: 'created', BOOKING_RESCHEDULED: 'rescheduled',
+                BOOKING_CANCELLED: 'cancelled' })[b.triggerEvent];
+if (!kind) return [];
+const p = b.payload || b;
+const TYPE_BY_SLUG = %s;
+const TYPE_BY_ID = %s;
+const slug = String(p.type || (p.eventType && p.eventType.slug) || '').toLowerCase();
+const typeId = p.eventTypeId || (p.eventType && p.eventType.id) || null;
+const meeting_type = TYPE_BY_ID[String(typeId)] || TYPE_BY_SLUG[slug] || null;
+const attendees = (p.attendees || []).filter(a => a && a.email)
+  .map(a => ({ email: String(a.email).trim().toLowerCase(), name: a.name || '' }));
+return [{ json: { kind, uid: p.uid || null,
+  previous_uid: p.rescheduleUid || p.rescheduledFromUid || null,
+  title: p.title || p.eventTitle || 'Rezerwacja cal.com',
+  starts_at: p.startTime || null, ends_at: p.endTime || null,
+  organizer_email: String((p.organizer && p.organizer.email) || '').trim().toLowerCase(),
+  attendees, meeting_type, event_slug: slug, event_type_id: typeId } }];
+""" % (json.dumps(MEETING_TYPE_BY_SLUG), json.dumps(MEETING_TYPE_BY_EVENT_TYPE_ID)), 2, 4)
+    route = f.add("Route by booking event", "n8n-nodes-base.switch", 3.2,
+                  {"mode": "expression", "numberOutputs": 3,
+                   "output": "={{ ['created','rescheduled','cancelled'].indexOf($json.kind) }}"},
+                  3, 4)
+    # ---------------- utworzenie
+    exist = nc(f, "Find meeting by booking uid", "getAll", "meetings", 4, 0,
+               where="=(external_id,eq,{{ $json.uid }})", limit=1, always_output=True)
+    is_new = code(f, "Is it a new booking?", """
+const n = $('Normalize booking').first().json;
+const found = $input.all().some(i => i.json && i.json.Id);
+return found || !n.uid ? [] : [{ json: n }];
+""", 5, 0)
+    split = code(f, "Split attendees", """
+const n = $input.first().json;
+return n.attendees.map(a => ({ json: { ...a } }));
+""", 6, 0)
+    find_p = nc(f, "Find person by email", "getAll", "persons", 7, 0,
+                where="=(email,eq,{{ $json.email }})", limit=1, always_output=True)
+    match = code(f, "Match person", """
+const att = $('Split attendees').all();
+return $input.all().map((r, i) => {
+  const p = r.json && r.json.Id ? r.json : null;
+  return { json: { ...att[i].json, person_id: p ? p.Id : null,
+                   sales_mode: p ? (p.sales_mode || null) : null } };
+});
+""", 8, 0)
+    person_ok = if_(f, "Person already exists?", "={{ !!$json.person_id }}", 9, 0)
+    new_p = nc(f, "Create person from booking", "create", "persons", 10, 1, fields={
+        "full_name": "={{ $json.name || $json.email }}", "email": "={{ $json.email }}"})
+    new_p_tag = code(f, "Attach created person id", """
+const src = $('Match person').all().filter(i => !i.json.person_id);
+return $input.all().map((r, i) => ({ json: { ...src[i].json, person_id: r.json.Id } }));
+""", 11, 1)
+    mg_p = merge(f, "Join existing and new persons", 2, 12, 0)
+    collect = code(f, "Collect attendees", """
+const n = $('Is it a new booking?').first().json;
+return [{ json: { ...n, people: $input.all().map(i => i.json) } }];
+""", 13, 0)
+    organizer = nc(f, "Find organizer employee", "getAll", "employees", 14, 0,
+                   where="=(email,eq,{{ $json.organizer_email }})", limit=1, always_output=True)
+    prep_m = code(f, "Prepare meeting record", """
+const c = $('Collect attendees').first().json;
+const emp = $input.first().json && $input.first().json.Id ? $input.first().json : null;
+const record = { title: c.title, starts_at: c.starts_at, ends_at: c.ends_at,
+                 status: 'scheduled', external_id: c.uid };
+if (c.meeting_type) record.meeting_type = c.meeting_type;   // pole puste, gdy typ spoza mapowania
+return [{ json: { record, owner_id: emp ? emp.Id : null,
+                  person_ids: c.people.map(p => p.person_id).filter(Boolean),
+                  title: c.title } }];
+""", 15, 0)
+    create_m = f.add("Create meeting (variable field set)", "n8n-nodes-base.httpRequest", 4,
+                     {"method": "POST",
+                      "url": ("=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables"
+                              ".find(t => t.title === 'meetings').id }}/records"),
+                      "authentication": "predefinedCredentialType",
+                      "nodeCredentialType": "nocoDbApiToken", "sendBody": True,
+                      "specifyBody": "json",
+                      "jsonBody": "={{ JSON.stringify($json.record) }}", "options": {}},
+                     16, 0, creds=CRED)
+    act = nc(f, "Log activity: meeting created", "create", "activities", 17, 0, fields={
+        "summary": "={{ 'Spotkanie z rezerwacji cal.com: ' + $('Prepare meeting record').first().json.title }}",
+        "type": "meeting_created", "flow": "W7", "triggered_by": "system",
+        "payload": "={{ JSON.stringify({ meeting_id: $('Create meeting (variable field set)').first().json.Id }) }}"})
+    link_prep = code(f, "Prepare links to owner and attendees",
+                     "const FIELD = " + FIELD + ";\n" + LINK_HELPER + """
+const m = $('Create meeting (variable field set)').first().json.Id;
+const p = $('Prepare meeting record').first().json;
+const a = $('Log activity: meeting created').first().json.Id;
+return [link('employees', 'meetings', p.owner_id, m),
+        link('meetings', 'attendees', m, p.person_ids),
+        link('meetings', 'activities', m, a)].filter(Boolean);
+""", 18, 0)
+    links = http_links_batch(f, "Link the meeting to owner, attendees and activity", 19, 0)
+    # ---------------- szansa sprzedaży (gałąź równoległa po utworzeniu spotkania)
+    lk_items = code(f, "Build opportunity lookups", "const LOOKUPS = " + json.dumps(lookups) + ";\n" + """
+// Dla osob w trybie "Tylko spotkania" nie szukamy szans (nigdy nie sa linkowane).
+const c = $('Collect attendees').first().json;
+const out = [];
+for (const p of c.people) {
+  if (!p.person_id || p.sales_mode === 'Tylko spotkania') continue;
+  for (const [name, field_id] of LOOKUPS)
+    out.push({ json: { person_id: p.person_id, field_id } });
+}
+return out;
+""", 17, 3)
+    lk_get = f.add("Get opportunities of the person", "n8n-nodes-base.httpRequest", 4,
+                   {"method": "GET",
+                    "url": ("=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables"
+                            ".find(t => t.title === 'persons').id }}/links/{{ $json.field_id }}"
+                            "/records/{{ $json.person_id }}?limit=200"),
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "nocoDbApiToken", "options": {}},
+                   18, 3, creds=CRED)
+    pick = code(f, "Pick the only open opportunity", """
+const open = new Map();
+for (const r of $input.all())
+  for (const o of (r.json.list || [])) if (o.state === 'open') open.set(o.Id, o);
+if (open.size !== 1) return [];   // 0 lub wiele: spotkanie zostaje bez szansy
+return [{ json: { opp_id: [...open.keys()][0] } }];
+""", 19, 3)
+    opp_prep = code(f, "Prepare opportunity links",
+                    "const FIELD = " + FIELD + ";\n" + LINK_HELPER + """
+const opp = $input.first().json.opp_id;
+const m = $('Create meeting (variable field set)').first().json.Id;
+const a = $('Log activity: meeting created').first().json.Id;
+return [link('sale_opportunities', 'meetings', opp, m),
+        link('sale_opportunities', 'activities', opp, a)].filter(Boolean);
+""", 20, 3)
+    opp_links = http_links_batch(f, "Link the meeting to the opportunity", 21, 3)
+    # ---------------- przełożenie
+    r_find = nc(f, "Find meeting of the previous booking", "getAll", "meetings", 4, 4,
+                where="=(external_id,eq,{{ $json.previous_uid || $json.uid }})", limit=1,
+                always_output=True)
+    r_code = code(f, "Is the rescheduled meeting known?", """
+const n = $('Normalize booking').first().json;
+const m = $input.first().json;
+return m && m.Id ? [{ json: { meeting_id: m.Id, ...n } }] : [];
+""", 5, 4)
+    r_upd = nc(f, "Move the meeting to the new time", "update", "meetings", 6, 4,
+               id="={{ $json.meeting_id }}", fields={
+                   "starts_at": "={{ $json.starts_at }}", "ends_at": "={{ $json.ends_at }}",
+                   "external_id": "={{ $json.uid }}", "status": "scheduled"})
+    # ---------------- anulowanie
+    c_find = nc(f, "Find meeting of the cancelled booking", "getAll", "meetings", 4, 6,
+                where="=(external_id,eq,{{ $json.uid }})", limit=1, always_output=True)
+    c_code = code(f, "Is the cancelled meeting known?", """
+const m = $input.first().json;
+return m && m.Id ? [{ json: { meeting_id: m.Id } }] : [];
+""", 5, 6)
+    c_upd = nc(f, "Mark the meeting as cancelled", "update", "meetings", 6, 6,
+               id="={{ $json.meeting_id }}", fields={"status": "cancelled"})
+
+    f.chain(wh, b, norm, route)
+    f.to(route, exist, 0)
+    f.to(route, r_find, 1)
+    f.to(route, c_find, 2)
+    f.chain(exist, is_new, split, find_p, match, person_ok)
+    f.to(person_ok, mg_p, 0)
+    f.to(person_ok, new_p, 1)
+    f.chain(new_p, new_p_tag)
+    f.to(new_p_tag, mg_p, 1)
+    f.chain(mg_p, collect, organizer, prep_m, create_m, act, link_prep, links)
+    f.to(links, lk_items)   # szukanie szansy po zakonczeniu linkowania (aktywnosc juz istnieje)
+    f.chain(lk_items, lk_get, pick, opp_prep, opp_links)
+    f.chain(r_find, r_code, r_upd)
+    f.chain(c_find, c_code, c_upd)
+    return f
+
+
 FLOWS = {
     "W15_resolve_assignee.json": build_w15,
     "W3_task_notifications.json": build_w3,
@@ -793,14 +1156,22 @@ FLOWS = {
     "W2_stage_change.json": build_w2,
     "W16_scheduled_tasks.json": build_w16,
     "W0_recurring_tasks.json": build_w0,
+    "W6a_meeting_ai_pipeline.json": build_w6a,
+    "W7_bookings_meetings_sync.json": build_w7,
 }
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="tylko walidacja grafu")
     args = ap.parse_args()
+    ALLOW_MISSING = args.check
     for fname, builder in FLOWS.items():
-        flow = builder()
+        try:
+            flow = builder()
+        except MissingField as e:
+            print(f"--  {fname}: pominięty, brak pola {e} w schema_map.json "
+                  f"(zrób `make init-schema STAGE=N` i `make dump-crm-schema`)")
+            continue
         flow.check()
         print(f"ok  {fname}: {len(flow.nodes)} node'ów")
         if not args.check:

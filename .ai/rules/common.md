@@ -101,7 +101,13 @@ tego nie pokaże:
 1. potencjalny klient wypełnił formularz (`task_type` = `qualify_lead`),
 2. szansa sprzedaży przechodzi na etap wymagający uwagi innego członka zespołu
    (tabela przejść w `docs/archive/fable/nocodb_crm_schema_v4.md`),
-3. nikt nie zatwierdził szkicu AI od wczoraj (dzienny flow, `approve_ai_draft`).
+3. nikt nie zatwierdził szkicu AI od wczoraj (dzienny flow, `approve_ai_draft`),
+4. (wąski) brakuje danych wejściowych, bez których flow nie ruszy, np. brak
+   transkrypcji spotkania (`provide_input`); jedno otwarte zadanie na rekord.
+
+Błędy techniczne (nieudane wywołanie AI, usługi, zapisu) zadania **nie**
+tworzą: stan i komunikat idą do pól `status` / `ai_status` i pola treści
+(`.ai/rules/ai-n8n.md` §7), a ślad do `activities`.
 
 Wyjątkiem jest przycisk, którego jedynym celem jest utworzenie zadań
 („Generuj zadania audytowe"). Kontakty z terminem („odezwać się za 3 dni")

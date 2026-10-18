@@ -387,7 +387,7 @@ SALE_STAGES = ("Nowa", "Discovery umówione", "Discovery odbyte", "Audyt",
 # Rodzaj zadania - JEDYNY sposob, w jaki flow rozpoznaja zadanie (tytul jest
 # dla zespolu, nie dla n8n).
 TASK_TYPE = ("qualify_lead", "audit_prep", "prepare_offer", "invoice",
-             "take_over_participants", "approve_ai_draft", "other")
+             "take_over_participants", "approve_ai_draft", "provide_input", "other")
 
 
 def ai_status_field(action=None, prefix=None):

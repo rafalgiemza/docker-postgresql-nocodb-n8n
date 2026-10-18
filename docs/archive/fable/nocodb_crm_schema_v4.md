@@ -141,6 +141,8 @@ zadań, a nie wynik do obejrzenia.
 Rodzaj zadania zapisuje flow w polu `tasks.task_type` (SingleSelect):
 `qualify_lead` (przypadek 1), `audit_prep`, `prepare_offer`, `invoice`,
 `take_over_participants` (przypadek 2), `approve_ai_draft` (przypadek 3),
+`provide_input` (wąski przypadek 4: brakuje danych wejściowych, np. transkrypcji,
+bez których flow nie ruszy; jedno otwarte zadanie na rekord),
 `other` (zadania ręczne i cykliczne). Tytuł zadania („Przygotowanie audytu:
 <osoba> (<firma>)" itp.) jest tylko opisem dla zespołu.
 
