@@ -1778,23 +1778,55 @@ def upgrade_relations(ids, workspace_id, dry_run):
         ul.upgrade_relation(owner_id, field_title, workspace_id, False)
 
 
+def guess_reverse_column(target_cols, owner, own_titles, claimed):
+    """Zgaduje pole zwrotne relacji, gdy nie udalo sie go zlapac przy tworzeniu
+    (relacje many-to-many: NocoDB dokleja pole zwrotne dopiero przy konwersji
+    do v3). Zweryfikowane na zywo: pole zwrotne dostaje nazwe TABELI
+    WLASCICIELA relacji, a przy kolizji nazwy kolejny numer ("absences",
+    "absences1", "absences2"...), w kolejnosci tworzenia. Zwraca kolumne z
+    najnizszym numerem, ktora nie jest wlasnym polem tabeli docelowej ani juz
+    przydzielonym polem zwrotnym; None, gdy brak kandydata."""
+    import re
+    pat = re.compile(rf"^{re.escape(owner)}(\d*)$", re.IGNORECASE)
+    cands = []
+    for title, col in target_cols.items():
+        m = pat.match(title)
+        if (m and title.lower() not in own_titles and col["id"] not in claimed
+                and col.get("uidt") in ("LinkToAnotherRecord", "Links")):
+            cands.append((int(m.group(1) or 0), col))
+    cands.sort(key=lambda x: x[0])
+    return cands[0][1] if cands else None
+
+
 def rename_reverse(ids, captured, dry_run):
-    """Przemianowuje pola zwrotne (zapamietane w create_relations) na nazwy
-    docelowe z RELATIONS. Gdy pola nie udalo sie zlapac (relacja istniala
-    wczesniej) albo rename sie nie uda - wypisuje, co zmienic RECZNIE.
-    NIEZWERYFIKOWANE NA ZYWO po konwersji v3 (kod pochodzi z
-    scripts/demo-schema-init.py)."""
+    """Przemianowuje pola zwrotne na nazwy docelowe z RELATIONS. Najpierw
+    uzywa id zlapanych przy tworzeniu (create_relations), a gdy ich brak -
+    zgaduje po nazwie (guess_reverse_column). Jesli i to sie nie uda albo
+    rename sie nie powiedzie - wypisuje, co zmienic RECZNIE."""
     ul = load_upgrade_links()
+    claimed = set(captured.values())
+    fields_of = {t["title"]: {f["title"].lower() for f in t["fields"]} for t in TABLES}
     for owner, field_title, _t, target, reverse in RELATIONS:
         if not reverse:
             continue
         if dry_run:
             print(f"~  {target}.<pole zwrotne po {owner}.{field_title}> -> {reverse}")
             continue
-        if reverse.lower() in table_columns(ids[target]):
+        cols = table_columns(ids[target])
+        if reverse.lower() in cols:
             print(f"=  {target}.{reverse}: juz nazwane, pomijam")
             continue
         col_id = captured.get((owner, field_title))
+        if not col_id:
+            own = {r[1].lower() for r in RELATIONS if r[0] == target}
+            own |= fields_of.get(target, set())
+            own |= {r[4].lower() for r in RELATIONS if r[3] == target and r[4]}
+            guess = guess_reverse_column(cols, owner, own, claimed)
+            if guess:
+                col_id = guess["id"]
+                claimed.add(col_id)
+                print(f"~  {target}: pole zwrotne po {owner}.{field_title} "
+                      f"rozpoznane po nazwie ('{guess['title']}')")
         if not col_id:
             print(f"!  {target}: nie znam pola zwrotnego po {owner}.{field_title} "
                   f"- zmien nazwe RECZNIE na '{reverse}'")
