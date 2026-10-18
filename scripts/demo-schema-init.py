@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-r"""Tworzy w NocoDB 8 tabel `demo_*` do pokazu koncepcji schematu v4
+r"""Tworzy w NocoDB 10 tabel `demo_*` do pokazu koncepcji schematu v4
 (docs/crm-schema-v4-proposal.md): lead != szansa sprzedaży, jedna tabela osób,
 role (kupujący / attendee / participant) jako powiązania, historia etapów.
 
@@ -23,6 +23,10 @@ działają na produkcji, ale NOWY jest krok `rename_reverse()` - zmiana nazw
 pól zwrotnych relacji (NocoDB nadaje im nazwy sam). Jeśli nie znajdzie
 jednoznacznego pola do przemianowania, wypisze, co zmienić ręcznie; nic nie
 psuje.
+
+Zespół CoAction (`demo_employees`, `demo_absences`) jest OSOBNĄ tabelą od
+klientów i kontaktów (`demo_persons`): inny cykl życia i inni odbiorcy
+(powiadomienia, przypisywanie zadań, zastępstwa).
 
 Usage:
   make demo-schema-init
@@ -56,6 +60,34 @@ STAGES = ("Nowa", "Badanie potrzeb", "Audyt", "Demo", "Oferta wysłana",
           "Umowa wysłana", "Umowa podpisana", "Utracona")
 
 TABLES = [
+    {
+        "title": "demo_employees",
+        "icon": "🧑‍💼",
+        "description": "DEMO v4: zespół CoAction. Źródło e-maili do przypisywania "
+                       "zadań i powiadomień. Klienci i kontakty to `demo_persons`, "
+                       "pracownicy to TA tabela.",
+        "fields": [
+            {"title": "full_name", "type": "SingleLineText"},
+            {"title": "email", "type": "Email"},
+            {"title": "role", "type": "SingleSelect",
+             "options": select("handlowiec", "metodyczka", "finanse", "marketing", "admin")},
+            {"title": "is_active", "type": "Checkbox", "default_value": True},
+        ],
+    },
+    {
+        "title": "demo_absences",
+        "icon": "🏖️",
+        "description": "DEMO v4: nieobecność pracownika i kto go zastępuje. Zadania "
+                       "w dniach nieobecności trafiają do zastępcy (logika w n8n, "
+                       "w demo tylko dane).",
+        "fields": [
+            {"title": "title", "type": "SingleLineText"},
+            {"title": "absence_type", "type": "SingleSelect",
+             "options": select("urlop", "L4", "inne")},
+            {"title": "start_date", "type": "Date"},
+            {"title": "end_date", "type": "Date"},
+        ],
+    },
     {
         "title": "demo_companies",
         "icon": "🏢",
@@ -151,7 +183,6 @@ TABLES = [
                        "metodyczek (np. jedno zadanie 'umów audyt' na osobę).",
         "fields": [
             {"title": "title", "type": "SingleLineText"},
-            {"title": "assignee", "type": "User"},
             {"title": "status", "type": "SingleSelect", "options": select("todo", "done")},
             {"title": "due_date", "type": "Date"},
         ],
@@ -163,6 +194,10 @@ TABLES = [
 # na tabeli "jedynej"; pole zwrotne na tabeli "wielu" to właśnie klucz obcy
 # (np. demo_assessments.person), dlatego ma dostać nazwę po roli, nie po tabeli.
 REL_SPEC = [
+    ("demo_employees", "absences", "hm", "demo_absences", "employee"),
+    ("demo_employees", "tasks", "hm", "demo_tasks", "assignee"),
+    ("demo_employees", "opportunities", "hm", "demo_sale_opportunities", "owner"),
+    ("demo_employees", "meetings", "hm", "demo_meetings", "owner"),
     ("demo_companies", "persons", "hm", "demo_persons", "company"),
     ("demo_companies", "opportunities", "hm", "demo_sale_opportunities", "company"),
     ("demo_persons", "bought_opportunities", "hm", "demo_sale_opportunities", "person"),
@@ -178,6 +213,8 @@ REL_SPEC = [
     # nie trafić do attendees ani participants
     ("demo_leads", "persons", "mm", "demo_persons", "leads"),
     ("demo_sale_opportunities", "participants", "mm", "demo_persons", "participant_in"),
+    # kto zastępuje w czasie nieobecności (M2M: może być więcej niż jedna osoba)
+    ("demo_absences", "substitutes", "mm", "demo_employees", "covers_absences"),
     # kto jest po audycie (wgląd na karcie szansy)
     ("demo_sale_opportunities", "audited", "mm", "demo_persons", "audited_in"),
     ("demo_meetings", "attendees", "mm", "demo_persons", "attended_meetings"),
@@ -193,43 +230,52 @@ core.COMPUTED_FIELDS = []
 core.BUTTONS = []
 
 
-def rename_reverse(ids, dry_run):
-    """Przemianowuje auto-nazwane pola zwrotne relacji na tytuł z REL_SPEC.
+def create_relations_tracked(ids, dry_run):
+    """Tworzy relacje po jednej i zapamiętuje id pola zwrotnego, które NocoDB
+    dodało na tabeli docelowej (różnica kolumn Links/LTAR przed i po).
+    Po jednej, bo tabela docelowa bywa celem kilku relacji z tego samego
+    właściciela (np. participants i audited -> demo_persons) i dopiero tak
+    wiadomo, które pole zwrotne należy do której."""
+    captured = {}
+    for owner, field, rel_type, target, _rev in REL_SPEC:
+        target_id = ids.get(target)
+        before = set()
+        if not dry_run and target_id:
+            before = {c["id"] for c in core.table_columns(target_id).values()}
+        core.RELATIONS = [(owner, field, rel_type, target)]
+        core.create_relations(ids, dry_run)
+        if not dry_run and target_id:
+            new = [c for c in core.table_columns(target_id).values()
+                   if c["id"] not in before
+                   and c.get("uidt") in ("LinkToAnotherRecord", "Links")]
+            if len(new) == 1:
+                captured[(owner, field)] = new[0]["id"]
+    core.RELATIONS = RELATIONS
+    return captured
 
-    Szuka na tabeli docelowej jedynego pola relacji, które (a) nie jest polem
-    zdefiniowanym przez nas i (b) wskazuje z powrotem na właściciela relacji.
-    Przy 0 lub >1 kandydatów NIC nie zmienia i prosi o ręczną zmianę nazwy.
-    """
-    own_titles = {}
-    for owner, field, _t, _tg, _rev in REL_SPEC:
-        own_titles.setdefault(owner, set()).add(field.lower())
-    for t in TABLES:
-        own_titles.setdefault(t["title"], set()).update(
-            f["title"].lower() for f in t["fields"])
 
+def rename_reverse(ids, captured, dry_run):
+    """Przemianowuje pola zwrotne (zapamiętane w create_relations_tracked) na
+    tytuł z REL_SPEC. Gdy pola nie udało się złapać (relacja istniała już
+    wcześniej) albo rename się nie uda - wypisuje, co zmienić RĘCZNIE."""
     for owner, field, _rel_type, target, reverse in REL_SPEC:
-        owner_id, target_id = ids.get(owner), ids.get(target)
         if dry_run:
             print(f"~  {target}.<pole zwrotne po {owner}.{field}> -> {reverse}")
             continue
-        cols = core.table_columns(target_id)
-        if reverse.lower() in cols:
+        if reverse.lower() in core.table_columns(ids[target]):
             print(f"=  {target}.{reverse}: już nazwane, pomijam")
             continue
-        taken = own_titles.get(target, set())
-        cands = [
-            c for title, c in cols.items()
-            if c.get("uidt") in ("LinkToAnotherRecord", "Links")
-            and title not in taken
-            and (c.get("colOptions") or {}).get("fk_related_model_id") == owner_id
-        ]
-        if len(cands) != 1:
-            print(f"!  {target}: nie umiem jednoznacznie wskazać pola zwrotnego po "
-                  f"{owner}.{field} ({len(cands)} kandydatów) - zmień nazwę RĘCZNIE "
-                  f"na '{reverse}'")
+        col_id = captured.get((owner, field))
+        if not col_id:
+            print(f"!  {target}: nie znam pola zwrotnego po {owner}.{field} - zmień "
+                  f"nazwę RĘCZNIE na '{reverse}'")
             continue
-        print(f"+  {target}.{cands[0]['title']} -> {reverse}")
-        ul.rename_column(cands[0]["id"], reverse)
+        try:
+            ul.rename_column(col_id, reverse)
+            print(f"+  {target}: pole zwrotne po {owner}.{field} -> {reverse}")
+        except SystemExit as e:
+            print(f"!  {target}: rename pola zwrotnego po {owner}.{field} nie "
+                  f"zadziałał ({e}) - zmień nazwę RĘCZNIE na '{reverse}'")
 
 
 if __name__ == "__main__":
@@ -252,7 +298,7 @@ if __name__ == "__main__":
     print("\n--- ikonki tabel ---")
     core.sync_table_icons(ids, args.dry_run)
     print(f"\n--- relacje ({len(RELATIONS)}) ---")
-    core.create_relations(ids, args.dry_run)
+    captured = create_relations_tracked(ids, args.dry_run)
     print("\n--- opcje SingleSelect ---")
     core.sync_select_options(ids, args.dry_run)
 
@@ -267,7 +313,7 @@ if __name__ == "__main__":
             ul.upgrade_relation(ids[owner], field, workspace_id, False)
 
     print("\n--- nazwy pól zwrotnych ---")
-    rename_reverse(ids, args.dry_run)
+    rename_reverse(ids, captured, args.dry_run)
 
     print("\nSPRAWDŹ w UI przed pokazem:")
     print("  1. Tabele demo_* są w appdata (a nie w wewnętrznej bazie NocoDB) -")
@@ -275,8 +321,9 @@ if __name__ == "__main__":
     print("       -d appdata -c \"\\dt crm.demo_*\"")
     print("  2. Pola relacji pokazują powiązane rekordy (nie sam licznik) i mają")
     print("     role-nazwy: demo_sale_opportunities.person / .company /")
-    print("     .source_lead, demo_persons.company / .leads / .audited_in /")
-    print("     .participant_in / .attended_meetings.")
+    print("     .source_lead / .owner, demo_persons.company / .leads / .audited_in /")
+    print("     .participant_in / .attended_meetings, demo_tasks.assignee /")
+    print("     .person, demo_absences.employee / .substitutes.")
     print("  3. Widoki do wyklikania: Kanban demo_sale_opportunities po `stage`;")
     print("     grid demo_leads z filtrem qualification != SQL; karta rekordu")
     print("     demo_persons (kupujący vs szkolony vs attendee).")

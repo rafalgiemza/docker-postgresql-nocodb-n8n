@@ -20,6 +20,11 @@ puste u Anny i wypełnione u Acme - to jest kontrast, który ma być widać.
 Chcesz Annę też na `Umowa podpisana`? Zmień ANNA_STAGE niżej (i dopisz
 participants - patrz seed_b2c()).
 
+Zespół CoAction (`demo_employees`) jest osobną tabelą od klientów: Przemek
+(handlowiec), Dorota (metodyczka B2B), Aleksandra (metodyczka B2C), Paulina
+(finanse). Przemek ma urlop w przyszłym tygodniu (`demo_absences`), a jego
+zadanie wypadające w tym czasie jest przypisane zastępczyni, Dorocie.
+
 Nie dotyka żadnych tabel poza `demo_*`. Odmawia działania, jeśli
 `demo_persons` ma już wiersze (nie dedupe'uje - żeby nie dokładać duplikatów,
 usuń wiersze demo ręcznie w UI i uruchom ponownie).
@@ -120,16 +125,18 @@ def history(opp_id, steps):
         prev = stage
 
 
-def task(title, status, due_offset, person_id, opp_id):
+def task(title, status, due_offset, person_id, opp_id, assignee_id):
     rid = rec("demo_tasks", title=title, status=status, due_date=d(due_offset))
+    lnk("demo_employees", "tasks", assignee_id, rid)
     lnk("demo_persons", "tasks", person_id, rid)
     lnk("demo_sale_opportunities", "tasks", opp_id, rid)
     return rid
 
 
-def meeting(opp_id, title, mtype, days_ago, hour, attendee_ids):
+def meeting(opp_id, title, mtype, days_ago, hour, attendee_ids, owner_id):
     mid = rec("demo_meetings", title=title, meeting_type=mtype,
               starts_at=dt(-days_ago, hour), status="done")
+    lnk("demo_employees", "meetings", owner_id, mid)
     lnk("demo_sale_opportunities", "meetings", opp_id, mid)
     lnk("demo_meetings", "attendees", mid, attendee_ids)
     return mid
@@ -142,8 +149,29 @@ def assessment(person_id, meeting_id, title, cefr, summary):
     return aid
 
 
+# ------------------------------------------------------------------ zespół
+def seed_team():
+    """Zwraca słownik pracowników i tworzy jedną nieobecność z zastępstwem."""
+    print("\n=== Zespół CoAction i nieobecność ===")
+    team = {
+        "przemek": rec("demo_employees", full_name="Przemek", email="przemek@coaction.example",
+                       role="handlowiec", is_active=True),
+        "dorota": rec("demo_employees", full_name="Dorota", email="dorota@coaction.example",
+                      role="metodyczka", is_active=True),
+        "aleksandra": rec("demo_employees", full_name="Aleksandra",
+                          email="aleksandra@coaction.example", role="metodyczka", is_active=True),
+        "paulina": rec("demo_employees", full_name="Paulina", email="paulina@coaction.example",
+                       role="finanse", is_active=True),
+    }
+    absence = rec("demo_absences", title="Przemek – urlop", absence_type="urlop",
+                  start_date=d(3), end_date=d(10))
+    lnk("demo_employees", "absences", team["przemek"], absence)
+    lnk("demo_absences", "substitutes", absence, team["dorota"])
+    return team
+
+
 # ------------------------------------------------------------------ B2C
-def seed_b2c():
+def seed_b2c(team):
     print("\n=== B2C: Anna Nowak (szansa otwarta) ===")
     anna = rec("demo_persons", full_name="Anna Nowak", email="anna.nowak@example.com",
                position="Product Manager")
@@ -154,6 +182,7 @@ def seed_b2c():
     opp = rec("demo_sale_opportunities", name="Anna Nowak – kurs 1:1", segment="B2C",
               stage=ANNA_STAGE, state="open", deal_value=4800)
     lnk("demo_persons", "bought_opportunities", anna, opp)
+    lnk("demo_employees", "opportunities", team["przemek"], opp)
     lnk("demo_leads", "opportunities", lead, opp)
     # participants celowo PUSTE: powstaje dopiero przy podpisaniu umowy.
     # audited: Anna ma już audyt za sobą (n8n dopisze to po utworzeniu oceny).
@@ -161,19 +190,20 @@ def seed_b2c():
 
     history(opp, [("Nowa", 28), ("Badanie potrzeb", 24), ("Audyt", 17), ("Demo", 6)])
 
-    meeting(opp, "Discovery call: Anna Nowak", "discovery", 24, 10, anna)
-    audit = meeting(opp, "Audyt językowy: Anna Nowak", "audit", 17, 14, anna)
-    meeting(opp, "Prezentacja propozycji: Anna Nowak", "demo", 6, 11, anna)
+    meeting(opp, "Discovery call: Anna Nowak", "discovery", 24, 10, anna, team["przemek"])
+    audit = meeting(opp, "Audyt językowy: Anna Nowak", "audit", 17, 14, anna,
+                    team["aleksandra"])
+    meeting(opp, "Prezentacja propozycji: Anna Nowak", "demo", 6, 11, anna, team["przemek"])
     assessment(anna, audit, "Anna Nowak – audyt", "B1",
                "Potrzebuje swobody w rozmowach ze zleceniodawcami z zagranicy; "
                "najsłabsza płynność w mowie.")
 
-    task("Umów discovery call", "done", -28, anna, opp)
-    task("Przygotuj ofertę po demo", "todo", 2, anna, opp)
+    task("Umów discovery call", "done", -28, anna, opp, team["przemek"])
+    task("Przygotuj ofertę po demo", "todo", 2, anna, opp, team["przemek"])
 
 
 # ------------------------------------------------------------------ B2B
-def seed_b2b():
+def seed_b2b(team):
     print("\n=== B2B: Acme Sp. z o.o. (szansa wygrana, 2 z 3 osób szkolonych) ===")
     acme = rec("demo_companies", name="Acme Sp. z o.o.", nip="5252000001")
     marek = rec("demo_persons", full_name="Marek Zieliński", email="marek@acme.example",
@@ -200,6 +230,7 @@ def seed_b2b():
               stage="Umowa podpisana", state="won", deal_value=9600)
     lnk("demo_companies", "opportunities", acme, opp)
     lnk("demo_persons", "bought_opportunities", marek, opp)
+    lnk("demo_employees", "opportunities", team["przemek"], opp)
     lnk("demo_leads", "opportunities", lead, opp)
     # Participants = tylko Ewa i Piotr. Marek płaci (kupujący), Karol miał audyt.
     lnk("demo_sale_opportunities", "participants", opp, [ewa, piotr])
@@ -209,11 +240,11 @@ def seed_b2b():
     history(opp, [("Nowa", 28), ("Badanie potrzeb", 24), ("Audyt", 18), ("Demo", 9),
                   ("Oferta wysłana", 7), ("Umowa wysłana", 3), ("Umowa podpisana", 1)])
 
-    meeting(opp, "Discovery call: Acme (Marek)", "discovery", 24, 10, marek)
-    a_ewa = meeting(opp, "Audyt: Ewa Kowalska", "audit", 18, 9, ewa)
-    a_piotr = meeting(opp, "Audyt: Piotr Wiśniewski", "audit", 17, 9, piotr)
-    a_karol = meeting(opp, "Audyt: Karol Mazur", "audit", 16, 9, karol)
-    meeting(opp, "Prezentacja propozycji: Acme (Marek)", "demo", 9, 15, marek)
+    meeting(opp, "Discovery call: Acme (Marek)", "discovery", 24, 10, marek, team["przemek"])
+    a_ewa = meeting(opp, "Audyt: Ewa Kowalska", "audit", 18, 9, ewa, team["dorota"])
+    a_piotr = meeting(opp, "Audyt: Piotr Wiśniewski", "audit", 17, 9, piotr, team["dorota"])
+    a_karol = meeting(opp, "Audyt: Karol Mazur", "audit", 16, 9, karol, team["dorota"])
+    meeting(opp, "Prezentacja propozycji: Acme (Marek)", "demo", 9, 15, marek, team["przemek"])
 
     assessment(ewa, a_ewa, "Ewa Kowalska – audyt", "B2",
                "Prowadzi spotkania z klientami z UK; potrzebuje słownictwa "
@@ -223,9 +254,11 @@ def seed_b2b():
     assessment(karol, a_karol, "Karol Mazur – audyt", "B1",
                "Głównie pisemna komunikacja z zespołem; nie zapisany na kurs.")
 
-    task("Umów audyt z Karolem", "done", -18, karol, opp)
-    task("Fakturowanie: Acme (NIP w firmie)", "todo", 3, marek, opp)
-    task("Wróć do Marka w sprawie Karola", "todo", 30, marek, opp)
+    task("Umów audyt z Karolem", "done", -18, karol, opp, team["przemek"])
+    task("Fakturowanie: Acme (NIP w firmie)", "todo", 3, marek, opp, team["paulina"])
+    # Termin wypada w czasie urlopu Przemka -> zadanie przejmuje zastępczyni.
+    task("Wróć do Marka w sprawie Karola (zastępstwo za Przemka)", "todo", 5, marek, opp,
+         team["dorota"])
 
 
 def load_ids():
@@ -260,10 +293,11 @@ if __name__ == "__main__":
             sys.exit("demo_persons nie jest pusta - usuń wiersze demo (albo tabele "
                      "i uruchom `make demo-schema-init` od nowa), bo skrypt nie "
                      "dedupe'uje.")
-    seed_b2c()
-    seed_b2b()
+    team = seed_team()
+    seed_b2c(team)
+    seed_b2b(team)
     print(f"\nGotowe: {COUNTS['created']} rekordów, {COUNTS['linked']} linków.")
     print("Sprawdź w UI: kanban demo_sale_opportunities po `stage` (Anna: Demo, "
           "otwarta; Acme: Umowa podpisana), karta Marka (kupujący) vs Karola "
           "(po audycie, bez participants) vs Ewy (participant) vs Joanny "
-          "(tylko w leadzie).")
+          "(tylko w leadzie); nieobecność Przemka z zastępczynią Dorotą.")
