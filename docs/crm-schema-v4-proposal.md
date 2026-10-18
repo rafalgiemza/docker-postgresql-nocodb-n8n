@@ -54,6 +54,9 @@ persons ──< recommendations                  recommendations.person (było: 
 
 leads ──< sale_opportunities                 sale_opportunities.source_lead (0..1, unikalne)
 
+employees ──< tasks, meetings, sale_opportunities  NOWE (assignee / owner zamiast pola User, sekcja 3.7)
+employees ──< absences >──< employees        NOWE (kto jest nieobecny, kto zastępuje)
+
 sale_opportunities ──< sale_opportunity_stage_history   NOWE
 sale_opportunities ──< offers                (było leads ──< offers)
 sale_opportunities ──< meetings              (było leads ──< meetings)
@@ -203,6 +206,51 @@ Skutki:
   `participants`. Opis tabeli („lead to pojedyncza szansa") do poprawki na
   „szansa sprzedaży".
 
+### 3.7 `employees` i `absences` (NOWE)
+
+Zespół CoAction jest osobną tabelą od `persons`: klienci i kontakty to
+`persons`, pracownicy to `employees`. Inny cykl życia, inni odbiorcy
+(powiadomienia, zadania) i brak powodu, by pracownik pojawiał się na listach
+klientów albo w eksportach marketingowych.
+
+`employees`
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| `full_name` | SingleLineText | |
+| `email` | Email | źródło adresów do powiadomień (W3) i przypisywania zadań |
+| `role` | SingleSelect | handlowiec, metodyczka, finanse, marketing, admin |
+| `is_active` | Checkbox | |
+
+`absences`
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| `title` | SingleLineText | np. „Przemek – urlop" |
+| `employee` | link → `employees` | kto jest nieobecny |
+| `absence_type` | SingleSelect | urlop, L4, inne |
+| `start_date`, `end_date` | Date | |
+| `substitutes` | link M2M → `employees` | kto zastępuje (może być kilka osób) |
+
+Pola, które dziś są polem `User` (`owner`, `assignee`), zamieniają się na
+linki do `employees`: `tasks.assignee`, `sale_opportunities.owner`,
+`meetings.owner` (a w razie potrzeby `leads.owner`).
+
+Reguła zastępstwa (w n8n, nie w bazie):
+
+1. Flow wylicza odpowiedzialnego z roli (np. `owner` szansy, metodyczka
+   audytu).
+2. Jeśli w dniu zadania (`due_date`, a dla zadań natychmiastowych: dziś) ma on
+   wiersz w `absences`, który ten dzień obejmuje, `assignee` = pierwszy z
+   `substitutes`, który sam nie jest wtedy nieobecny.
+3. Brak wolnego zastępcy: zadanie dostaje użytkownik z rolą `admin` i
+   powiadomienie.
+
+Koszt zamiany `User` na link: NocoDB umie filtrować widok „moje zadania"
+wyłącznie po polu `User` i bieżącym użytkowniku. Z linkiem trzeba zrobić po
+jednym widoku na osobę (tak jak w PRD: widok „Dorota Board") albo zachować pole
+`User` obok linku wyłącznie do filtrów UI. Patrz pytanie 6.
+
 ## 4. Mapowanie starych pól `leads`
 
 | Stare `leads.*` | Nowe miejsce |
@@ -258,10 +306,11 @@ istniejącym wzorcem Buttonów w repo i brakiem ryzyka pętli webhooków.
 | W5 company_dedup | 2 | do sprawdzenia; ewentualnie dedup `persons` |
 | W6b offer_pipeline | 2 | `sale_opportunities` |
 | W13 lead_inquiry_analysis | 2 | do sprawdzenia, czy wynik ląduje na leadzie czy szansie |
+| W3 task_notifications, W0 recurring_tasks (+ krok „Notify owner" w W2) | 0 | wysyłają e-maile; po zmianie 3.7 adres odbiorcy z `employees.email` i wyliczanie zastępcy z `absences`. Skąd biorą adres dziś (pole `User`?): do sprawdzenia |
 | W7 bookings_meetings_sync | 1 | (+1 odwołanie do `participants`) łączy spotkanie z `person` (attendees), szansą jeśli jedna otwarta |
 | W9 offer_package_texts | 1 | `sale_opportunities` |
 | NOWY | | konwersja lead → szansa (sekcja 5) |
-| W0, W3, W4, W6a, W10, W11 | 0 | bez zmian w treści; do weryfikacji po odświeżeniu ID |
+| W4, W6a, W10, W11 | 0 | bez zmian w treści; do weryfikacji po odświeżeniu ID |
 
 Po zmianie schematu: `make dump-crm-schema` i przegląd hardkodowanych ID w
 każdym flow (zgodnie z `.ai/rules/nocodb.md` §1).
@@ -308,8 +357,15 @@ później bez przebudowy tego modelu.
 5. **`service_end_date`.** Dodać już teraz (pod widok „odnowienia w
    najbliższych 30 dniach"), czy dopiero gdy będzie potrzebne?
 
+6. **Pola `owner` / `assignee`.** Zamieniamy `User` na link do `employees`
+   i robimy widok „moje zadania" na każdą osobę, czy zostawiamy `User` obok
+   linku tylko do filtrów w UI (dwa pola do pilnowania)? Dotyczy to też filtru
+   „assignee = ja" używanego dziś w widokach.
+
 ### Decyzje już podjęte
 
+- `employees` (zespół CoAction) i `absences` z zastępstwami to osobne tabele
+  od `persons` (sekcja 3.7).
 - `leads.persons` jest M2M: lead to osoba lub grupa osób zaangażowanych w
   decyzję. Te osoby zostają w leadzie i mogą nigdy nie zostać attendee ani
   participantem.
@@ -328,6 +384,10 @@ Anna Nowak, osoba prywatna, od formularza do podpisania umowy. Etapy wg
 obecnej listy `stage` (etap `demo` dojdzie, jeśli pytanie 1 rozstrzygniemy na
 etapy klienta). „Pisze" wskazuje, kto zapisuje dane: człowiek czy n8n.
 
+> Zadania powstają tylko w trzech przypadkach (formularz, przejście etapu do
+> innej osoby, niezatwierdzony szkic AI od wczoraj); szczegóły w
+> `docs/archive/fable/nocodb_crm_schema_v4.md`, „Zasady tworzenia zadań".
+
 ### Krok 1. Formularz (n8n, W4v3)
 
 | Tabela | Wpis |
@@ -344,7 +404,6 @@ etapy klienta). „Pisze" wskazuje, kto zapisuje dane: człowiek czy n8n.
 | `leads` | `qualification` = MQL, potem SQL (albo `disqualify_reason`) |
 | `sale_opportunities` | po przycisku „Utwórz szansę sprzedaży": `name`, `person` = Anna, `source_lead`, `segment` = B2C, `owner`, `stage` = new, `state` = open, `label` = Nowy klient, `deal_value` (szacunek) |
 | `sale_opportunity_stage_history` | pierwszy wiersz: `to_stage` = new, `changed_by` = n8n |
-| `tasks` | „Umów discovery call", podpięte do szansy |
 
 Przycisk najpierw sprawdza, czy szansa z tym `source_lead` już istnieje.
 
@@ -365,7 +424,6 @@ Po spotkaniu:
 | `meetings` | `status` = done, `notes`, `transcript`; przycisk „Generuj analizę" wypełnia `goals`, `challenges`, `business_context`, `communication_situations` (`ai_status`: ai_draft_ready → ai_accepted po weryfikacji) |
 | `persons` | `position`, `industry`, `role_context`, `frequency` |
 | `sale_opportunities` | `training_goals`, aktualizacja `deal_value`, `stage` = discovery_done (+ wiersz historii) |
-| `tasks` | „Umów audyt"; poprzednie zadanie → done |
 
 ### Krok 4. Audit call (metodyczka, AI → W8)
 
@@ -374,10 +432,10 @@ Po spotkaniu:
 | `meetings` | `meeting_type` = audit, `starts_at`, `status` = scheduled, `owner` = metodyczka, link do szansy; po spotkaniu `status` = done, `notes`, `transcript` |
 | `meetings` ↔ `persons` | Anna jako attendee |
 | `sale_opportunities` | `stage` = audit (+ wiersz historii); po utworzeniu oceny `audited` += Anna (n8n) |
+| `tasks` | (przejście → `audit`, B2C: automatycznie) „Przygotowanie audytu: Anna Nowak" dla metodyczki, linki do szansy, osoby i spotkania discovery; zakres audytu wpisuje do `sale_opportunities.audit_scope` |
 | `assessments` | `person` = Anna, link do spotkania audytowego, `assessed_at`, `cefr_*`, `strengths`, `gaps`, `auditor_notes`, `self_assessment`, `manager_needs` |
 | `assessments` (AI) | przycisk „Generuj needs summary": `needs_summary`, `ai_status` ai_draft_ready → ai_accepted po weryfikacji |
 | `persons` | `assigned_methodologist`, jeśli już wiadomo |
-| `tasks` | „Przygotuj rekomendację" dla metodyczki/handlowca |
 
 ### Krok 5. Demo, czyli prezentacja propozycji przed formalną ofertą
 
@@ -392,10 +450,9 @@ Po spotkaniu:
 
 | Tabela | Wpis |
 |---|---|
-| `offers` | po W1: `file`, `generation status` = done, `warnings`; po wysłaniu `status` = sent, `sent_at`, `valid_until`; po akceptacji `status` = accepted |
+| `offers` | po W1: `file`, `generation status` = done, `warnings`; po weryfikacji `status` = approved (zatwierdzona do wysłania); po wysłaniu `status` = sent, `sent_at`, `valid_until`; po akceptacji `status` = accepted |
 | `sale_opportunities` | `offer_sent_at`, `stage` = offer_sent (+ wiersz historii); po rozmowie o ofercie `stage` = offer_discussed |
 | `meetings` + `persons` | opcjonalnie `meeting_type` = offer_discussion |
-| `tasks` | „Wyślij umowę Annie" |
 
 ### Krok 7. Umowa wysłana i podpisana
 
@@ -403,7 +460,7 @@ Po spotkaniu:
 |---|---|
 | `sale_opportunities` | wysłanie: `stage` = contract_sent, `contract_sent_at`; podpisanie: `stage` = contract_signed, `state` = won, `closed_at`, opcjonalnie `service_end_date`; **`participants` += Anna** |
 | `sale_opportunity_stage_history` | wiersze → contract_sent, → contract_signed |
-| `tasks` | zadania po sprzedaży z `task_templates` (fakturowanie, przekazanie metodyczce) |
+| `tasks` | (przejście → `contract_signed`) fakturowanie dla finansów, przejęcie uczestników przez metodyczkę |
 | `activities` | wpis „umowa podpisana" |
 
 Przy porażce: `state` = lost, `stage` = lost, `loss_reason`, `loss_note`,
