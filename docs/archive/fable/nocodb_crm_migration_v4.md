@@ -210,6 +210,54 @@ co dziś wyzwala W3, skąd flow biorą adres e-mail odbiorcy.
 **Wyjście:** zespół może prowadzić leady i szanse od zgłoszenia do wygranej lub
 utraty, bez spotkań i ofert.
 
+### Flow etapu 1: stan i wdrożenie
+
+Wygenerowane przez `scripts/gen-flows-v4.py` z ID pól relacji ze świeżego
+`schema_map.json` (ID **tabel** flow biorą z node'a „Get one base"). Zrobione:
+
+| Plik | Co robi |
+|---|---|
+| `W15_resolve_assignee.json` | podflow: rola lub pracownik → odpowiedzialny z regułą zastępstw (`employees`, `absences`, zastępcy, admin) |
+| `W3_task_notifications.json` | e-mail do odpowiedzialnego; webhook tabeli `tasks` oraz podflow |
+| `W14_convert_lead.json` | przycisk „Utwórz szansę sprzedaży”: walidacja (`primary_person`, tryb „Tylko spotkania”, duplikat), szansa, pierwszy wiersz historii, linki, `convert_status` |
+| `W2_stage_change.json` | zmiana etapu szansy: kamienie milowe, `stage_changed_at`, historia, aktywność, mail do właściciela, zadania (`prepare_offer`, `invoice`) |
+| `W16_scheduled_tasks.json` | codziennie 07:00: `scheduled` → `todo` + przypomnienie (z zastępstwem) |
+| `W0_recurring_tasks.json` | zadania cykliczne z `task_templates`, odpowiedzialny jako link |
+
+**Jeszcze nie zrobione w etapie 1:** intake z formularza (W4v3 / W4v2, najcięższe
+flow), W5 (dedup firm) i W13 (analiza zgłoszenia). Do czasu ich przepięcia
+test akceptacyjny zaczynamy od kroku 2: lead i osobę z `primary_person`
+tworzysz ręcznie w NocoDB (albo seedem etapu 1).
+
+**Wdrożenie na serwerze** (nie importuj starych flow W4, W5, W6, W7…, bo
+wskazują na tabele v3):
+
+1. `git pull`. Flow są już wygenerowane; generator uruchamiasz ponownie tylko po
+   nowym `make dump-crm-schema` (`python3 scripts/gen-flows-v4.py`).
+2. Podmień adres NocoDB widoczny z n8n w plikach (w Dockerze to zwykle
+   `http://nocodb:8080`):
+   `sed -i 's|__NOCODB_BASE_URL__|http://nocodb:8080|g' docs/archive/fable/W{15,3,14,2,16,0}_*.json`
+3. W n8n zaimportuj **najpierw W15 i W3**. Z adresu każdego z nich odczytaj id
+   (`/workflow/<id>`), potem podmień w W2, W16 i W0:
+   `__W15_WORKFLOW_ID__` i `__W3_WORKFLOW_ID__` (to samo `sed`).
+   Następnie zaimportuj W14, W2, W16 i W0.
+4. Credentiale: „NocoDB Token account” (typ *NocoDB API Token*; dotyczy
+   node’ów NocoDB i HTTP) oraz „SMTP” w node’ach e-mail.
+5. NocoDB → przycisk „Utwórz szansę sprzedaży” na `leads`: akcja *Run
+   Webhook* na adres produkcyjny `…/webhook/w14-convert-lead`.
+6. NocoDB → webhooki: `sale_opportunities` *after update* → `…/webhook/w2-stage-change`
+   (z włączonym „send me previous record”); `tasks` *after insert* i *after
+   update* → `…/webhook/w3-task-notify`.
+7. Aktywuj W3, W14, W2, W16 i W0 (W15 jako podflow nie wymaga aktywacji).
+
+**Niezweryfikowane na żywym n8n/NocoDB** (flow wygenerowane i sprawdzone tylko
+pod kątem spójności grafu i składni kodu): kształt payloadu przycisku i
+webhooka tabeli dla pól relacji (dlatego flow czytają relacje przez API
+linków, nie z payloadu), parametry `where` z datami, działanie węzła Execute
+Workflow w trybie „each” oraz zachowanie węzłów NocoDB z `alwaysOutputData`.
+Pierwsze uruchomienie traktuj jak test; wklej mi wynik wykonania, jeśli
+któryś węzeł się wywróci.
+
 ---
 
 ## Etap 2 — spotkania i cal.com

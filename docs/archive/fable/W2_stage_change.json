@@ -1,58 +1,299 @@
 {
-  "name": "W2 - Lead stage change (milestones + notify)",
+  "name": "W2 - Sale opportunity stage change (milestones, history, tasks)",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
         "path": "w2-stage-change",
+        "responseMode": "onReceived",
         "options": {}
       },
-      "id": "node-008",
-      "name": "NocoDB: leads updated",
+      "id": "nocodb-sale-opportunities-updated",
+      "name": "NocoDB: sale_opportunities updated",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
         0,
-        0
+        380
       ],
       "webhookId": "wh-w2-stage-change"
     },
     {
       "parameters": {
-        "jsCode": "// Guard: NocoDB fires on EVERY update - act only on a real stage change.\n// Requires \"send me previous record\" enabled on the NocoDB webhook.\nconst b = $input.first().json.body || $input.first().json;\nconst row  = (b.data && b.data.rows && b.data.rows[0]) || {};\nconst prev = (b.data && b.data.previous_rows && b.data.previous_rows[0]) || {};\nconst s = row.stage, p = prev.stage;\nif (!s || s === p) return [];\n\nconst today = new Date().toISOString().slice(0, 10);\nconst patch = { Id: row.Id };\nif (s === 'offer_sent')      patch.offer_sent_at = today;\nif (s === 'contract_sent')   patch.contract_sent_at = today;\nif (s === 'contract_signed') { patch.state = 'won';      patch.closed_at = today; }\nif (s === 'lost')            { patch.state = 'lost';     patch.closed_at = today; }\nif (s === 'archived')        { patch.state = 'archived'; patch.closed_at = today; }\n\nconst ownerRaw = row.owner;\nconst owner = (Array.isArray(ownerRaw) ? ownerRaw[0] && ownerRaw[0].email\n              : ownerRaw && ownerRaw.email) || 'przemek.fidzina@coaction-test.pl';\nconst name = row.contact_name || ('lead #' + row.Id);\nconst need_task = s === 'lost' && !row.loss_reason;\n\nreturn [{ json: {\n  patch, need_task, lead_id: row.Id, lead_name: name,\n  old_stage: p || '(none)', new_stage: s, owner_email: owner,\n  task: { title: `Fill in loss reason: ${name}`, status: 'todo', priority: 'high',\n          created_by_flow: 'W2', assignee: owner, description: `lead:${row.Id}` },\n  activity: { summary: `Stage changed: ${p || '(none)'} -> ${s} (${name})`,\n              type: 'stage_changed', flow: 'W2', triggered_by: 'user',\n              payload: JSON.stringify({ lead_id: row.Id, from: p, to: s }) }\n} }];"
+        "authentication": "nocoDbApiToken",
+        "resource": "base",
+        "operation": "get",
+        "workspaceId": {
+          "__rl": true,
+          "value": "wpgg1mff",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "p6w78auzu6sjdoo",
+          "mode": "list",
+          "cachedResultName": "CRM Base"
+        }
       },
-      "id": "node-009",
+      "id": "get-one-base",
+      "name": "Get one base",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        260,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// NocoDB odpala webhook przy KAZDEJ aktualizacji - dzialamy tylko, gdy realnie\n// zmienil sie etap. Wymaga \"send me previous record\" na webhooku tabeli.\nconst body = $input.first().json.body || $input.first().json;\nconst row = (body.data && body.data.rows && body.data.rows[0]) || {};\nconst prev = (body.data && body.data.previous_rows && body.data.previous_rows[0]) || {};\nconst s = row.stage, p = prev.stage;\nif (!s || s === p) return [];\n\nconst today = new Date().toISOString().slice(0, 10);\nconst patch = { Id: row.Id, stage_changed_at: new Date().toISOString() };\nif (s === 'Oferta wysłana')   patch.offer_sent_at = today;\nif (s === 'Umowa wysłana')    patch.contract_sent_at = today;\nif (s === 'Umowa podpisana')  { patch.state = 'won';      patch.closed_at = today; }\nif (s === 'Utracona')         { patch.state = 'lost';     patch.closed_at = today; }\nif (s === 'Zarchiwizowana')   { patch.state = 'archived'; patch.closed_at = today; }\n\n// Zadania przy przejsciach (docs/archive/fable/nocodb_crm_schema_v4.md, \"Zasady\n// tworzenia zadan\"). Przejscie na \"Audyt\" dojdzie w etapie 3.\nconst tasks = [];\nif (s === 'Rekomendacja / demo')\n  tasks.push({ task_type: 'prepare_offer', role: 'handlowiec', use_owner: true,\n               title: `Przygotuj ofertę: ${row.name}`, due_in_days: 1 });\nif (s === 'Umowa podpisana')\n  tasks.push({ task_type: 'invoice', role: 'finanse', use_owner: false,\n               title: `Wystaw fakturę: ${row.name}`, due_in_days: 3 });\n\nreturn [{ json: { opp_id: row.Id, opp_name: row.name || ('szansa #' + row.Id),\n  old_stage: p || '(brak)', new_stage: s, patch, tasks } }];\n"
+      },
+      "id": "guard-prepare",
       "name": "Guard & prepare",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        200,
-        0
+        520,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'sale_opportunities').id }}/links/cmfccw4jcw65cag/records/{{ $('Guard & prepare').first().json.opp_id }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-opportunity-owner",
+      "name": "Get opportunity owner",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        780,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'sale_opportunities').id }}/links/c7rcwykhrxcost6/records/{{ $('Guard & prepare').first().json.opp_id }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-opportunity-buyer",
+      "name": "Get opportunity buyer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        780,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 2
+      },
+      "id": "wait-for-owner-and-buyer",
+      "name": "Wait for owner and buyer",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1040,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst g = $('Guard & prepare').first().json;\nconst owner = (($('Get opportunity owner').first().json.list) || [])[0] || null;\nconst buyer = (($('Get opportunity buyer').first().json.list) || [])[0] || null;\nreturn [{ json: { ...g, owner_id: owner ? owner.Id : null,\n  owner_email: owner ? owner.email : null, buyer_id: buyer ? buyer.Id : null } }];\n"
+      },
+      "id": "assemble-transition",
+      "name": "Assemble transition",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        380
       ]
     },
     {
       "parameters": {
         "method": "PATCH",
-        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mx00y54712018vc/records",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "options": {},
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'sale_opportunities').id }}/records",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.patch) }}"
+        "jsonBody": "={{ JSON.stringify([$('Assemble transition').first().json.patch]) }}",
+        "options": {}
       },
-      "id": "node-010",
-      "name": "Patch lead milestones",
+      "id": "update-opportunity-milestones-variable-field-set",
+      "name": "Update opportunity milestones (variable field set)",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "typeVersion": 4,
       "position": [
-        400,
+        1560,
         0
       ],
       "credentials": {
-        "httpHeaderAuth": {
-          "id": null,
-          "name": "NocoDB Token"
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'sale_opportunity_stage_history').id }}",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "={{ $('Assemble transition').first().json.old_stage + ' → ' + $('Assemble transition').first().json.new_stage }}"
+            },
+            {
+              "fieldName": "from_stage",
+              "fieldValue": "={{ $('Assemble transition').first().json.old_stage === '(brak)' ? '' : $('Assemble transition').first().json.old_stage }}"
+            },
+            {
+              "fieldName": "to_stage",
+              "fieldValue": "={{ $('Assemble transition').first().json.new_stage }}"
+            },
+            {
+              "fieldName": "changed_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldName": "changed_by",
+              "fieldValue": "n8n:W2"
+            }
+          ]
+        }
+      },
+      "id": "create-stage-history-row",
+      "name": "Create stage history row",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        1560,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'activities').id }}",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "summary",
+              "fieldValue": "={{ $('Assemble transition').first().json.opp_name + ': ' + $('Assemble transition').first().json.old_stage + ' → ' + $('Assemble transition').first().json.new_stage }}"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "stage_changed"
+            },
+            {
+              "fieldName": "flow",
+              "fieldValue": "W2"
+            },
+            {
+              "fieldName": "triggered_by",
+              "fieldValue": "system"
+            },
+            {
+              "fieldName": "payload",
+              "fieldValue": "={{ JSON.stringify({ opportunity_id: $('Assemble transition').first().json.opp_id }) }}"
+            }
+          ]
+        }
+      },
+      "id": "log-activity-stage-changed",
+      "name": "Log activity: stage changed",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        1820,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const FIELD = {\n \"sale_opportunities.history\": \"cxxcfkznvd4gh83\",\n \"sale_opportunities.activities\": \"co11vdft4h2hp2h\",\n \"sale_opportunities.tasks\": \"cnagejk3hct2y2q\",\n \"employees.tasks\": \"c4q9kb2obrt2cu4\",\n \"persons.tasks\": \"cm5y2wj9wttl0gr\"\n};\n\nconst TBL = t => $('Get one base').first().json.tables.find(x => x.title === t).id;\nconst link = (table, field, recordId, targetIds) => {\n  const ids = (Array.isArray(targetIds) ? targetIds : [targetIds]).filter(Boolean);\n  if (!recordId || !ids.length) return null;\n  return { json: { table_id: TBL(table), field_id: FIELD[table + '.' + field],\n                   record_id: recordId, body: JSON.stringify(ids.map(Id => ({ Id }))) } };\n};\n\nconst a = $('Assemble transition').first().json;\nreturn [\n  link('sale_opportunities', 'history', a.opp_id, $('Create stage history row').first().json.Id),\n  link('sale_opportunities', 'activities', a.opp_id, $('Log activity: stage changed').first().json.Id),\n].filter(Boolean);\n"
+      },
+      "id": "prepare-links-for-history-and-activity",
+      "name": "Prepare links for history and activity",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $json.table_id }}/links/{{ $json.field_id }}/records/{{ $json.record_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "link-history-and-activity-to-the-opportunity",
+      "name": "Link history and activity to the opportunity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        2340,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
         }
       }
     },
@@ -68,7 +309,7 @@
           "conditions": [
             {
               "id": "c1",
-              "leftValue": "={{ $('Guard & prepare').item.json.need_task }}",
+              "leftValue": "={{ !!$('Assemble transition').first().json.owner_email }}",
               "rightValue": "",
               "operator": {
                 "type": "boolean",
@@ -80,109 +321,30 @@
         },
         "options": {}
       },
-      "id": "node-011",
-      "name": "Lost without reason?",
+      "id": "owner-has-an-email",
+      "name": "Owner has an email?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        600,
-        0
+        2600,
+        380
       ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/mdqdz4zjmarhmmu/records",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "options": {},
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($('Guard & prepare').item.json.task) }}"
-      },
-      "id": "node-012",
-      "name": "Create 'fill reason' task",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        800,
-        -100
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": null,
-          "name": "NocoDB Token"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/records",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "options": {},
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($('Guard & prepare').item.json.activity) }}"
-      },
-      "id": "node-013",
-      "name": "Log activity",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1000,
-        0
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": null,
-          "name": "NocoDB Token"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/links/ca2g6r4nc84ru61/records/{{ $json.Id }}",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "options": {},
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify([{ Id: $('Guard & prepare').item.json.lead_id }]) }}"
-      },
-      "id": "node-014",
-      "name": "Link activity -> lead",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1200,
-        0
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": null,
-          "name": "NocoDB Token"
-        }
-      },
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
         "fromEmail": "info@coaction-test.pl",
-        "toEmail": "={{ $('Guard & prepare').item.json.owner_email }}",
-        "subject": "={{ 'CRM: ' + $('Guard & prepare').item.json.lead_name + ' -> ' + $('Guard & prepare').item.json.new_stage }}",
-        "text": "={{ 'Lead ' + $('Guard & prepare').item.json.lead_name + ' moved from ' + $('Guard & prepare').item.json.old_stage + ' to ' + $('Guard & prepare').item.json.new_stage + '.' }}",
+        "toEmail": "={{ $('Assemble transition').first().json.owner_email }}",
+        "subject": "={{ 'CRM: ' + $('Assemble transition').first().json.opp_name + ' → ' + $('Assemble transition').first().json.new_stage }}",
+        "text": "={{ 'Szansa ' + $('Assemble transition').first().json.opp_name + ' przeszła z etapu ' + $('Assemble transition').first().json.old_stage + ' na ' + $('Assemble transition').first().json.new_stage + '.' }}",
         "options": {}
       },
-      "id": "node-015",
-      "name": "Notify owner",
+      "id": "notify-owner-about-the-stage-change",
+      "name": "Notify owner about the stage change",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        1400,
-        0
+        2860,
+        380
       ],
       "credentials": {
         "smtp": {
@@ -190,10 +352,196 @@
           "name": "SMTP"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst a = $('Assemble transition').first().json;\nconst today = new Date();\nconst addDays = n => new Date(today.getTime() + n * 86400000).toISOString().slice(0, 10);\nreturn (a.tasks || []).map(t => ({ json: { ...t,\n  preferred_employee_id: t.use_owner ? a.owner_id : null,\n  due_date: addDays(t.due_in_days), on_date: addDays(t.due_in_days) } }));\n"
+      },
+      "id": "build-transition-tasks",
+      "name": "Build transition tasks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "__W15_WORKFLOW_ID__",
+          "mode": "id"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "resolve-who-should-do-the-task",
+      "name": "Resolve who should do the task",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1820,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst src = $('Build transition tasks').all();\nconst res = $input.all();\nreturn res.map((r, i) => ({ json: { ...src[i].json, ...r.json } }));\n"
+      },
+      "id": "attach-task-details-to-the-assignee",
+      "name": "Attach task details to the assignee",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'tasks').id }}",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "={{ $json.title }}"
+            },
+            {
+              "fieldName": "task_type",
+              "fieldValue": "={{ $json.task_type }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "todo"
+            },
+            {
+              "fieldName": "priority",
+              "fieldValue": "normal"
+            },
+            {
+              "fieldName": "due_date",
+              "fieldValue": "={{ $json.due_date }}"
+            },
+            {
+              "fieldName": "created_by_flow",
+              "fieldValue": "W2"
+            }
+          ]
+        }
+      },
+      "id": "create-task",
+      "name": "Create task",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2340,
+        760
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const FIELD = {\n \"sale_opportunities.history\": \"cxxcfkznvd4gh83\",\n \"sale_opportunities.activities\": \"co11vdft4h2hp2h\",\n \"sale_opportunities.tasks\": \"cnagejk3hct2y2q\",\n \"employees.tasks\": \"c4q9kb2obrt2cu4\",\n \"persons.tasks\": \"cm5y2wj9wttl0gr\"\n};\n\nconst TBL = t => $('Get one base').first().json.tables.find(x => x.title === t).id;\nconst link = (table, field, recordId, targetIds) => {\n  const ids = (Array.isArray(targetIds) ? targetIds : [targetIds]).filter(Boolean);\n  if (!recordId || !ids.length) return null;\n  return { json: { table_id: TBL(table), field_id: FIELD[table + '.' + field],\n                   record_id: recordId, body: JSON.stringify(ids.map(Id => ({ Id }))) } };\n};\n\nconst a = $('Assemble transition').first().json;\nconst att = $('Attach task details to the assignee').all();\nconst created = $input.all();\nconst out = [];\ncreated.forEach((c, i) => {\n  const tid = c.json.Id, asg = att[i].json.assignee_id;\n  out.push(link('employees', 'tasks', asg, tid));\n  out.push(link('sale_opportunities', 'tasks', a.opp_id, tid));\n  out.push(link('persons', 'tasks', a.buyer_id, tid));\n});\nreturn out.filter(Boolean);\n"
+      },
+      "id": "prepare-task-links",
+      "name": "Prepare task links",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2600,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $json.table_id }}/links/{{ $json.field_id }}/records/{{ $json.record_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "link-task-to-assignee-opportunity-and-buyer",
+      "name": "Link task to assignee, opportunity and buyer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        2860,
+        760
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst created = $('Create task').all();\nreturn created.map(c => ({ json: { task_id: c.json.Id } }));\n",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "collect-created-task-ids",
+      "name": "Collect created task ids",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "__W3_WORKFLOW_ID__",
+          "mode": "id"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "notify-assignee-about-the-task",
+      "name": "Notify assignee about the task",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        3380,
+        760
+      ]
     }
   ],
   "connections": {
-    "NocoDB: leads updated": {
+    "NocoDB: sale_opportunities updated": {
+      "main": [
+        [
+          {
+            "node": "Get one base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get one base": {
       "main": [
         [
           {
@@ -208,69 +556,199 @@
       "main": [
         [
           {
-            "node": "Patch lead milestones",
+            "node": "Get opportunity owner",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get opportunity buyer",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Patch lead milestones": {
+    "Get opportunity owner": {
       "main": [
         [
           {
-            "node": "Lost without reason?",
+            "node": "Wait for owner and buyer",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Lost without reason?": {
+    "Get opportunity buyer": {
       "main": [
+        [],
         [
           {
-            "node": "Create 'fill reason' task",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Log activity",
+            "node": "Wait for owner and buyer",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Create 'fill reason' task": {
+    "Wait for owner and buyer": {
       "main": [
         [
           {
-            "node": "Log activity",
+            "node": "Assemble transition",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Log activity": {
+    "Assemble transition": {
       "main": [
         [
           {
-            "node": "Link activity -> lead",
+            "node": "Update opportunity milestones (variable field set)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create stage history row",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build transition tasks",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Link activity -> lead": {
+    "Create stage history row": {
       "main": [
         [
           {
-            "node": "Notify owner",
+            "node": "Log activity: stage changed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log activity: stage changed": {
+      "main": [
+        [
+          {
+            "node": "Prepare links for history and activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare links for history and activity": {
+      "main": [
+        [
+          {
+            "node": "Link history and activity to the opportunity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link history and activity to the opportunity": {
+      "main": [
+        [
+          {
+            "node": "Owner has an email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Owner has an email?": {
+      "main": [
+        [
+          {
+            "node": "Notify owner about the stage change",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build transition tasks": {
+      "main": [
+        [
+          {
+            "node": "Resolve who should do the task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve who should do the task": {
+      "main": [
+        [
+          {
+            "node": "Attach task details to the assignee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach task details to the assignee": {
+      "main": [
+        [
+          {
+            "node": "Create task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create task": {
+      "main": [
+        [
+          {
+            "node": "Prepare task links",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare task links": {
+      "main": [
+        [
+          {
+            "node": "Link task to assignee, opportunity and buyer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link task to assignee, opportunity and buyer": {
+      "main": [
+        [
+          {
+            "node": "Collect created task ids",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect created task ids": {
+      "main": [
+        [
+          {
+            "node": "Notify assignee about the task",
             "type": "main",
             "index": 0
           }
@@ -278,8 +756,12 @@
       ]
     }
   },
+  "pinData": {},
   "settings": {
     "executionOrder": "v1"
   },
-  "active": false
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
 }

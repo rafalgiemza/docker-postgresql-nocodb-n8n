@@ -1,0 +1,818 @@
+{
+  "name": "W14 - Convert lead to sale opportunity (button)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "w14-convert-lead",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "button-utw-rz-szans-sprzeda-y",
+      "name": "Button: Utwórz szansę sprzedaży",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        570
+      ],
+      "webhookId": "wh-w14-convert-lead"
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "base",
+        "operation": "get",
+        "workspaceId": {
+          "__rl": true,
+          "value": "wpgg1mff",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "p6w78auzu6sjdoo",
+          "mode": "list",
+          "cachedResultName": "CRM Base"
+        }
+      },
+      "id": "get-one-base",
+      "name": "Get one base",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        260,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Przycisk NocoDB wysyla caly wiersz leada w body.data.rows[0].\nconst body = $input.first().json.body || $input.first().json;\nconst row = (body.data && body.data.rows && body.data.rows[0]) || body;\nreturn [{ json: { lead_id: row.Id, lead_name: row.lead_name || ('lead #' + row.Id),\n                  lead_type: row.lead_type || null } }];\n"
+      },
+      "id": "guard",
+      "name": "Guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'leads').id }}",
+        "operation": "update",
+        "id": "={{ $json.lead_id }}",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "convert_status",
+              "fieldValue": "generating"
+            },
+            {
+              "fieldName": "convert_note",
+              "fieldValue": ""
+            }
+          ]
+        }
+      },
+      "id": "set-convert-status-generating",
+      "name": "Set convert status: generating",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        780,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'leads').id }}/links/cjh09yw2nzn4qcr/records/{{ $('Guard').first().json.lead_id }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-lead-primary-person",
+      "name": "Get lead primary person",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1040,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'leads').id }}/links/cuv3onsjw96ehmv/records/{{ $('Guard').first().json.lead_id }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-lead-owner",
+      "name": "Get lead owner",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1040,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'leads').id }}/links/cc8796gq4g9jgv7/records/{{ $('Guard').first().json.lead_id }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-lead-company",
+      "name": "Get lead company",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1040,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'leads').id }}/links/cpvgaer9v6h69yp/records/{{ $('Guard').first().json.lead_id }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-existing-opportunities-of-the-lead",
+      "name": "Get existing opportunities of the lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1040,
+        760
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "id": "wait-for-lead-data",
+      "name": "Wait for lead data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1300,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst g = $('Guard').first().json;\nconst person = (($('Get lead primary person').first().json.list) || [])[0];\nconst owner = (($('Get lead owner').first().json.list) || [])[0];\nconst company = (($('Get lead company').first().json.list) || [])[0];\nconst existing = ($('Get existing opportunities of the lead').first().json.list) || [];\nlet error = null;\nif (!person) error = 'Brak głównego kontaktu (primary_person) na leadzie.';\nelse if (person.sales_mode === 'Tylko spotkania')\n  error = 'Główny kontakt ma tryb \"Tylko spotkania\" - nie tworzymy dla niego szansy.';\nelse if (existing.length) error = 'Szansa dla tego leada już istnieje (nie tworzę drugiej).';\nreturn [{ json: {\n  ok: !error, error_message: error, lead_id: g.lead_id, lead_name: g.lead_name,\n  segment: g.lead_type === 'B2B' ? 'B2B' : 'B2C',\n  person_id: person ? person.Id : null, owner_id: owner ? owner.Id : null,\n  company_id: company ? company.Id : null,\n} }];\n"
+      },
+      "id": "validate-conversion",
+      "name": "Validate conversion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "conversion-allowed",
+      "name": "Conversion allowed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1820,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'leads').id }}",
+        "operation": "update",
+        "id": "={{ $json.lead_id }}",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "convert_status",
+              "fieldValue": "error"
+            },
+            {
+              "fieldName": "convert_note",
+              "fieldValue": "={{ $json.error_message }}"
+            }
+          ]
+        }
+      },
+      "id": "write-conversion-error",
+      "name": "Write conversion error",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2080,
+        950
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'activities').id }}",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "summary",
+              "fieldValue": "={{ 'Konwersja leada odrzucona: ' + $('Validate conversion').first().json.error_message }}"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "automation_error"
+            },
+            {
+              "fieldName": "flow",
+              "fieldValue": "W14"
+            },
+            {
+              "fieldName": "triggered_by",
+              "fieldValue": "user"
+            },
+            {
+              "fieldName": "payload",
+              "fieldValue": "={{ JSON.stringify({ lead_id: $('Validate conversion').first().json.lead_id }) }}"
+            }
+          ]
+        }
+      },
+      "id": "log-activity-conversion-refused",
+      "name": "Log activity: conversion refused",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2340,
+        950
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'sale_opportunities').id }}",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "name",
+              "fieldValue": "={{ $json.lead_name }}"
+            },
+            {
+              "fieldName": "segment",
+              "fieldValue": "={{ $json.segment }}"
+            },
+            {
+              "fieldName": "stage",
+              "fieldValue": "Nowa"
+            },
+            {
+              "fieldName": "state",
+              "fieldValue": "open"
+            },
+            {
+              "fieldName": "label",
+              "fieldValue": "Nowy klient"
+            },
+            {
+              "fieldName": "stage_changed_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "id": "create-sale-opportunity",
+      "name": "Create sale opportunity",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2080,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'sale_opportunity_stage_history').id }}",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "Utworzono: Nowa"
+            },
+            {
+              "fieldName": "to_stage",
+              "fieldValue": "Nowa"
+            },
+            {
+              "fieldName": "changed_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldName": "changed_by",
+              "fieldValue": "n8n:W14"
+            }
+          ]
+        }
+      },
+      "id": "create-first-stage-history-row",
+      "name": "Create first stage history row",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2340,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'activities').id }}",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "summary",
+              "fieldValue": "={{ 'Utworzono szansę sprzedaży z leada: ' + $('Validate conversion').first().json.lead_name }}"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "stage_changed"
+            },
+            {
+              "fieldName": "flow",
+              "fieldValue": "W14"
+            },
+            {
+              "fieldName": "triggered_by",
+              "fieldValue": "user"
+            },
+            {
+              "fieldName": "payload",
+              "fieldValue": "={{ JSON.stringify({ lead_id: $('Validate conversion').first().json.lead_id, opportunity_id: $('Create sale opportunity').first().json.Id }) }}"
+            }
+          ]
+        }
+      },
+      "id": "log-activity-opportunity-created",
+      "name": "Log activity: opportunity created",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2600,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const FIELD = {\n \"persons.bought_opportunities\": \"ck5jkdn5f4dadnp\",\n \"leads.opportunities\": \"cpvgaer9v6h69yp\",\n \"employees.opportunities\": \"c9ssurqn7ppm0c1\",\n \"companies.opportunities\": \"ch3qnvrhuo1wc2s\",\n \"sale_opportunities.history\": \"cxxcfkznvd4gh83\",\n \"sale_opportunities.activities\": \"co11vdft4h2hp2h\",\n \"leads.activities\": \"c8lkoq5zuycalmr\"\n};\n\nconst TBL = t => $('Get one base').first().json.tables.find(x => x.title === t).id;\nconst link = (table, field, recordId, targetIds) => {\n  const ids = (Array.isArray(targetIds) ? targetIds : [targetIds]).filter(Boolean);\n  if (!recordId || !ids.length) return null;\n  return { json: { table_id: TBL(table), field_id: FIELD[table + '.' + field],\n                   record_id: recordId, body: JSON.stringify(ids.map(Id => ({ Id }))) } };\n};\n\nconst v = $('Validate conversion').first().json;\nconst opp = $('Create sale opportunity').first().json.Id;\nconst hist = $('Create first stage history row').first().json.Id;\nconst act = $('Log activity: opportunity created').first().json.Id;\nreturn [\n  link('persons', 'bought_opportunities', v.person_id, opp),\n  link('leads', 'opportunities', v.lead_id, opp),\n  link('employees', 'opportunities', v.owner_id, opp),\n  link('companies', 'opportunities', v.company_id, opp),\n  link('sale_opportunities', 'history', opp, hist),\n  link('sale_opportunities', 'activities', opp, act),\n  link('leads', 'activities', v.lead_id, act),\n].filter(Boolean);\n"
+      },
+      "id": "prepare-links",
+      "name": "Prepare links",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $json.table_id }}/links/{{ $json.field_id }}/records/{{ $json.record_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "link-records-to-the-new-opportunity",
+      "name": "Link records to the new opportunity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        3120,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'leads').id }}",
+        "operation": "update",
+        "id": "={{ $('Validate conversion').first().json.lead_id }}",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "convert_status",
+              "fieldValue": "done"
+            },
+            {
+              "fieldName": "convert_note",
+              "fieldValue": ""
+            }
+          ]
+        }
+      },
+      "id": "set-convert-status-done",
+      "name": "Set convert status: done",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        3380,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst v = $('Validate conversion').first().json;\nconst e = $input.first().json;\nreturn [{ json: { lead_id: v.lead_id, error_message:\n  'Nie udało się utworzyć szansy: ' + ((e.error && (e.error.message || e.error)) || 'nieznany błąd') } }];\n"
+      },
+      "id": "prepare-unexpected-error",
+      "name": "Prepare unexpected error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2340,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Button: Utwórz szansę sprzedaży": {
+      "main": [
+        [
+          {
+            "node": "Get one base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get one base": {
+      "main": [
+        [
+          {
+            "node": "Guard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guard": {
+      "main": [
+        [
+          {
+            "node": "Set convert status: generating",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set convert status: generating": {
+      "main": [
+        [
+          {
+            "node": "Get lead primary person",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get lead owner",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get lead company",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get existing opportunities of the lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get lead primary person": {
+      "main": [
+        [
+          {
+            "node": "Wait for lead data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get lead owner": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Wait for lead data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get lead company": {
+      "main": [
+        [],
+        [],
+        [
+          {
+            "node": "Wait for lead data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get existing opportunities of the lead": {
+      "main": [
+        [],
+        [],
+        [],
+        [
+          {
+            "node": "Wait for lead data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for lead data": {
+      "main": [
+        [
+          {
+            "node": "Validate conversion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate conversion": {
+      "main": [
+        [
+          {
+            "node": "Conversion allowed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversion allowed?": {
+      "main": [
+        [
+          {
+            "node": "Create sale opportunity",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Write conversion error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write conversion error": {
+      "main": [
+        [
+          {
+            "node": "Log activity: conversion refused",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create sale opportunity": {
+      "main": [
+        [
+          {
+            "node": "Create first stage history row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare unexpected error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare unexpected error": {
+      "main": [
+        [
+          {
+            "node": "Write conversion error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create first stage history row": {
+      "main": [
+        [
+          {
+            "node": "Log activity: opportunity created",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log activity: opportunity created": {
+      "main": [
+        [
+          {
+            "node": "Prepare links",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare links": {
+      "main": [
+        [
+          {
+            "node": "Link records to the new opportunity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link records to the new opportunity": {
+      "main": [
+        [
+          {
+            "node": "Set convert status: done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

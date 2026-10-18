@@ -1,0 +1,737 @@
+{
+  "name": "W15 - Resolve assignee (role -> employee, absences)",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "resolve-assignee-input",
+      "name": "Resolve assignee: input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "base",
+        "operation": "get",
+        "workspaceId": {
+          "__rl": true,
+          "value": "wpgg1mff",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "p6w78auzu6sjdoo",
+          "mode": "list",
+          "cachedResultName": "CRM Base"
+        }
+      },
+      "id": "get-one-base",
+      "name": "Get one base",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        260,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Wejscie: preferred_employee_id (opcjonalne), role, on_date (YYYY-MM-DD).\nconst i = $input.first().json;\nconst today = new Date().toISOString().slice(0, 10);\nreturn [{ json: {\n  preferred_employee_id: i.preferred_employee_id || null,\n  role: i.role || 'handlowiec',\n  on_date: String(i.on_date || today).slice(0, 10),\n} }];\n"
+      },
+      "id": "normalize-request",
+      "name": "Normalize request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ !!$json.preferred_employee_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "preferred-employee-given",
+      "name": "Preferred employee given?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        780,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'employees').id }}",
+        "operation": "get",
+        "id": "={{ $json.preferred_employee_id }}"
+      },
+      "id": "get-preferred-employee",
+      "name": "Get preferred employee",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        1040,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'employees').id }}",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 20,
+        "options": {
+          "where": "=(role,eq,{{ $json.role }})~and(is_active,eq,true)"
+        }
+      },
+      "id": "get-active-employees-with-role",
+      "name": "Get active employees with role",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        1040,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst req = $('Normalize request').first().json;\nconst rows = $input.all().map(i => i.json).filter(e => e && e.Id && e.is_active !== false);\nrows.sort((a, b) => a.Id - b.Id);\nconst c = rows[0] || null;\nreturn [{ json: { ...req, candidate: c ? { id: c.Id, email: c.email, name: c.full_name } : null } }];\n"
+      },
+      "id": "pick-candidate",
+      "name": "Pick candidate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ !!$json.candidate }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "candidate-found",
+      "name": "Candidate found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1560,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'employees').id }}/links/cpshbg0iaa06t58/records/{{ $json.candidate.id }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-candidate-absences",
+      "name": "Get candidate absences",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1820,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst ctx = $('Pick candidate').first().json;\nconst list = $input.first().json.list || [];\nconst d = ctx.on_date;\nconst a = list.find(x => x.start_date && x.end_date && x.start_date <= d && d <= x.end_date);\nreturn [{ json: { ...ctx, absent: !!a, absence_id: a ? a.Id : null } }];\n"
+      },
+      "id": "is-candidate-absent",
+      "name": "Is candidate absent?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.absent }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "candidate-absent",
+      "name": "Candidate absent?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2340,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst c = $input.first().json.candidate;\nreturn [{ json: { assignee_id: c.id, assignee_email: c.email, assignee_name: c.name,\n                  reason: 'candidate' } }];\n"
+      },
+      "id": "result-the-candidate",
+      "name": "Result: the candidate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'absences').id }}/links/cue7bzf60n9gfph/records/{{ $json.absence_id }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-substitutes-of-the-absence",
+      "name": "Get substitutes of the absence",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        2600,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst ctx = $('Is candidate absent?').first().json;\nconst list = ($input.first().json.list || []).filter(e => e.is_active !== false);\nif (!list.length) return [{ json: { ...ctx, has_any: false } }];\nreturn list.map(e => ({ json: { ...ctx, has_any: true,\n  substitute: { id: e.Id, email: e.email, name: e.full_name } } }));\n"
+      },
+      "id": "list-substitutes",
+      "name": "List substitutes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.has_any }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "any-substitute",
+      "name": "Any substitute?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3120,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'employees').id }}/links/cpshbg0iaa06t58/records/{{ $json.substitute.id }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-substitute-absences",
+      "name": "Get substitute absences",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        3380,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst subs = $('List substitutes').all();\nconst res = $input.all();\nfor (let i = 0; i < subs.length; i++) {\n  const s = subs[i].json, d = s.on_date;\n  const list = (res[i] && res[i].json && res[i].json.list) || [];\n  const busy = list.some(a => a.start_date && a.end_date && a.start_date <= d && d <= a.end_date);\n  if (!busy) {\n    return [{ json: { assignee_id: s.substitute.id, assignee_email: s.substitute.email,\n      assignee_name: s.substitute.name, reason: 'substitute for ' + s.candidate.name } }];\n  }\n}\nreturn [{ json: { need_admin: true } }];\n"
+      },
+      "id": "pick-first-free-substitute",
+      "name": "Pick first free substitute",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3640,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ !$json.need_admin }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "free-substitute-found",
+      "name": "Free substitute found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3900,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'employees').id }}",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 20,
+        "options": {
+          "where": "=(role,eq,admin)~and(is_active,eq,true)"
+        }
+      },
+      "id": "get-admin-employees",
+      "name": "Get admin employees",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        4160,
+        760
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst rows = $input.all().map(i => i.json).filter(e => e && e.Id);\nrows.sort((a, b) => a.Id - b.Id);\nconst a = rows[0];\nif (!a) return [{ json: { assignee_id: null, assignee_email: null, assignee_name: null,\n                          reason: 'no available employee' } }];\nreturn [{ json: { assignee_id: a.Id, assignee_email: a.email, assignee_name: a.full_name,\n                  reason: 'admin fallback' } }];\n"
+      },
+      "id": "result-admin-fallback",
+      "name": "Result: admin fallback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4420,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all();"
+      },
+      "id": "return-assignee",
+      "name": "Return assignee",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4680,
+        380
+      ]
+    }
+  ],
+  "connections": {
+    "Resolve assignee: input": {
+      "main": [
+        [
+          {
+            "node": "Get one base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get one base": {
+      "main": [
+        [
+          {
+            "node": "Normalize request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize request": {
+      "main": [
+        [
+          {
+            "node": "Preferred employee given?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preferred employee given?": {
+      "main": [
+        [
+          {
+            "node": "Get preferred employee",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get active employees with role",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get preferred employee": {
+      "main": [
+        [
+          {
+            "node": "Pick candidate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get active employees with role": {
+      "main": [
+        [
+          {
+            "node": "Pick candidate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick candidate": {
+      "main": [
+        [
+          {
+            "node": "Candidate found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Candidate found?": {
+      "main": [
+        [
+          {
+            "node": "Get candidate absences",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get admin employees",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get candidate absences": {
+      "main": [
+        [
+          {
+            "node": "Is candidate absent?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is candidate absent?": {
+      "main": [
+        [
+          {
+            "node": "Candidate absent?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Candidate absent?": {
+      "main": [
+        [
+          {
+            "node": "Get substitutes of the absence",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Result: the candidate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get substitutes of the absence": {
+      "main": [
+        [
+          {
+            "node": "List substitutes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List substitutes": {
+      "main": [
+        [
+          {
+            "node": "Any substitute?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any substitute?": {
+      "main": [
+        [
+          {
+            "node": "Get substitute absences",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get admin employees",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get substitute absences": {
+      "main": [
+        [
+          {
+            "node": "Pick first free substitute",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick first free substitute": {
+      "main": [
+        [
+          {
+            "node": "Free substitute found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Free substitute found?": {
+      "main": [
+        [
+          {
+            "node": "Return assignee",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get admin employees",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get admin employees": {
+      "main": [
+        [
+          {
+            "node": "Result: admin fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Result: admin fallback": {
+      "main": [
+        [
+          {
+            "node": "Return assignee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Result: the candidate": {
+      "main": [
+        [
+          {
+            "node": "Return assignee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

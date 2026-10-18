@@ -1,33 +1,153 @@
 {
-  "name": "W3 - Task assignment notifications",
+  "name": "W3 - Task notifications (webhook + subflow)",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
         "path": "w3-task-notify",
+        "responseMode": "onReceived",
         "options": {}
       },
-      "id": "node-016",
+      "id": "nocodb-tasks-insert-update",
       "name": "NocoDB: tasks insert/update",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
         0,
-        0
+        190
       ],
       "webhookId": "wh-w3-task-notify"
     },
     {
       "parameters": {
-        "jsCode": "// Notify assignee on task creation or reassignment.\n// Attach BOTH NocoDB webhooks (after insert + after update) to this same URL.\nconst b = $input.first().json.body || $input.first().json;\nconst t = b.type || '';\nconst row  = (b.data && b.data.rows && b.data.rows[0]) || {};\nconst prev = (b.data && b.data.previous_rows && b.data.previous_rows[0]) || {};\nconst pick = v => !v ? null : (Array.isArray(v) ? v[0] && v[0].email : (v.email || v));\nconst cur = pick(row.assignee), old = pick(prev.assignee);\nif (!cur) return [];\nif (t.includes('update') && cur === old) return []; // only real reassignments\nreturn [{ json: {\n  to: cur,\n  subject: `New task: ${row.title}`,\n  text: `You have a task in the CRM:\\n\\n${row.title}\\nDue: ${row.due_date || '-'}\\nPriority: ${row.priority || 'normal'}\\n\\nOpen NocoDB for details.`,\n  activity: { summary: `Notification sent to ${cur}: ${row.title}`,\n              type: 'notification_sent', flow: 'W3', triggered_by: 'system',\n              payload: JSON.stringify({ task_id: row.Id }) }\n} }];"
+        "inputSource": "passthrough"
       },
-      "id": "node-017",
-      "name": "Guard & compose",
+      "id": "notify-about-task-input",
+      "name": "Notify about task: input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Dwa wejscia: webhook tabeli tasks (reczne zmiany w UI) albo podflow (task_id).\nconst j = $input.first().json;\nif (j.task_id) return [{ json: { task_id: j.task_id } }];\nconst b = j.body || j;\nconst t = b.type || '';\nconst row = (b.data && b.data.rows && b.data.rows[0]) || {};\nconst prev = (b.data && b.data.previous_rows && b.data.previous_rows[0]) || {};\nconst id = o => (o && (o.Id || (Array.isArray(o) && o[0] && o[0].Id))) || null;\nif (!row.Id) return [];\nif (t.includes('update')) {\n  // Aktualizacje powiadamiamy tylko, gdy da sie stwierdzic zmiane odpowiedzialnego.\n  const cur = id(row.assignee), old = id(prev.assignee);\n  if (!cur || cur === old) return [];\n}\nreturn [{ json: { task_id: row.Id } }];\n"
+      },
+      "id": "normalize-input",
+      "name": "Normalize input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        200,
-        0
+        260,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "base",
+        "operation": "get",
+        "workspaceId": {
+          "__rl": true,
+          "value": "wpgg1mff",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "p6w78auzu6sjdoo",
+          "mode": "list",
+          "cachedResultName": "CRM Base"
+        }
+      },
+      "id": "get-one-base",
+      "name": "Get one base",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        520,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'tasks').id }}",
+        "operation": "get",
+        "id": "={{ $('Normalize input').first().json.task_id }}"
+      },
+      "id": "get-task",
+      "name": "Get task",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        780,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'tasks').id }}/links/cz6hud7pte2kr2l/records/{{ $('Normalize input').first().json.task_id }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-task-assignee",
+      "name": "Get task assignee",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        780,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 2
+      },
+      "id": "wait-for-task-and-assignee",
+      "name": "Wait for task and assignee",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1040,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst task = $('Get task').first().json;\nconst a = (($('Get task assignee').first().json.list) || [])[0];\nif (!a || !a.email) return [];\nreturn [{ json: {\n  to: a.email,\n  subject: `Nowe zadanie: ${task.title}`,\n  text: `Masz zadanie w CRM:\\n\\n${task.title}\\nTermin: ${task.due_date || '-'}\\n` +\n        `Zaplanowane na: ${task.scheduled_for || '-'}\\nPriorytet: ${task.priority || 'normal'}\\n\\n` +\n        `Szczegóły w NocoDB.`,\n  summary: `Powiadomienie wysłane do ${a.email}: ${task.title}`,\n  task_id: task.Id,\n} }];\n"
+      },
+      "id": "compose-notification",
+      "name": "Compose notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        380
       ]
     },
     {
@@ -38,13 +158,13 @@
         "text": "={{ $json.text }}",
         "options": {}
       },
-      "id": "node-018",
-      "name": "Send email",
+      "id": "send-task-notification",
+      "name": "Send task notification",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        400,
-        0
+        1560,
+        380
       ],
       "credentials": {
         "smtp": {
@@ -55,27 +175,49 @@
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "https://back-office-coaction-test.giemza.dev/api/v2/tables/m1d4hmx0ib4s77s/records",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "options": {},
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($('Guard & compose').item.json.activity) }}"
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'activities').id }}",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "summary",
+              "fieldValue": "={{ $('Compose notification').first().json.summary }}"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "notification_sent"
+            },
+            {
+              "fieldName": "flow",
+              "fieldValue": "W3"
+            },
+            {
+              "fieldName": "triggered_by",
+              "fieldValue": "system"
+            },
+            {
+              "fieldName": "payload",
+              "fieldValue": "={{ JSON.stringify({ task_id: $('Compose notification').first().json.task_id }) }}"
+            }
+          ]
+        }
       },
-      "id": "node-019",
-      "name": "Log activity",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "id": "log-activity-notification-sent",
+      "name": "Log activity: notification sent",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
       "position": [
-        600,
-        0
+        1820,
+        380
       ],
       "credentials": {
-        "httpHeaderAuth": {
-          "id": null,
-          "name": "NocoDB Token"
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
         }
       }
     }
@@ -85,29 +227,101 @@
       "main": [
         [
           {
-            "node": "Guard & compose",
+            "node": "Normalize input",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Guard & compose": {
+    "Notify about task: input": {
       "main": [
         [
           {
-            "node": "Send email",
+            "node": "Normalize input",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Send email": {
+    "Normalize input": {
       "main": [
         [
           {
-            "node": "Log activity",
+            "node": "Get one base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get one base": {
+      "main": [
+        [
+          {
+            "node": "Get task",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get task assignee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get task": {
+      "main": [
+        [
+          {
+            "node": "Wait for task and assignee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get task assignee": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Wait for task and assignee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for task and assignee": {
+      "main": [
+        [
+          {
+            "node": "Compose notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose notification": {
+      "main": [
+        [
+          {
+            "node": "Send task notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send task notification": {
+      "main": [
+        [
+          {
+            "node": "Log activity: notification sent",
             "type": "main",
             "index": 0
           }
@@ -115,8 +329,12 @@
       ]
     }
   },
+  "pinData": {},
   "settings": {
     "executionOrder": "v1"
   },
-  "active": false
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
 }
