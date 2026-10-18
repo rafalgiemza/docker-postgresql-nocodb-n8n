@@ -141,13 +141,19 @@ def upgrade_relation(owner_id, field_title, workspace_id, dry_run):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true", help="pokaż plan, nie wywołuj API")
+    ap.add_argument("--stage", type=int, choices=range(1, 5), metavar="N",
+                    help="tylko relacje etapów budowy <= N (patrz BUILD_STAGE_OF "
+                         "w init-schema.py); bez opcji: wszystkie")
     args = ap.parse_args()
 
     print(f"NocoDB: {URL}, base: {BASE_ID}{' [DRY RUN]' if args.dry_run else ''}\n")
     ids = existing_tables()
     workspace_id = None if args.dry_run else resolve_workspace_id()
 
-    for owner, field_title, _rel_type, _target in RELATIONS:
+    for rel in RELATIONS:
+        owner, field_title = rel[0], rel[1]
+        if args.stage and init_schema.relation_stage(rel) > args.stage:
+            continue
         owner_id = ids.get(owner)
         if not owner_id:
             print(f"!  pomijam {owner}.{field_title}: brak tabeli {owner}")

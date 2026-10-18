@@ -66,3 +66,25 @@ katalog może zawierać opcje nigdy niewybrane do żadnej oferty.
 Patrz [n8n.md](n8n.md) "Wzorzec Tag X with Y" — zawsze taguj wynik `linkrow`
 ID rodzica w dedykowanym nodzie `Set` zaraz po fetchu, przed jakimkolwiek
 `merge` z wynikami dla innych rodziców.
+
+## 5. Model danych v4: osoby, leady, szanse (docs/archive/fable/nocodb_crm_schema_v4.md)
+
+- **`persons`** to jedyna tabela ludzi spoza zespołu (klucz dedupu: `email`);
+  zespół CoAction to `employees`. Dane osobowe nie żyją w innych tabelach.
+- **`leads`** to zgłoszenie i kwalifikacja (osoba lub grupa osób w
+  `leads.persons`, główny kontakt w `primary_person`); **`sale_opportunities`**
+  to szansa z etapem, wartością i utratą (kupujący w `person`, lead tylko jako
+  `source_lead`). Etapów nie zapisujemy na leadzie.
+- Rola osoby wynika z powiązań: kupujący (`sale_opportunities.person`),
+  attendee (`meetings.attendees`), do audytu (`to_be_audited`), po audycie
+  (`audited`), uczestnik szkolenia (`participants`, dopiero po podpisaniu).
+  Nie ma tabeli `participants` ani statusu roli na osobie.
+- **Opcje `stage` mają polskie nazwy** („Nowa", „Audyt", „Umowa podpisana"…);
+  flow porównują dokładnie te wartości (lista i mapowanie na klucze
+  techniczne: sekcja „Nazwy etapów" w specyfikacji).
+- Pola odpowiedzialności (`owner`, `assignee`, `assigned_methodologist`) to
+  linki do `employees`, nie pola `User`.
+- Osoby z `persons.sales_mode` = „Tylko spotkania" (puste = Standard) nigdy nie
+  stają się leadem ani szansą: flow tworzące leady i szanse je pomijają.
+- Schemat tworzy `make init-schema STAGE=N` (etapy 1-4, patrz plan migracji);
+  dane testowe `make seed-test-data STAGE=N`.

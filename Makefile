@@ -8,7 +8,7 @@ DC_CMD = docker compose -f docker-compose.yml
 LATEST_TS := $(shell ls -1t ./backups/appdata_*.sql 2>/dev/null | head -n 1 | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}')
 RESTORE_TS ?= $(LATEST_TS)
 
-.PHONY: help init init-env config up down restart pull ps versions logs dump-appdata-schema seed-extra backup backup-prune restore init-schema demo-schema-init demo-seed upgrade-links dump-crm-schema init-data init-appdata-db add-rag-db
+.PHONY: help init init-env config up down restart pull ps versions logs dump-appdata-schema seed-extra backup backup-prune restore init-schema seed-test-data demo-schema-init demo-seed upgrade-links dump-crm-schema init-data init-appdata-db add-rag-db
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -52,9 +52,15 @@ dump-appdata-schema: ## Dump current schema of a running appdata DB into appdata
 # komenda, dwa kroki. Wymaga Kroku 0 (NC_API_TOKEN w .env, patrz
 # docs/hard-reset.md) najpierw. Patrz naglowek scripts/init-schema.py po
 # pelny kontekst.
-init-schema: ## Create the full CRM schema (17 tables + relations) in NocoDB, then upgrade links to v3
-	./scripts/init-schema.sh
-	./scripts/upgrade-links.sh
+init-schema: ## Create the CRM schema v4 in NocoDB, incl. links v3 upgrade and reverse-field names. STAGE=1..4 builds up to that stage (default: all)
+	./scripts/init-schema.sh $(if $(STAGE),--stage $(STAGE))
+
+# Dane testowe CRM v4, etapami (docs/archive/fable/nocodb_crm_migration_v4.md):
+# `make seed-test-data STAGE=2` seeduje etapy 1..2 (etap juz seedowany jest
+# pomijany). Wymaga tabel z `make init-schema STAGE=N`. NIE uruchamiac
+# `init-data` ani `seed-extra` na bazie v4 - pisza do starych tabel.
+seed-test-data: ## Seed CRM v4 test data up to STAGE=1..4 (default 4); needs matching init-schema STAGE
+	python3 scripts/seed-test-data.py --stage $(or $(STAGE),4)
 
 # DEMO koncepcji schematu v4 (docs/crm-schema-v4-proposal.md): 8 tabel demo_*
 # + relacje miedzy nimi, bez dotykania istniejacych tabel CRM. Same wymagania co

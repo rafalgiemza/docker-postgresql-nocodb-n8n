@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
-r"""Tworzy CAŁY schemat CRM (17 tabel + relacje) w pustej bazie NocoDB przez
+r"""SCHEMAT v4 (od tej wersji skryptu; reszta naglowka ponizej opisuje historie v3,
+a zasady API/zrodla/relacji nadal obowiazuja). Specyfikacja:
+docs/archive/fable/nocodb_crm_schema_v4.md, plan wdrozenia:
+docs/archive/fable/nocodb_crm_migration_v4.md. Zmiany vs v3: lead != szansa
+sprzedazy (`sale_opportunities`), jedna tabela osob (`persons`, tabela
+`participants` usunieta), `employees` + `absences`, historia etapow, zadania z
+`scheduled_for` i `task_type`. Skrypt buduje schemat OD ZERA na pustej bazie
+(nie przerabia tabel v3 w miejscu), w etapach: `--stage N` tworzy etapy <= N
+(BUILD_STAGE_OF), a po utworzeniu relacji sam konwertuje je do v3 i nazywa pola
+zwrotne (to, co robily osobno upgrade-links.py i reczna zmiana nazw).
+
+Tworzy CAŁY schemat CRM (17 tabel + relacje) w pustej bazie NocoDB przez
 Meta API v3 — pod wdrożenie produkcji od zera.
 
 Źródło prawdy: `docs/archive/fable/nocodb_crm_schema_v3.md` (decyzje projektowe i tabele
@@ -366,6 +377,18 @@ INDUSTRY = ("Agriculture", "AI", "Automation", "Automotive", "Banking", "Clothin
 # (ile kursow juz kupil), rozne stawki w pricing wg wielkosci wspolpracy.
 CUSTOMER_SEGMENT = ("A) <10", "B) 10-19", "C) >19")
 
+# --- v4 (docs/archive/fable/nocodb_crm_schema_v4.md) --------------------------
+# Etapy szansy sprzedazy: polskie nazwy opcji (widzi je zespol na kanbanie),
+# flow porownuja DOKLADNIE te wartosci - nie przemianowywac w UI bez zmiany
+# flow. Mapowanie na klucze techniczne ze specyfikacji: sekcja "Nazwy etapow".
+SALE_STAGES = ("Nowa", "Discovery umówione", "Discovery odbyte", "Audyt",
+               "Rekomendacja / demo", "Oferta wysłana", "Omówienie oferty",
+               "Umowa wysłana", "Umowa podpisana", "Utracona", "Zarchiwizowana")
+# Rodzaj zadania - JEDYNY sposob, w jaki flow rozpoznaja zadanie (tytul jest
+# dla zespolu, nie dla n8n).
+TASK_TYPE = ("qualify_lead", "audit_prep", "prepare_offer", "invoice",
+             "take_over_participants", "approve_ai_draft", "other")
+
 
 def ai_status_field(action=None, prefix=None):
     """`action` = etykieta przycisku, ktory faktycznie startuje generowanie w
@@ -423,6 +446,126 @@ def gen_note_field(prefix, action):
 # Kolejność pól ma znaczenie: pierwsze pole zostaje display value.
 TABLES = [
     {
+        "title": "employees",
+        "icon": "🧑‍💼",
+        "description": "Zespol CoAction. Zrodlo e-maili do powiadomien i "
+                       "przypisywania zadan. Klienci i kontakty to `persons`, "
+                       "pracownicy to TA tabela.",
+        "fields": [
+            {"title": "full_name", "type": "SingleLineText"},
+            {"title": "email", "type": "Email"},
+            {"title": "role", "type": "SingleSelect",
+             "options": select("handlowiec", "metodyczka", "finanse", "marketing", "admin")},
+            {"title": "is_active", "type": "Checkbox", "default_value": True},
+        ],
+    },
+    {
+        "title": "absences",
+        "icon": "🏖️",
+        "description": "Nieobecnosc pracownika i kto go zastepuje. Zadania w "
+                       "dniach nieobecnosci trafiaja do zastepcy (logika w "
+                       "n8n, w bazie tylko dane).",
+        "fields": [
+            {"title": "title", "type": "SingleLineText"},
+            {"title": "absence_type", "type": "SingleSelect",
+             "options": select("urlop", "L4", "inne")},
+            {"title": "start_date", "type": "Date"},
+            {"title": "end_date", "type": "Date"},
+        ],
+    },
+    {
+        "title": "persons",
+        "icon": "🧑",
+        "description": "JEDYNA tabela ludzi spoza zespolu CoAction. Rola "
+                       "(kupujacy, attendee, uczestnik szkolenia) wynika z "
+                       "powiazan, nie ze statusu osoby. Klucz dedupu: email.",
+        "fields": [
+            {"title": "full_name", "type": "SingleLineText"},
+            {"title": "email", "type": "Email"},
+            {"title": "phone", "type": "PhoneNumber"},
+            {"title": "position", "type": "SingleLineText"},
+            {"title": "linkedin_url", "type": "URL"},
+            {"title": "industry", "type": "SingleSelect", "options": select(*INDUSTRY)},
+            {"title": "role_context", "type": "LongText",
+             "description": "Kontekst biznesowy osoby (dla B2C, gdzie nie ma "
+                            "firmy)."},
+            {"title": "frequency", "type": "SingleSelect",
+             "options": select("codziennie", "kilka_razy_w_tyg", "rzadko")},
+            {"title": "sales_mode", "type": "SingleSelect",
+             "options": select("Standard", "Tylko spotkania"),
+             "description": "Puste = Standard. 'Tylko spotkania' = osoba, ktora "
+                            "nigdy nie bedzie leadem ani kupujacym (np. "
+                            "ksiegowa, specjalista): flow tworzace leady i "
+                            "szanse ja pomijaja, spotkania sie tworza normalnie."},
+            {"title": "notes", "type": "LongText",
+             "description": "Trwale notatki o osobie."},
+            {"title": "legacy_id", "type": "Number"},
+        ],
+    },
+    {
+        "title": "sale_opportunities",
+        "icon": "💼",
+        "description": "Szansa sprzedazy (kanban po `stage`). Nalezy do osoby i "
+                       "firmy, nie do leada; lead to tylko zrodlo "
+                       "(`source_lead`). `deal_value` to PROGNOZA - nie mylic z "
+                       "`offers.total_price`.",
+        "fields": [
+            {"title": "name", "type": "SingleLineText"},
+            {"title": "segment", "type": "SingleSelect", "options": select("B2C", "B2B")},
+            {"title": "stage", "type": "SingleSelect", "options": select(*SALE_STAGES)},
+            {"title": "state", "type": "SingleSelect",
+             "options": select("open", "won", "lost", "archived")},
+            {"title": "loss_reason", "type": "SingleSelect",
+             "options": select("cena", "brak_decyzji", "konkurencja",
+                               "przesuniete_w_czasie", "inne")},
+            {"title": "loss_note", "type": "LongText"},
+            {"title": "deal_value", "type": "Currency",
+             "options": {"locale": "pl-PL", "code": "PLN"},
+             "description": "Wartosc szansy (prognoza pipeline'u). Po "
+                            "zatwierdzeniu oferty (status approved) "
+                            "aktualizowana automatycznie z offers.approved_total."},
+            {"title": "label", "type": "SingleSelect",
+             "options": select("hot", "oferta_specjalna", "Nowy klient", "Upsell",
+                               "Odnowienie", "Projekt jednorazowy", "Abonament",
+                               "Pilne")},
+            {"title": "offer_prep_status", "type": "SingleSelect",
+             "options": select("none", "waiting_goals", "goals_provided",
+                               "testimonials_provided", "draft_ready")},
+            {"title": "training_goals", "type": "LongText"},
+            # kamienie milowe - pisze wylacznie n8n
+            {"title": "offer_sent_at", "type": "Date"},
+            {"title": "contract_sent_at", "type": "Date"},
+            {"title": "closed_at", "type": "Date"},
+            {"title": "stage_changed_at", "type": "DateTime",
+             "description": "Kiedy szansa weszla w obecny etap. Pisze W2. "
+                            "Podstawa widoku 'Utkniete'."},
+            {"title": "service_end_date", "type": "Date"},
+            {"title": "audit_scope", "type": "LongText",
+             "description": "Zakres audytu (ktore sytuacje komunikacyjne "
+                            "sprawdzic, jakie zadanie audytowe). Wpisuje "
+                            "metodyczka przy zadaniu 'Przygotowanie audytu'."},
+            gen_status_field("audit_tasks", "Generuj zadania audytowe"),
+            gen_note_field("audit_tasks", "Generuj zadania audytowe"),
+            {"title": "notes", "type": "LongText",
+             "description": "Trwale notatki o szansie (kontekst, ustalenia). "
+                            "Akcja z terminem to zadanie, nie notatka."},
+            {"title": "legacy_id", "type": "Number"},
+        ],
+    },
+    {
+        "title": "sale_opportunity_stage_history",
+        "icon": "🕓",
+        "description": "Jeden wiersz na kazda zmiane etapu szansy. Pisze "
+                       "WYLACZNIE n8n (W2) oraz import - nie edytowac recznie.",
+        "fields": [
+            {"title": "title", "type": "SingleLineText"},
+            {"title": "from_stage", "type": "SingleSelect", "options": select(*SALE_STAGES)},
+            {"title": "to_stage", "type": "SingleSelect", "options": select(*SALE_STAGES)},
+            {"title": "changed_at", "type": "DateTime"},
+            {"title": "changed_by", "type": "SingleLineText"},
+        ],
+    },
+    {
         "title": "activities",
         "icon": "📜",
         "description": "Log zdarzen, append-only - pisze WYLACZNIE n8n, ludzie "
@@ -452,12 +595,12 @@ TABLES = [
             {"title": "title", "type": "SingleLineText"},
             {"title": "assessed_at", "type": "Date"},
             {"title": "position", "type": "SingleLineText",
-             "description": "Opcjonalne nadpisanie participants.position - "
+             "description": "Opcjonalne nadpisanie persons.position - "
                             "wypelnij tylko gdy stanowisko na moment TEGO "
                             "audytu rozni sie od aktualnego stanowiska "
-                            "uczestnika. W1 (Assemble render data) bierze "
+                            "osoby. W1 (Assemble render data) bierze "
                             "position stad, jesli niepuste, w przeciwnym "
-                            "razie z participants."},
+                            "razie z persons."},
             # skala z czesciami dziesietnymi (B2.4) - text, nie number
             {"title": "cefr_overall", "type": "SingleLineText"},
             {"title": "cefr_range", "type": "SingleLineText"},
@@ -468,6 +611,9 @@ TABLES = [
             {"title": "gaps", "type": "LongText"},
             {"title": "needs_summary", "type": "LongText"},
             {"title": "auditor_notes", "type": "LongText"},
+            # v4: przeniesione z participants (zbierane przy audycie)
+            {"title": "self_assessment", "type": "LongText"},
+            {"title": "manager_needs", "type": "LongText"},
             ai_status_field("Generuj needs summary"),
             # v3 §12 - raport audytowy jako artefakt audytu, bez osobnej tabeli
             {"title": "report_file", "type": "Attachment"},
@@ -477,8 +623,9 @@ TABLES = [
     {
         "title": "companies",
         "icon": "🏢",
-        "description": "Firma jako byt trwaly - lead to pojedyncza szansa, "
-                       "firma moze miec wiele leadow w czasie. Tylko B2B.",
+        "description": "Firma jako byt trwaly - szansa sprzedazy to pojedyncza "
+                       "transakcja, firma moze miec wiele szans w czasie. "
+                       "Tylko B2B.",
         "fields": [
             {"title": "name", "type": "SingleLineText"},
             {"title": "domains", "type": "SingleLineText"},
@@ -561,28 +708,17 @@ TABLES = [
     {
         "title": "leads",
         "icon": "🎯",
-        "description": "Jedna szansa sprzedazy. Kanban po `stage`. UWAGA: "
-                       "`deal_value` to PROGNOZA wartosci szansy - nie mylic z "
-                       "`offers.total_price` (kwota na konkretnym dokumencie).",
+        "description": "Zgloszenie i jego kwalifikacja (wejscie do lejka). "
+                       "Etapy sprzedazy, wartosc i utrata zyja w "
+                       "`sale_opportunities`. Lead to osoba LUB grupa osob "
+                       "(`persons`).",
         "fields": [
-            # feedback-tables-1.md: contact_name -> lead_name (tabela miesza
-            # firmy i klientow B2C, "contact_name" bylo mylace)
             {"title": "lead_name", "type": "SingleLineText"},
-            {"title": "contact_email", "type": "Email"},
-            {"title": "contact_phone", "type": "PhoneNumber"},
-            # feedback-tables-1.md: type -> lead_type (za duzo pol "type" w
-            # roznych tabelach w calej bazie, latwo pomylic)
             {"title": "lead_type", "type": "SingleSelect", "options": select("B2C", "B2B")},
-            {"title": "owner", "type": "User"},
-            # feedback-tables-1.md: source -> lead_source; lista zastapiona
-            # tabelka podana przez klientke (zrodlo/kanal pozyskania leada)
             {"title": "lead_source", "type": "SingleSelect",
              "options": select("Google", "Outreach", "Existing client", "LinkedIn",
                                "Recommendation", "Webinar", "Facebook",
                                "Coming back Lead", "Coming back Client")},
-            # feedback-tables-1.md: brakujace typy kontaktu - lista z excela
-            # ("Uwzglednij wszystkie rodzaje contact_channel z excelowego crm")
-            # + ta sama tabelka co lead_source (klientka: "do obu pol")
             {"title": "contact_channel", "type": "SingleSelect",
              "options": select("Bookings", "Telefon", "Linkedin CoAction", "Mail",
                                "Formularz", "Facebook Przemka", "Facebook CoAction",
@@ -590,59 +726,21 @@ TABLES = [
                                "Existing client", "LinkedIn", "Recommendation",
                                "Webinar", "Facebook", "Coming back Lead",
                                "Coming back Client")},
-            # feedback-tables-1.md: rozdzielenie non-MQL/non-SQL, zeby od razu
-            # bylo widac NA JAKIM etapie lead zostal zdyskwalifikowany (tak
-            # jak w excelu) - unqualified zostaje jako ogolny fallback
             {"title": "qualification", "type": "SingleSelect",
              "options": select("unqualified", "non-MQL", "MQL", "non-SQL", "SQL")},
             {"title": "disqualify_reason", "type": "SingleSelect",
              "options": select("brak_budzetu", "brak_potrzeby", "konkurencja",
                                "brak_kontaktu", "inne")},
             {"title": "disqualify_note", "type": "LongText"},
-            {"title": "stage", "type": "SingleSelect",
-             "options": select("new", "discovery_scheduled", "discovery_done",
-                               "audit", "recommendation", "offer_sent",
-                               "offer_discussed", "contract_sent",
-                               "contract_signed", "lost", "archived")},
-            {"title": "state", "type": "SingleSelect",
-             "options": select("open", "won", "lost", "archived")},
-            {"title": "loss_reason", "type": "SingleSelect",
-             "options": select("cena", "brak_decyzji", "konkurencja",
-                               "przesuniete_w_czasie", "inne")},
-            {"title": "loss_note", "type": "LongText"},
-            # feedback-tables-1.md: value -> deal_value + opis, zeby nie mylic
-            # z offers.total_price (patrz opis tabeli wyzej: value to PROGNOZA)
-            {"title": "deal_value", "type": "Currency",
-             "options": {"locale": "pl-PL", "code": "PLN"},
-             "description": "Wartosc szansy sprzedazy (prognoza pipeline'u, "
-                            "szacowana zanim istnieje oferta). To NIE jest "
-                            "kwota z konkretnego dokumentu ofertowego - tamta "
-                            "jest w offers.total_price."},
-            # feedback-tables-1.md/init v2 zakladaly "hot"/"oferta_specjalna",
-            # ale realna taksonomia "Szansa sprzedaży Etykieta" ze starego CRM
-            # (generate_crm_data.py DEAL_LABELS) to zupelnie inna lista -
-            # dopisana ponizej, stare dwie opcje zostaja (nieszkodliwe, na
-            # wypadek gdyby juz cos ich uzywalo z proby na stagingu).
-            {"title": "label", "type": "SingleSelect",
-             "options": select("hot", "oferta_specjalna", "Nowy klient", "Upsell",
-                               "Odnowienie", "Projekt jednorazowy", "Abonament",
-                               "Pilne")},
-            # v3 §1 - dla B2C, gdzie nie ma rekordu firmy
-            {"title": "industry", "type": "SingleSelect", "options": select(*INDUSTRY)},
-            {"title": "notes", "type": "LongText"},
             {"title": "company_match_status", "type": "SingleSelect",
              "options": select("none", "pending_confirmation", "confirmed", "rejected")},
-            {"title": "offer_prep_status", "type": "SingleSelect",
-             "options": select("none", "waiting_goals", "goals_provided",
-                               "testimonials_provided", "draft_ready")},
-            {"title": "training_goals", "type": "LongText"},
-            # kamienie milowe - pisze wylacznie n8n
-            {"title": "offer_sent_at", "type": "Date"},
-            {"title": "contract_sent_at", "type": "Date"},
-            {"title": "closed_at", "type": "Date"},
-            # v3 §1 - `lead_id` z v2 mialo mylaca nazwe (pole lead_id w tabeli leads)
-            # Number, nie SingleLineText - inaczej sortowanie/porownania sa
-            # leksykograficzne (a-z), np. "1000" < "999".
+            {"title": "received_at", "type": "DateTime"},
+            gen_status_field("convert", "Utwórz szansę sprzedaży"),
+            gen_note_field("convert", "Utwórz szansę sprzedaży"),
+            {"title": "notes", "type": "LongText",
+             "description": "Trwale notatki o leadzie. Akcja z terminem to "
+                            "zadanie, nie notatka."},
+            # Number, nie SingleLineText - sortowanie/porownania liczbowe
             {"title": "legacy_id", "type": "Number"},
         ],
     },
@@ -661,7 +759,11 @@ TABLES = [
                                "offer_discussion", "inne")},
             {"title": "starts_at", "type": "DateTime"},
             {"title": "ends_at", "type": "DateTime"},
-            {"title": "owner", "type": "User"},
+            # owner = link do employees (relacja employees.meetings)
+            {"title": "external_id", "type": "SingleLineText",
+             "description": "uid rezerwacji z cal.com - klucz dedupu flow "
+                            "rezerwacji i powiazania przy zmianie terminu / "
+                            "anulowaniu. Zapisywane AUTOMATYCZNIE."},
             {"title": "status", "type": "SingleSelect",
              "options": select("scheduled", "done", "no_show", "cancelled")},
             # brudnopis
@@ -705,15 +807,54 @@ TABLES = [
         ],
     },
     {
+        # 2026-09-29: W11 (docs/archive/fable/W11_newsletter_stats_sync.json)
+        # synchronizuje tu co tydzien wyslane kampanie z MailerLite (upsert po
+        # campaign_id). Tabela wylacznie do odczytu dla ludzi - kazdy sync
+        # nadpisuje wiersz danej kampanii swiezymi statystykami.
+        "title": "newsletter_stats",
+        "icon": "📧",
+        "description": "Statystyki wyslanych kampanii z MailerLite, jeden "
+                       "wiersz na kampanie. Zapisywane WYLACZNIE przez W11 "
+                       "(upsert po campaign_id) - nie edytowac recznie, "
+                       "nadpisze sie przy kolejnym uruchomieniu.",
+        "fields": [
+            {"title": "campaign_id", "type": "SingleLineText",
+             "description": "ID kampanii z MailerLite - klucz synchronizacji "
+                            "(upsert). Nie edytowac."},
+            {"title": "name", "type": "SingleLineText"},
+            {"title": "subject", "type": "SingleLineText"},
+            {"title": "campaign_status", "type": "SingleLineText",
+             "description": "Status kampanii wg MailerLite (np. sent) - "
+                            "celowo NIE nazwane `status`, zeby nie kolidowac "
+                            "z generyczna konwencja tego pola ze skilla "
+                            "n8n-flow (none/collecting data/.../done/error)."},
+            {"title": "sent_at", "type": "DateTime"},
+            {"title": "recipients_count", "type": "Number"},
+            {"title": "opens_count", "type": "Number"},
+            # Decimal, nie Number/bigint - to same ograniczenie co
+            # continuation_bonus_hours w pricing wyzej (bigint odrzuca wartosci
+            # niecalkowite), a MailerLite zwraca open/click rate jako float.
+            {"title": "open_rate", "type": "Decimal"},
+            {"title": "clicks_count", "type": "Number"},
+            {"title": "click_rate", "type": "Decimal"},
+            {"title": "unsubscribes_count", "type": "Number"},
+            {"title": "bounces_count", "type": "Number",
+             "description": "Suma hard+soft bounces z MailerLite - bez "
+                            "rozbicia, bo nikt tu nie potrzebowal osobno."},
+            {"title": "synced_at", "type": "DateTime",
+             "description": "Znacznik czasu ostatniego udanego sync z W11."},
+        ],
+    },
+    {
         "title": "offers",
         "icon": "📄",
         "description": "Jedna oferta = jeden wygenerowany dokument; wiele ofert "
-                       "na lead (wersje). `data_json` to zamrozony snapshot "
+                       "na szanse sprzedazy (wersje). `data_json` to zamrozony snapshot "
                        "danych - realizacja wymogu 'historia ofert' (§10).",
         "fields": [
             {"title": "title", "type": "SingleLineText"},
             {"title": "status", "type": "SingleSelect",
-             "options": select("draft", "sent", "accepted", "rejected")},
+             "options": select("draft", "approved", "sent", "accepted", "rejected")},
             # total_price NIE jest tu tworzone jako zwykle pole - od
             # 2026-09-17 to Rollup wyliczany automatycznie (COMPUTED_FIELDS
             # nizej, offers.total_price) - patrz naglowek skryptu, "Zmiana
@@ -728,7 +869,6 @@ TABLES = [
             # "w jednej ofercie moze byc kilka roznych" produktow naraz
             {"title": "product_type", "type": "MultiSelect", "options": select(*VARIANT)},
             {"title": "version", "type": "Number"},
-            {"title": "template_name", "type": "SingleLineText"},
             {"title": "file", "type": "Attachment"},
             # feedback-tables-1.md: brakowalo opisu co tu wpisywac
             {"title": "data_json", "type": "LongText",
@@ -744,6 +884,14 @@ TABLES = [
                             "edytowac recznie."},
             {"title": "sent_at", "type": "Date"},
             {"title": "valid_until", "type": "Date"},
+            {"title": "approved_total", "type": "Currency",
+             "options": {"locale": "pl-PL", "code": "PLN"},
+             "description": "Zamrozona suma w chwili przejscia oferty na "
+                            "approved (kopia total_price). Zapisywane "
+                            "AUTOMATYCZNIE - nie zmienia sie, gdy pozniej "
+                            "zmienia sie rekomendacje."},
+            gen_status_field("version", "Utwórz nową wersję"),
+            gen_note_field("version", "Utwórz nową wersję"),
         ],
     },
     {
@@ -844,27 +992,6 @@ TABLES = [
              "description": "Kod placeholdera w szablonie pptx "
                             "(render_if:key) - identyfikuje, KTORY staly "
                             "slajd dodatku wlaczyc/wylaczyc."},
-        ],
-    },
-    {
-        "title": "participants",
-        "icon": "🧑‍🎓",
-        "description": "Osoba szkolona (!= kupujacy). v3 §3: tworzymy ZAWSZE, "
-                       "takze dla B2C - inaczej nie ma gdzie trzymac oceny "
-                       "i rekomendacji, a generator oferty wyrenderuje pusto. "
-                       "Oceny CEFR mieszkaja w `assessments`, NIE tutaj.",
-        "fields": [
-            {"title": "full_name", "type": "SingleLineText"},
-            {"title": "position", "type": "SingleLineText"},
-            {"title": "linkedin_url", "type": "URL"},
-            {"title": "email", "type": "Email"},
-            # v3 §3 - "kontekst biznesowy" dla B2C, gdzie nie ma `companies`
-            {"title": "role_context", "type": "LongText"},
-            {"title": "frequency", "type": "SingleSelect",
-             "options": select("codziennie", "kilka_razy_w_tyg", "rzadko")},
-            {"title": "self_assessment", "type": "LongText"},
-            {"title": "manager_needs", "type": "LongText"},
-            {"title": "assigned_methodologist", "type": "User"},
         ],
     },
     {
@@ -1081,7 +1208,7 @@ TABLES = [
                        "w NocoDB CE sa platne, stad n8n.",
         "fields": [
             {"title": "title", "type": "SingleLineText"},
-            {"title": "assignee", "type": "User"},
+            # assignee = link do employees (relacja employees.task_templates)
             {"title": "rrule", "type": "SingleLineText"},
             {"title": "due_offset_days", "type": "Number"},
             {"title": "description", "type": "LongText"},
@@ -1094,11 +1221,20 @@ TABLES = [
         "description": "JEDNA tabela dla calej firmy - warunek dzialania widokow "
                        "'moje taski ze wszystkich projektow'.",
         "fields": [
-            {"title": "title", "type": "SingleLineText"},
-            {"title": "assignee", "type": "User"},
-            {"title": "due_date", "type": "Date"},
+            {"title": "title", "type": "SingleLineText",
+             "description": "Opis dla zespolu. Flow NIE czytaja tytulu - "
+                            "rodzaj zadania rozpoznaja po `task_type`."},
+            # assignee = link do employees (relacja employees.tasks)
+            {"title": "task_type", "type": "SingleSelect", "options": select(*TASK_TYPE)},
+            {"title": "due_date", "type": "Date",
+             "description": "Termin ostateczny."},
+            {"title": "scheduled_for", "type": "Date",
+             "description": "Zaplanowane na: kiedy zajac sie zadaniem lub "
+                            "wykonac akcje (np. 'odezwac sie za 3 dni')."},
             {"title": "status", "type": "SingleSelect",
-             "options": select("todo", "in_progress", "done", "cancelled")},
+             "options": select("scheduled", "todo", "in_progress", "done", "cancelled"),
+             "description": "scheduled = czeka na date scheduled_for; "
+                            "codzienny flow zmienia na todo."},
             {"title": "priority", "type": "SingleSelect",
              "options": select("low", "normal", "high")},
             {"title": "description", "type": "LongText"},
@@ -1197,81 +1333,133 @@ TABLES = [
     },
 ]
 
-# (tabela-wlasciciel pola, tytul pola, relation_type, tabela-cel)
+# (tabela-wlasciciel pola, tytul pola, relation_type, tabela-cel, tytul pola
+# ZWROTNEGO albo None)
 # "hm" (has-many) deklarujemy po stronie "jeden" - NocoDB samo dokleja pole
-# zwrotne (belongs-to) po drugiej stronie; jego nazwy NIE da sie tu narzucic,
-# bo nie jest udokumentowana - zweryfikuj w UI.
+# zwrotne (belongs-to) po drugiej stronie i nadaje mu nazwe automatycznie;
+# piaty element to nazwa docelowa, na ktora create_relations()/
+# rename_reverse() je potem przemianowuje (None = zostaw nazwe NocoDB).
 # "mm" (many-to-many) tam, gdzie obie strony moga miec wiele.
+# v4 (docs/archive/fable/nocodb_crm_schema_v4.md): lead -> sale_opportunities,
+# participants usuniete (rola = pola relacji na sale_opportunities), zespol
+# CoAction w employees.
 RELATIONS = [
     # --- firma
-    ("companies", "leads", "hm", "leads"),
-    ("companies", "participants", "hm", "participants"),
+    ("companies", "persons", "hm", "persons", "company"),
+    ("companies", "leads", "hm", "leads", "company"),
+    ("companies", "opportunities", "hm", "sale_opportunities", "company"),
     # jedna opinia = jedna osoba w jednej firmie w danym momencie - hm, nie mm
-    # (jak wyzej: wiele testimoniali moze naleziec do jednej firmy, ale nie
-    # odwrotnie). industry/size czytane przez link, nie duplikowane na testimonials.
-    ("companies", "testimonials", "hm", "testimonials"),
-    # --- lead jako centrum
-    ("leads", "participants", "hm", "participants"),
-    ("leads", "meetings", "hm", "meetings"),
-    ("leads", "tasks", "hm", "tasks"),
-    ("leads", "activities", "hm", "activities"),
-    ("leads", "offers", "hm", "offers"),
-    # self-link: sugestia duplikatu (W5/W4v2 nigdy nie scala automatycznie)
-    ("leads", "possible_duplicate", "mm", "leads"),
-    # --- wybor szablonu i testimoniali per oferta: to samo rozumowanie co
-    # przy price/hours/template - jeden lead moze miec wiele ofert (wersji),
-    # wiec to co rozni sie per-oferta zyje na offers, nie na leads.
-    # `document_templates.active` zostaje jako podpowiedz dla czlowieka ("ten
-    # szablon jest aktualny"), W1 juz go NIE uzywa do wyboru - czyta wprost
-    # link z offers (patrz W1 "Get offer template").
-    ("document_templates", "offers", "hm", "offers"),
-    # wybor szablonu per material (krok 1 demo-pipeline'u) - ta sama
-    # niepewnosc nazwy pola zwrotnego jak wyzej.
-    ("document_templates", "materials", "hm", "materials"),
-    # przeniesione z leads (byla tam do 2026-08-10) - dwie oferty dla tego
-    # samego leada moga chciec innych referencji w wygenerowanym dokumencie.
-    ("offers", "selected_testimonials", "mm", "testimonials"),
-    # cennik.xlsx (2026-08-11): offers.product_type jest juz MultiSelect
-    # ("w jednej ofercie moze byc kilka roznych produktow naraz"), wiec
-    # jedna oferta moze objac kilka wierszy cennika (np. rozny hours/tryb
-    # per produkt) - stad mm, nie hm. Kazdy link wskazuje wiersz pricing,
-    # z ktorego wzieta zostala kwota w offers.total_price.
-    ("offers", "pricing", "mm", "pricing"),
-    # --- trzy poziomy merytoryczne (v3 "Architektura tabel")
-    ("participants", "assessments", "hm", "assessments"),
-    ("participants", "recommendations", "hm", "recommendations"),
-    # NOWA 2026-09-16: dochodzi OBOK linku do participants (decyzja usera,
-    # nie w jego miejsce) - rekomendacja jest teraz widoczna zarowno "kto ja
-    # dostaje" (participants) jak i "w ktorej ofercie jest uzyta" (offers).
-    ("offers", "recommendations", "hm", "recommendations"),
-    ("participants", "meetings", "mm", "meetings"),
-    ("meetings", "assessments", "hm", "assessments"),
-    ("recommendations", "packages", "hm", "recommendation_packages"),
-    ("training_descriptions", "recommendation_packages", "hm", "recommendation_packages"),
-    # NOWA 2026-09-16: zastepuje offer_packages/package_variants (usuniete) -
-    # wybor GLOWNYCH pakietow ("cores") per recommendation, ten sam ksztalt
-    # relacji co recommendations/recommendation_packages wyzej (junction z
-    # wlasnymi polami, nie plain mm) - patrz komentarz przy definicji
-    # selected_package_variants_cores w TABLES.
-    ("recommendations", "selected_cores", "hm", "selected_package_variants_cores"),
-    ("package_variants_cores", "selected_package_variants_cores", "hm", "selected_package_variants_cores"),
-    # NOWA 2026-09-17, POPRAWIONA tego samego dnia: 0-3 slajdy uzasadnienia
-    # per WYBOR pakietu (NIE per katalogowy package_variants_cores - slajdy
-    # sa spersonalizowane na podstawie assessmentu tej osoby, nie wspolne
-    # dla wszystkich uzyc tego pakietu) - patrz komentarz przy definicji
-    # package_core_slides w TABLES.
-    ("selected_package_variants_cores", "slides", "hm", "package_core_slides"),
-    # analogicznie dla dodatkow/skilli ("adons", stale sloty w szablonie)
-    ("recommendations", "selected_adons", "hm", "selected_package_variants_adons"),
-    ("package_variants_adons", "selected_package_variants_adons", "hm", "selected_package_variants_adons"),
-    # --- log
-    ("meetings", "activities", "hm", "activities"),
-    ("tasks", "activities", "hm", "activities"),
+    ("companies", "testimonials", "hm", "testimonials", None),
+    # --- lead: osoba LUB grupa osob; glowny kontakt osobno
+    ("leads", "persons", "mm", "persons", "leads"),
+    ("persons", "primary_in_leads", "hm", "leads", "primary_person"),
+    ("leads", "opportunities", "hm", "sale_opportunities", "source_lead"),
+    ("leads", "tasks", "hm", "tasks", "lead"),
+    ("leads", "activities", "hm", "activities", None),
+    # self-link: sugestia duplikatu (W5/W4 nigdy nie scala automatycznie)
+    ("persons", "possible_duplicate", "mm", "persons", None),
+    # --- osoba
+    ("persons", "bought_opportunities", "hm", "sale_opportunities", "person"),
+    ("persons", "assessments", "hm", "assessments", "person"),
+    ("persons", "recommendations", "hm", "recommendations", "person"),
+    ("persons", "tasks", "hm", "tasks", "person"),
+    # --- szansa sprzedazy
+    ("sale_opportunities", "participants", "mm", "persons", "participant_in"),
+    ("sale_opportunities", "to_be_audited", "mm", "persons", "to_be_audited_in"),
+    ("sale_opportunities", "audited", "mm", "persons", "audited_in"),
+    ("sale_opportunities", "history", "hm", "sale_opportunity_stage_history", "sale_opportunity"),
+    ("sale_opportunities", "meetings", "hm", "meetings", "sale_opportunity"),
+    ("sale_opportunities", "tasks", "hm", "tasks", "sale_opportunity"),
+    ("sale_opportunities", "activities", "hm", "activities", "sale_opportunity"),
+    ("sale_opportunities", "offers", "hm", "offers", "sale_opportunity"),
+    # --- spotkania i oceny
+    ("meetings", "attendees", "mm", "persons", "attended_meetings"),
+    ("meetings", "assessments", "hm", "assessments", "meeting"),
+    ("meetings", "activities", "hm", "activities", None),
+    ("meetings", "tasks", "hm", "tasks", "meeting"),
+    ("assessments", "tasks", "hm", "tasks", "assessment"),
+    ("recommendations", "tasks", "hm", "tasks", "recommendation"),
+    ("offers", "tasks", "hm", "tasks", "offer"),
+    # --- zespol CoAction
+    ("employees", "absences", "hm", "absences", "employee"),
+    ("absences", "substitutes", "mm", "employees", "covers_absences"),
+    ("employees", "leads", "hm", "leads", "owner"),
+    ("employees", "opportunities", "hm", "sale_opportunities", "owner"),
+    ("employees", "meetings", "hm", "meetings", "owner"),
+    ("employees", "tasks", "hm", "tasks", "assignee"),
+    ("employees", "task_templates", "hm", "task_templates", "assignee"),
+    ("employees", "assigned_persons", "hm", "persons", "assigned_methodologist"),
+    # --- wybor szablonu i testimoniali per oferta (jedna szansa moze miec
+    # wiele ofert/wersji). `document_templates.active` zostaje jako podpowiedz
+    # dla czlowieka, W1 czyta wprost link z offers ("Get offer template").
+    ("document_templates", "offers", "hm", "offers", None),
+    ("document_templates", "materials", "hm", "materials", None),
+    ("offers", "selected_testimonials", "mm", "testimonials", None),
+    # offers.product_type jest MultiSelect, wiec jedna oferta moze objac kilka
+    # wierszy cennika - stad mm, nie hm.
+    ("offers", "pricing", "mm", "pricing", None),
+    # --- trzy poziomy merytoryczne: ocena i rekomendacja per OSOBA (persons),
+    # oferta per SZANSE. Rekomendacja nalezy do JEDNEJ oferty (hm); nowa wersja
+    # oferty dostaje wlasne kopie rekomendacji (decyzja D4).
+    ("offers", "recommendations", "hm", "recommendations", None),
+    ("recommendations", "packages", "hm", "recommendation_packages", None),
+    ("training_descriptions", "recommendation_packages", "hm", "recommendation_packages", None),
+    ("recommendations", "selected_cores", "hm", "selected_package_variants_cores", None),
+    ("package_variants_cores", "selected_package_variants_cores", "hm", "selected_package_variants_cores", None),
+    ("selected_package_variants_cores", "slides", "hm", "package_core_slides", None),
+    ("recommendations", "selected_adons", "hm", "selected_package_variants_adons", None),
+    ("package_variants_adons", "selected_package_variants_adons", "hm", "selected_package_variants_adons", None),
     # --- taski
-    ("projects", "tasks", "hm", "tasks"),
-    ("projects", "task_templates", "hm", "task_templates"),
-    ("task_templates", "tasks", "hm", "tasks"),
+    ("tasks", "activities", "hm", "activities", None),
+    ("projects", "tasks", "hm", "tasks", None),
+    ("projects", "task_templates", "hm", "task_templates", None),
+    ("task_templates", "tasks", "hm", "tasks", None),
 ]
+
+# --------------------------------------------------------- etapy budowy (v4)
+# docs/archive/fable/nocodb_crm_migration_v4.md: schemat budujemy od zera w
+# etapach 1-4; `--stage N` tworzy wszystko, co nalezy do etapow <= N (reszta
+# jest idempotentna: istniejace tabele/pola pomijane). Tabela powstaje RAZ, ze
+# wszystkimi polami zwyklymi, w etapie, w ktorym pierwszy raz jest potrzebna;
+# pozniejsze etapy dokladaja tylko relacje i przyciski.
+BUILD_STAGE_OF = {
+    # etap 1: ludzie, leady, szanse, zadania
+    "employees": 1, "absences": 1, "companies": 1, "persons": 1, "leads": 1,
+    "sale_opportunities": 1, "sale_opportunity_stage_history": 1,
+    "tasks": 1, "task_templates": 1, "projects": 1, "activities": 1,
+    # etap 2: spotkania (cal.com)
+    "meetings": 2,
+    # etap 3: audyty i oceny
+    "assessments": 3,
+    # etap 4: rekomendacje, oferty i katalogi
+    "recommendations": 4, "offers": 4, "pricing": 4, "document_templates": 4,
+    "testimonials": 4, "training_descriptions": 4, "recommendation_packages": 4,
+    "package_variants_cores": 4, "package_variants_adons": 4,
+    "package_core_slides": 4, "selected_package_variants_cores": 4,
+    "selected_package_variants_adons": 4, "materials": 4, "newsletter_stats": 4,
+}
+# Relacja trafia do etapu max(etap wlasciciela, etap celu); wyjatki ponizej,
+# zeby karta szansy w etapie 1 nie miala jeszcze pol audytowych.
+RELATION_STAGE_OVERRIDE = {
+    ("sale_opportunities", "participants"): 3,
+    ("sale_opportunities", "to_be_audited"): 3,
+    ("sale_opportunities", "audited"): 3,
+}
+# Przycisk trafia do etapu swojej tabeli; wyjatki:
+BUTTON_STAGE_OVERRIDE = {
+    ("sale_opportunities", "Generuj zadania audytowe"): 3,
+}
+
+
+def relation_stage(rel):
+    owner, field, _t, target = rel[0], rel[1], rel[2], rel[3]
+    return RELATION_STAGE_OVERRIDE.get(
+        (owner, field), max(BUILD_STAGE_OF[owner], BUILD_STAGE_OF[target]))
+
+
+def button_stage(table, label):
+    return BUTTON_STAGE_OVERRIDE.get((table, label), BUILD_STAGE_OF[table])
+
 
 # Placeholdery dla 5 pol Button, ktorych ten skrypt swiadomie nie tworzy w
 # pelni (patrz naglowek, "CZEGO TEN SKRYPT NIE ROBI" #1) - akcja "Run
@@ -1292,6 +1480,10 @@ BUTTONS = [
     ("materials", "Generuj szkic treści"),
     ("materials", "Generuj zarys slajdów"),
     ("materials", "Generuj prezentację"),
+    # v4
+    ("leads", "Utwórz szansę sprzedaży"),
+    ("sale_opportunities", "Generuj zadania audytowe"),
+    ("offers", "Utwórz nową wersję"),
 ]
 
 BUTTON_PLACEHOLDER_NOTE = (
@@ -1528,7 +1720,17 @@ def create_tables(dry_run, source_id):
 
 
 def create_relations(ids, dry_run):
-    for owner, field_title, rel_type, target in RELATIONS:
+    """Tworzy relacje z RELATIONS i zwraca {(wlasciciel, pole): id pola
+    zwrotnego} dla relacji z nazwa docelowa pola zwrotnego.
+
+    Relacje tworzymy po jednej i porownujemy kolumny relacji tabeli docelowej
+    przed i po: tylko tak wiadomo, ktore pole zwrotne nalezy do ktorej
+    relacji, gdy tabela jest celem kilku relacji z tego samego wlasciciela
+    (np. participants / to_be_audited / audited -> persons). Pole zwrotne
+    dostaje nazwe dopiero w rename_reverse(), PO konwersji do v3.
+    """
+    captured = {}
+    for owner, field_title, rel_type, target, reverse in RELATIONS:
         owner_id, target_id = ids.get(owner), ids.get(target)
         if not owner_id or not target_id:
             print(f"!  pomijam {owner}.{field_title} -> {target}: brak id tabeli "
@@ -1537,9 +1739,11 @@ def create_relations(ids, dry_run):
         if not dry_run and field_title.lower() in existing_fields(owner_id):
             print(f"=  {owner}.{field_title}: pole juz istnieje, pomijam")
             continue
-        print(f"+  {owner}.{field_title} --{rel_type}--> {target}")
+        print(f"+  {owner}.{field_title} --{rel_type}--> {target}"
+              f"{f' (zwrotne: {reverse})' if reverse else ''}")
         if dry_run:
             continue
+        before = {c["id"] for c in table_columns(target_id).values()}
         # v2: kolumna Links tworzona na tabeli-wlascicielu; relacja opisana
         # przez parentId/childId/type, nie przez options.related_table_id.
         api("POST", f"/api/v2/meta/tables/{owner_id}/columns", json={
@@ -1550,6 +1754,74 @@ def create_relations(ids, dry_run):
             "parentId": owner_id,
             "childId": target_id,
         })
+        if reverse:
+            new = [c for c in table_columns(target_id).values()
+                   if c["id"] not in before
+                   and c.get("uidt") in ("LinkToAnotherRecord", "Links")]
+            if len(new) == 1:
+                captured[(owner, field_title)] = new[0]["id"]
+    return captured
+
+
+def upgrade_relations(ids, workspace_id, dry_run):
+    """Konwersja Links v1 -> LinkToAnotherRecord v3 (to samo co
+    scripts/upgrade-links.py, ale dla relacji biezacego etapu)."""
+    ul = load_upgrade_links()
+    for rel in RELATIONS:
+        owner, field_title = rel[0], rel[1]
+        owner_id = ids.get(owner)
+        if not owner_id:
+            continue
+        if dry_run:
+            print(f"+  {owner}.{field_title}: upgrade (convertLinkToV2)")
+            continue
+        ul.upgrade_relation(owner_id, field_title, workspace_id, False)
+
+
+def rename_reverse(ids, captured, dry_run):
+    """Przemianowuje pola zwrotne (zapamietane w create_relations) na nazwy
+    docelowe z RELATIONS. Gdy pola nie udalo sie zlapac (relacja istniala
+    wczesniej) albo rename sie nie uda - wypisuje, co zmienic RECZNIE.
+    NIEZWERYFIKOWANE NA ZYWO po konwersji v3 (kod pochodzi z
+    scripts/demo-schema-init.py)."""
+    ul = load_upgrade_links()
+    for owner, field_title, _t, target, reverse in RELATIONS:
+        if not reverse:
+            continue
+        if dry_run:
+            print(f"~  {target}.<pole zwrotne po {owner}.{field_title}> -> {reverse}")
+            continue
+        if reverse.lower() in table_columns(ids[target]):
+            print(f"=  {target}.{reverse}: juz nazwane, pomijam")
+            continue
+        col_id = captured.get((owner, field_title))
+        if not col_id:
+            print(f"!  {target}: nie znam pola zwrotnego po {owner}.{field_title} "
+                  f"- zmien nazwe RECZNIE na '{reverse}'")
+            continue
+        try:
+            ul.rename_column(col_id, reverse)
+            print(f"+  {target}: pole zwrotne po {owner}.{field_title} -> {reverse}")
+        except SystemExit as e:
+            print(f"!  {target}: rename pola zwrotnego po {owner}.{field_title} "
+                  f"nie zadzialal ({e}) - zmien nazwe RECZNIE na '{reverse}'")
+
+
+_UL = None
+
+
+def load_upgrade_links():
+    # upgrade-links.py importuje ten plik (RELATIONS), wiec ladujemy go
+    # leniwie i dopiero z __main__, zeby uniknac cyklu przy imporcie.
+    global _UL
+    if _UL is None:
+        import importlib.util
+        from pathlib import Path
+        spec = importlib.util.spec_from_file_location(
+            "upgrade_links", Path(__file__).parent / "upgrade-links.py")
+        _UL = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_UL)
+    return _UL
 
 
 def create_buttons(ids, dry_run):
@@ -1640,14 +1912,40 @@ def create_computed_fields(ids, dry_run):
         })
 
 
+def computed_stage(cf):
+    return max(BUILD_STAGE_OF[cf["table"]],
+               BUILD_STAGE_OF.get(cf.get("rollup_table", cf["table"]), 1))
+
+
+def filter_to_stage(max_stage):
+    """Zostawia w TABLES/RELATIONS/BUTTONS/COMPUTED_FIELDS tylko elementy
+    etapow <= max_stage (funkcje wyzej czytaja te globale)."""
+    global TABLES, RELATIONS, BUTTONS, COMPUTED_FIELDS
+    unknown = [t["title"] for t in TABLES if t["title"] not in BUILD_STAGE_OF]
+    if unknown:
+        sys.exit(f"Tabele bez przypisanego etapu w BUILD_STAGE_OF: {unknown}")
+    TABLES = [t for t in TABLES if BUILD_STAGE_OF[t["title"]] <= max_stage]
+    RELATIONS = [r for r in RELATIONS if relation_stage(r) <= max_stage]
+    BUTTONS = [b for b in BUTTONS if button_stage(*b) <= max_stage]
+    COMPUTED_FIELDS = [c for c in COMPUTED_FIELDS if computed_stage(c) <= max_stage]
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true",
                     help="pokaz plan, nie wywoluj API")
+    ap.add_argument("--stage", type=int, choices=range(1, 5), metavar="N",
+                    help="utworz tylko to, co nalezy do etapow budowy <= N "
+                         "(1-4, patrz BUILD_STAGE_OF); bez opcji: wszystko")
+    ap.add_argument("--no-upgrade", action="store_true",
+                    help="nie konwertuj relacji do v3 i nie nazywaj pol zwrotnych")
     args = ap.parse_args()
 
+    filter_to_stage(args.stage or 4)
+
     print(f"NocoDB: {URL}, base: {BASE_ID}"
-          f"{' [DRY RUN]' if args.dry_run else ''}")
+          f"{' [DRY RUN]' if args.dry_run else ''}"
+          f"{f' [etapy <= {args.stage}]' if args.stage else ''}")
     if args.dry_run and not SOURCE_ID:
         source_id = "<zrodlo-appdata>"
         print("źródło: wykryję przy realnym uruchomieniu (GET .../sources)\n")
@@ -1659,42 +1957,38 @@ if __name__ == "__main__":
     print(f"\n--- ikonki tabel ---")
     sync_table_icons(ids, args.dry_run)
     print(f"\n--- relacje ({len(RELATIONS)}) ---")
-    create_relations(ids, args.dry_run)
+    captured = create_relations(ids, args.dry_run)
     print(f"\n--- pola liczone (Formula/Rollup, {len(COMPUTED_FIELDS)}) ---")
     create_computed_fields(ids, args.dry_run)
     print(f"\n--- opcje SingleSelect/MultiSelect ---")
     sync_select_options(ids, args.dry_run)
     print(f"\n--- przyciski (placeholder Open URL / NOW()) ---")
     create_buttons(ids, args.dry_run)
+    if not args.no_upgrade:
+        print(f"\n--- upgrade relacji Links v1 -> v3 ({len(RELATIONS)}) ---")
+        workspace_id = None
+        if not args.dry_run:
+            workspace_id = load_upgrade_links().resolve_workspace_id()
+        upgrade_relations(ids, workspace_id, args.dry_run)
+        print(f"\n--- nazwy pol zwrotnych ---")
+        rename_reverse(ids, captured, args.dry_run)
     print("\nSPRAWDŹ NAJPIERW: czy tabele powstały w appdata, a nie w bazie NocoDB:")
     print("  docker exec docker-postgres-1 psql -U postgres -d appdata \\")
     print("    -c \"\\dt crm.*\"")
     print("Jeśli ich tam nie ma, a są widoczne w UI - poszły do wewnętrznej bazy")
     print("NocoDB (patrz resolve_source() w tym pliku); usuń je i popraw source_id.")
-    print("\nDo wyklikania recznie (patrz naglowek skryptu):")
-    print("  1. Pola Button juz istnieja jako placeholder (Open URL / NOW()) -")
-    print("     po imporcie workflowow otworz kazde w UI, zmien akcje na")
-    print("     'Run Webhook', wklej webhook: offers 'generuj oferte', meetings")
-    print("     'Generuj analize', assessments 'Generuj needs summary',")
-    print("     testimonials 'generuj slajd' i 'generuj obrazek'.")
-    print("  2. Widoki: Kanban po leads.stage, Calendar po tasks.due_date,")
-    print("     'moje taski' per osoba (patrz nocodb_crm_schema_v2.md).")
-    print("  3. Sprawdz display value kazdej tabeli i nazwy pol zwrotnych relacji.")
-    print("  4. Ikonki tabel: kontrakt PATCH .../meta/tables/{id} meta.icon "
-          "niezweryfikowany na zywo - sprawdz w UI, czy sie zapisaly.")
-    print("  5. offers.total_price (Rollup): jesli na TEJ bazie istnialo juz "
-          "jako zwykle Currency, powyzszy krok je pominal - usun je RECZNIE ")
-    print("     w UI i uruchom skrypt ponownie, zeby powstalo jako Rollup "
-          "(patrz COMPUTED_FIELDS w tym pliku). Kontrakt i caly lancuch "
-          "hours*price -> ... -> total_price juz DZIALA na zywej bazie "
-          "(potwierdzone dumpem 2026-09-17) - ten punkt dotyczy tylko baz, "
-          "gdzie total_price nadal jest starym Currency.")
-    print("  6. selected_package_variants_cores.slides (Links -> "
-          "package_core_slides): jesli na TEJ bazie istnieje jeszcze "
-          "POPRZEDNIA (bledna) wersja tej relacji na package_variants_cores "
-          "(katalogu, nie na wyborze) - usun ja RECZNIE w UI (obie strony: "
-          "pole 'slides' na package_variants_cores i pole zwrotne na "
-          "package_core_slides) przed ponownym uruchomieniem, inaczej "
-          "powstanie DRUGA relacja obok, zamiast ja zastapic. Jesli 'slides' "
-          "na tej bazie nigdy nie istnialo - create_relations() utworzy je "
-          "poprawnie od razu, nic nie trzeba robic.")
+    print("\nDo wyklikania recznie / do sprawdzenia:")
+    print("  1. Pola Button to placeholdery (Open URL / NOW()) - po imporcie")
+    print("     workflowow zmien akcje na 'Run Webhook' i wklej webhook (offers")
+    print("     'generuj ofertę' i 'Utwórz nową wersję', meetings 'Generuj analizę',")
+    print("     assessments 'Generuj needs summary', leads 'Utwórz szansę sprzedaży',")
+    print("     sale_opportunities 'Generuj zadania audytowe', testimonials, materials).")
+    print("  2. Widoki: checklista w docs/archive/fable/nocodb_crm_schema_v4.md")
+    print("     ('Widoki NocoDB do skonfigurowania').")
+    print("  3. Nazwy pol zwrotnych relacji - sprawdz w UI, czy rename zadzialal")
+    print("     (wypisane wyzej jako '!' przypadki zmien recznie).")
+    print("  4. Display value kazdej tabeli (pierwsze pole) i ikonki tabel")
+    print("     (kontrakt meta.icon niezweryfikowany na zywo).")
+    print("  5. offers.total_price (Rollup): na swiezej bazie powstaje od razu jako")
+    print("     Rollup (COMPUTED_FIELDS). Po `--stage 4` sprawdz lancuch")
+    print("     hours*price -> line_total -> subtotal -> package_total -> total_price.")

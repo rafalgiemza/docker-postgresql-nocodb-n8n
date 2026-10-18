@@ -219,7 +219,9 @@ REL_SPEC = [
     ("demo_sale_opportunities", "audited", "mm", "demo_persons", "audited_in"),
     ("demo_meetings", "attendees", "mm", "demo_persons", "attended_meetings"),
 ]
-RELATIONS = [(o, f, t, tg) for o, f, t, tg, _rev in REL_SPEC]
+# init-schema.py (v4) oczekuje 5-elementowych wpisów; reverse=None, bo tu
+# pola zwrotne łapie create_relations_tracked() niżej
+RELATIONS = [(o, f, t, tg, None) for o, f, t, tg, _rev in REL_SPEC]
 
 # init-schema.py czyta TABLES/RELATIONS z globali modułu - podmieniamy je na
 # zestaw demo i zerujemy resztę, żeby żadna jego funkcja nie sięgnęła po
@@ -242,7 +244,7 @@ def create_relations_tracked(ids, dry_run):
         before = set()
         if not dry_run and target_id:
             before = {c["id"] for c in core.table_columns(target_id).values()}
-        core.RELATIONS = [(owner, field, rel_type, target)]
+        core.RELATIONS = [(owner, field, rel_type, target, None)]
         core.create_relations(ids, dry_run)
         if not dry_run and target_id:
             new = [c for c in core.table_columns(target_id).values()
@@ -304,12 +306,12 @@ if __name__ == "__main__":
 
     if args.dry_run:
         print(f"\n--- upgrade relacji Links v1 -> v3 ({len(RELATIONS)}) ---")
-        for owner, field, _t, _tg in RELATIONS:
+        for owner, field, _t, _tg, _r in RELATIONS:
             print(f"+  {owner}.{field}: upgrade (convertLinkToV2)")
     else:
         print(f"\n--- upgrade relacji Links v1 -> v3 ({len(RELATIONS)}) ---")
         workspace_id = ul.resolve_workspace_id()
-        for owner, field, _t, _tg in RELATIONS:
+        for owner, field, _t, _tg, _r in RELATIONS:
             ul.upgrade_relation(ids[owner], field, workspace_id, False)
 
     print("\n--- nazwy pól zwrotnych ---")

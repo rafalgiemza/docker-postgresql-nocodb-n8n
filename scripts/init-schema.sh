@@ -4,7 +4,8 @@ set -e
 # `source` here — bash's own parser chokes on unquoted values containing
 # spaces (e.g. BESZEL_AGENT_KEY's ssh-ed25519 value), unlike Make's.
 
-# Tworzy CAŁY schemat CRM (17 tabel + relacje) w NocoDB przez Meta API v3/v2 —
+# Tworzy schemat CRM v4 (27 tabel + relacje; `--stage N` = tylko etapy <= N) w
+# NocoDB przez Meta API v3/v2, konwertuje relacje do v3 i nazywa pola zwrotne —
 # pełny kontekst, wymogi i to, co zostaje do wyklikania ręcznie, patrz nagłówek
 # scripts/init-schema.py. Wymaga uprzedniego ręcznego podłączenia źródła
 # appdata/crm w NocoDB UI (docs/hard-reset.md, Krok 0).

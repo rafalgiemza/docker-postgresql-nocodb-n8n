@@ -10,19 +10,16 @@ nie jest jeszcze zmienione.
 
 ---
 
-## Decyzje potrzebne przed etapem 0
+## Decyzje (rozstrzygnięte)
 
-Poniżej wartości domyślne, które przyjąłem; każda blokuje konkretny etap, więc
-najlepiej rozstrzygnąć je z góry.
-
-| # | Decyzja | Domyślnie | Blokuje |
-|---|---|---|---|
-| D1 | Środowisko budowy: **świeża baza na instancji testowej (staging)**, nie edycja obecnej bazy UAT w miejscu | tak, patrz „Strategia" | wszystko |
-| D2 | Lista etapów `stage` i ich nazwy (A1): polskie nazwy z mapowania w specyfikacji czy etapy z Excela klientki | mapowanie ze specyfikacji | etap 1 |
-| D3 | `owner` / `assignee` jako linki do `employees` zamiast pól `User` (A6) | tak | etap 1 |
-| D4 | Wersje ofert: kopiowanie rekomendacji flowem czy przenoszenie (A14) | kopiowanie | etap 4 |
-| D5 | Stare flow z zaszytymi ID przepinamy na konwencję „Get one base" (`.ai/rules/nocodb.md` §3a) przy okazji zmiany ID | tak, dla flow, które i tak edytujemy | etapy 1–4 |
-| D6 | Zadania tworzone dziś przez istniejące flow: które zostają (Dodatek A) | wg propozycji w Dodatku A | etapy 1–4 |
+| # | Decyzja | Wynik |
+|---|---|---|
+| D1 | Środowisko budowy | świeża baza na instancji testowej (staging); zmiany w plikach robi Claude w repo, **użytkownik uruchamia skrypty na serwerze według instrukcji** (sekcja „Uruchamianie na serwerze") |
+| D2 | Lista etapów `stage` | polskie nazwy z mapowania w specyfikacji („Nazwy etapów") |
+| D3 | `owner` / `assignee` | linki do `employees` zamiast pól `User` |
+| D4 | Wersje ofert | kopiowanie rekomendacji flowem |
+| D5 | Stare flow z zaszytymi ID | przepinamy na konwencję „Get one base" dla flow, które i tak edytujemy |
+| D6 | Zadania tworzone przez istniejące flow | wg propozycji w Dodatku A |
 
 ---
 
@@ -41,9 +38,12 @@ ROBI"). Konsekwencje dla v4:
   którym pierwszy raz jest potrzebna. Późniejsze etapy dokładają do niej tylko
   **relacje** (skrypt tworzy je idempotentnie po tytule pola) i **przyciski**.
   Pola zwykłe dodane do istniejącej tabeli skrypt by pominął.
-- Do skryptu dochodzi opcja `--stage N` (nowy kod): tworzy tylko tabele,
-  relacje i przyciski przypisane do etapu N. Uruchomiona kolejno dla etapów 1,
-  2, 3… daje bazę rosnącą krok po kroku, a rozjazd wychodzi od razu.
+- Skrypt ma opcję `--stage N` (zrobione): tworzy wszystko, co należy do
+  etapów <= N (`BUILD_STAGE_OF` w `init-schema.py`); to, co już istnieje, jest
+  pomijane. Uruchamiana kolejno dla N = 1, 2, 3, 4 daje bazę rosnącą krok po
+  kroku, a rozjazd wychodzi od razu. Po utworzeniu relacji skrypt sam
+  konwertuje je do v3 i nazywa pola zwrotne (to, co robiły osobno
+  `upgrade-links.py` i ręczna zmiana nazw).
 
 Po każdym etapie: `make dump-crm-schema` (nowe ID do `schema_map.json`),
 import i aktywacja tylko tych flow, które należą do etapu, a następnie test
@@ -54,10 +54,44 @@ jego flow. Wcześniejsze etapy są nietknięte, bo etapy tylko dokładają.
 
 ---
 
+## Uruchamianie na serwerze (runbook)
+
+Zmiany w plikach robi Claude, a Ty uruchamiasz skrypty na serwerze testowym
+(D1). Skrót dla każdego etapu `N` (1–4):
+
+```bash
+git pull                                              # branch ze zmianami v4
+python3 scripts/init-schema.py --dry-run --stage N    # podgląd planu
+make init-schema STAGE=N                              # tabele, relacje, upgrade v3, nazwy pól zwrotnych
+make dump-crm-schema                                  # nowe ID do schema_map.json
+make seed-test-data STAGE=N                           # dane testowe etapów 1..N
+```
+
+Po `init-schema` przeczytaj ostatnie linie wydruku: wiersze zaczynające się od
+`!` oznaczają pola zwrotne, które trzeba przemianować ręcznie, a lista
+końcowa przypomina o przyciskach i widokach.
+
+**Przed etapem 1: pusta baza w schemacie `crm`.** Staging ma dziś tabele v3
+(`leads`, `tasks`…); skrypt tworzy tabele o tych samych nazwach, więc schemat
+musi być pusty. **Kasuje dane testowe stagingu:**
+
+1. NocoDB UI: usuń dotychczasową bazę CRM (tabele zostają w Postgresie).
+2. `docker exec docker-postgres-1 psql -U postgres -d appdata -c "DROP SCHEMA crm CASCADE;"`
+3. `make init-appdata-db` (odtwarza pusty schemat `crm` i uprawnienia roli
+   NocoDB; idempotentne).
+4. NocoDB UI: nowa baza + zewnętrzne źródło `appdata`/`crm` (`docs/hard-reset.md`,
+   Krok 0), nowy `NC_CRM_BASE_ID` i `NC_API_TOKEN` w `.env` na serwerze.
+
+Nie uruchamiaj `make init-data` ani `make seed-extra` (piszą do starych tabel).
+Flow n8n z etapu importujesz dopiero po `make dump-crm-schema`; instrukcje
+importu i podmiany ID podaję przy każdym etapie osobno.
+
+---
+
 ## Dane testowe (seedy)
 
 Dane testowe wgrywamy skryptem wzorowanym na `scripts/demo-seed.py`
-(proponowana nazwa `scripts/seed-test-data.py`, target `make seed-test-data`).
+(`scripts/seed-test-data.py`, target `make seed-test-data STAGE=N`, zrobione w etapie 0).
 Zasady, przejęte z `demo-seed.py`:
 
 - tworzenie rekordów i linków przez NocoDB API (`rec()` i `lnk()`, id pól
@@ -102,21 +136,27 @@ seed służy do pozostałych widoków i do odbioru.
 
 Cel: kod i testy gotowe, żeby etapy 1–4 były wyłącznie wdrażaniem.
 
-- `scripts/init-schema.py`: nowe `TABLES` i `RELATIONS` według v4; jedna stała
-  `STAGES`; przypisanie każdej tabeli, relacji i przycisku do etapu; opcja
-  `--stage N`. Usunięcie `participants` i pól przeniesionych (lista w v4,
-  „Zmiany w `scripts/init-schema.py`").
-- `scripts/upgrade-links.py` czyta `RELATIONS`, więc obejmie nowe relacje bez
-  zmian; dodajemy tylko filtr po etapie.
+- `scripts/init-schema.py` (zrobione): `TABLES` i `RELATIONS` według v4
+  (27 tabel, 5-elementowe wpisy z nazwą pola zwrotnego), stała `SALE_STAGES`,
+  `BUILD_STAGE_OF` z przypisaniem tabel, relacji i przycisków do etapów,
+  opcja `--stage N`, wbudowany upgrade relacji do v3 i nazywanie pól
+  zwrotnych. `participants` usunięta.
+- `scripts/upgrade-links.py` (zrobione): obsługuje nowy format `RELATIONS` i
+  opcję `--stage`.
 - Dane testowe: nowy skrypt seedujący według sekcji „Dane testowe (seedy)"
   niżej, wzorowany na `scripts/demo-seed.py`.
 - Test Runner (`test_workflows.py`, `test_cases.md`): przypadki akceptacyjne
   etapów jako scenariusze (S1–S5, niżej) i zawartość `conftest.py`.
-- Skill `n8n-flow` i reguły `.ai/rules/*`: zaktualizowane o `persons`,
-  `sale_opportunities`, zasadę „tytuł jest dla zespołu" i politykę zadań.
+- Reguły `.ai/rules/common.md` §5–6 i `nocodb.md` §5 (zrobione): `persons` /
+  `sale_opportunities`, zasada „tytuł jest dla zespołu", polityka zadań. Skill
+  `n8n-flow` do przeglądu przy pierwszym przepinanym flow (etap 1).
+- Test Runner: **jeszcze nie ruszony** (zostaje do etapu 1, razem z pierwszym
+  przepiętym flow).
 
-**Wyjście:** `python3 scripts/init-schema.py --dry-run --stage N` poprawnie
-wypisuje plan dla każdego N; testy kompilują się (jeszcze bez instancji).
+**Wyjście (sprawdzone):** `python3 scripts/init-schema.py --dry-run --stage N`
+poprawnie wypisuje plan dla N = 1…4 (11, 12, 13 i 27 tabel), a `seed-test-data
+--dry-run` przechodzi dla etapów 1–4. Nic z tego nie było uruchomione na
+instancji NocoDB.
 
 ---
 

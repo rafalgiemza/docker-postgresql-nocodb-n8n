@@ -228,7 +228,7 @@ Każdy człowiek spoza zespołu CoAction, jeden wiersz na osobę. Klucz dedupu:
 | `role_context` | LongText | było `participants.role_context` |
 | `frequency` | SingleSelect `codziennie` / `kilka_razy_w_tyg` / `rzadko` | było `participants.frequency` |
 | `assigned_methodologist` | link → `employees` | było polem `User` w `participants` |
-| `sales_mode` | SingleSelect `Standard` / `Tylko spotkania` | **nowe**; domyślnie `Standard`. `Tylko spotkania` = osoba, która nigdy nie będzie leadem ani kupującym (np. księgowa, specjalista, osoba z obsługi): ma tylko tworzyć spotkania po umówieniu się. Ustawia zespół ręcznie na osobie |
+| `sales_mode` | SingleSelect `Standard` / `Tylko spotkania` | **nowe**; puste = `Standard` (NocoDB nie ustawi domyślnej opcji, więc flow traktują puste jak Standard). `Tylko spotkania` = osoba, która nigdy nie będzie leadem ani kupującym (np. księgowa, specjalista, osoba z obsługi): ma tylko tworzyć spotkania po umówieniu się. Ustawia zespół ręcznie na osobie |
 | `notes` | LongText | trwałe notatki o osobie |
 | `legacy_id` | Number | tylko jeśli import będzie łączył osoby |
 

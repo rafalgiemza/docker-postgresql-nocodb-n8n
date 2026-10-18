@@ -71,3 +71,40 @@ Renderer (`file-renderer-service`) jest świadomie bezstanowy i ZERO
 integracji z NocoDB (brak zmiennych `NOCODB_*` w jego konfiguracji) — wszystkie
 odczyty z bazy dzieją się w n8n PRZED wywołaniem serwisu, wszystkie zapisy PO.
 Nie dodawaj serwisowi renderującemu żadnej wiedzy o NocoDB, nawet "tymczasowo".
+
+## 5. Tytuł rekordu jest dla zespołu, nie dla n8n (schemat v4)
+
+Pole tytułowe rekordu (`name`, `title`, `full_name`, `lead_name` itd.) służy
+ludziom: pojawia się w linkach i listach, żeby było widać, o jaki wpis chodzi,
+zanim się go otworzy. Zespół nazywa wpisy dowolnie i zmienia nazwy w każdej
+chwili. **Dla n8n deterministyczne są tylko pola SingleSelect** (oraz linki i
+klucze takie jak `email`, `external_id`):
+
+- flow nigdy nie czyta tytułu, żeby zdecydować, co zrobić: rodzaj zadania
+  rozpoznaje po `tasks.task_type`, typ spotkania po `meetings.meeting_type`,
+  etap po `sale_opportunities.stage`, segment po `segment`; tytuły tylko
+  **zapisuje**,
+- każde rozróżnienie, na którym opiera się automatyzacja, ma własne pole
+  SingleSelect; jeśli go brakuje, dodajemy pole zamiast parsować tekst,
+- sprawdzenie „czy to już istnieje" (idempotencja) robimy po linkach i
+  SingleSelectach, nie po treści tytułu,
+- opcji SingleSelect nie przemianowujemy w UI bez zmiany flow (porównują
+  dokładne wartości).
+
+## 6. Kiedy flow tworzy zadanie (schemat v4)
+
+Przycisk generujący wynik (analiza, `needs_summary`, oferta, slajdy) zwraca go w
+kilka sekund, a stan pokazuje pole `status`; **zadanie po jego kliknięciu nie
+powstaje**. Zadanie tworzymy tylko, gdy człowiek musi coś zrobić, a rekord sam
+tego nie pokaże:
+
+1. potencjalny klient wypełnił formularz (`task_type` = `qualify_lead`),
+2. szansa sprzedaży przechodzi na etap wymagający uwagi innego członka zespołu
+   (tabela przejść w `docs/archive/fable/nocodb_crm_schema_v4.md`),
+3. nikt nie zatwierdził szkicu AI od wczoraj (dzienny flow, `approve_ai_draft`).
+
+Wyjątkiem jest przycisk, którego jedynym celem jest utworzenie zadań
+(„Generuj zadania audytowe"). Kontakty z terminem („odezwać się za 3 dni")
+handlowiec zapisuje sam jako zadanie ze `scheduled_for` i statusem `scheduled`.
+Adresata zadania wyznacza wspólny podflow: rola → `employees` → reguła
+`absences` (zastępca). Rodzaj zadania zawsze zapisujemy w `task_type`.
