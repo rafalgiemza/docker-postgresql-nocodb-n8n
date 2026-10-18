@@ -251,9 +251,11 @@ wskazują na tabele v3):
 7. Aktywuj W3, W14, W2, W16 i W0 (W15 jako podflow nie wymaga aktywacji).
 
 **Niezweryfikowane na żywym n8n/NocoDB** (flow wygenerowane i sprawdzone tylko
-pod kątem spójności grafu i składni kodu): kształt payloadu przycisku i
-webhooka tabeli dla pól relacji (dlatego flow czytają relacje przez API
-linków, nie z payloadu), parametry `where` z datami, działanie węzła Execute
+pod kątem spójności grafu i składni kodu): kształt payloadu **webhooka
+tabeli** dla pól relacji (dla przycisku potwierdzony prawdziwym payloadem v3:
+`primary_person`, `owner`, `company` jako `{Id, …}` albo `null`,
+`opportunities` jako tablica; W14 i W2 czytają relacje z payloadu, a W16, W0 i
+W3 przez API linków, bo nie mają payloadu), parametry `where` z datami, działanie węzła Execute
 Workflow w trybie „each” oraz zachowanie węzłów NocoDB z `alwaysOutputData`.
 Pierwsze uruchomienie traktuj jak test; wklej mi wynik wykonania, jeśli
 któryś węzeł się wywróci.

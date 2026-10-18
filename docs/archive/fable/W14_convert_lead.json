@@ -14,7 +14,7 @@
       "typeVersion": 2,
       "position": [
         0,
-        570
+        380
       ],
       "webhookId": "wh-w14-convert-lead"
     },
@@ -42,7 +42,7 @@
       "typeVersion": 4,
       "position": [
         260,
-        570
+        380
       ],
       "credentials": {
         "nocoDbApiToken": {
@@ -53,7 +53,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\n// Przycisk NocoDB wysyla caly wiersz leada w body.data.rows[0].\nconst body = $input.first().json.body || $input.first().json;\nconst row = (body.data && body.data.rows && body.data.rows[0]) || body;\nreturn [{ json: { lead_id: row.Id, lead_name: row.lead_name || ('lead #' + row.Id),\n                  lead_type: row.lead_type || null } }];\n"
+        "jsCode": "\n// Przycisk NocoDB (payload v3) wysyla caly wiersz leada razem z polami relacji:\n// primary_person / owner / company jako {Id, ...} albo null, opportunities jako tablica.\nconst body = $input.first().json.body || $input.first().json;\nconst row = (body.data && body.data.rows && body.data.rows[0]) || body;\nconst idOf = o => (o && (o.Id || (Array.isArray(o) && o[0] && o[0].Id))) || null;\nconst existing = Array.isArray(row.opportunities) ? row.opportunities.length\n               : (Number(row.opportunities) || 0);\nlet error = null;\nif (!idOf(row.primary_person)) error = 'Brak głównego kontaktu (primary_person) na leadzie.';\nelse if (existing) error = 'Szansa dla tego leada już istnieje (nie tworzę drugiej).';\nreturn [{ json: {\n  ok: !error, error_message: error, lead_id: row.Id,\n  lead_name: row.lead_name || ('lead #' + row.Id),\n  segment: row.lead_type === 'B2B' ? 'B2B' : 'B2C',\n  primary_person_id: idOf(row.primary_person), owner_id: idOf(row.owner),\n  company_id: idOf(row.company),\n} }];\n"
       },
       "id": "guard",
       "name": "Guard",
@@ -61,7 +61,7 @@
       "typeVersion": 2,
       "position": [
         520,
-        570
+        380
       ]
     },
     {
@@ -92,52 +92,6 @@
       "typeVersion": 3,
       "position": [
         780,
-        570
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'leads').id }}/links/cjh09yw2nzn4qcr/records/{{ $('Guard').first().json.lead_id }}?limit=200",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "nocoDbApiToken",
-        "options": {}
-      },
-      "id": "get-lead-primary-person",
-      "name": "Get lead primary person",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        1040,
-        190
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'leads').id }}/links/cuv3onsjw96ehmv/records/{{ $('Guard').first().json.lead_id }}?limit=200",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "nocoDbApiToken",
-        "options": {}
-      },
-      "id": "get-lead-owner",
-      "name": "Get lead owner",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        1040,
         380
       ],
       "credentials": {
@@ -149,66 +103,64 @@
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'leads').id }}/links/cc8796gq4g9jgv7/records/{{ $('Guard').first().json.lead_id }}?limit=200",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "nocoDbApiToken",
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Guard').first().json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
         "options": {}
       },
-      "id": "get-lead-company",
-      "name": "Get lead company",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "passed-checks-on-the-lead",
+      "name": "Passed checks on the lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
       "position": [
         1040,
-        570
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'leads').id }}/links/cpvgaer9v6h69yp/records/{{ $('Guard').first().json.lead_id }}?limit=200",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "nocoDbApiToken",
-        "options": {}
-      },
-      "id": "get-existing-opportunities-of-the-lead",
-      "name": "Get existing opportunities of the lead",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        1040,
-        760
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "numberInputs": 4
-      },
-      "id": "wait-for-lead-data",
-      "name": "Wait for lead data",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3,
-      "position": [
-        1300,
-        570
+        380
       ]
     },
     {
       "parameters": {
-        "jsCode": "\nconst g = $('Guard').first().json;\nconst person = (($('Get lead primary person').first().json.list) || [])[0];\nconst owner = (($('Get lead owner').first().json.list) || [])[0];\nconst company = (($('Get lead company').first().json.list) || [])[0];\nconst existing = ($('Get existing opportunities of the lead').first().json.list) || [];\nlet error = null;\nif (!person) error = 'Brak głównego kontaktu (primary_person) na leadzie.';\nelse if (person.sales_mode === 'Tylko spotkania')\n  error = 'Główny kontakt ma tryb \"Tylko spotkania\" - nie tworzymy dla niego szansy.';\nelse if (existing.length) error = 'Szansa dla tego leada już istnieje (nie tworzę drugiej).';\nreturn [{ json: {\n  ok: !error, error_message: error, lead_id: g.lead_id, lead_name: g.lead_name,\n  segment: g.lead_type === 'B2B' ? 'B2B' : 'B2C',\n  person_id: person ? person.Id : null, owner_id: owner ? owner.Id : null,\n  company_id: company ? company.Id : null,\n} }];\n"
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'persons').id }}",
+        "operation": "get",
+        "id": "={{ $('Guard').first().json.primary_person_id }}"
+      },
+      "id": "get-primary-person",
+      "name": "Get primary person",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        1300,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Jedyny odczyt spoza payloadu: tryb sprzedazy osoby (sales_mode) nie jest w\n// payloadzie przycisku, a pelny rekord osoby tak.\nconst g = $('Guard').first().json;\nconst p = $input.first().json;\nconst error = p.sales_mode === 'Tylko spotkania'\n  ? 'Główny kontakt ma tryb \"Tylko spotkania\" - nie tworzymy dla niego szansy.' : null;\nreturn [{ json: { ...g, ok: !error, error_message: error, person_id: p.Id || g.primary_person_id } }];\n"
       },
       "id": "validate-conversion",
       "name": "Validate conversion",
@@ -216,7 +168,7 @@
       "typeVersion": 2,
       "position": [
         1560,
-        570
+        190
       ]
     },
     {
@@ -249,7 +201,7 @@
       "typeVersion": 2.2,
       "position": [
         1820,
-        570
+        190
       ]
     },
     {
@@ -259,7 +211,7 @@
         "projectId": "={{ $('Get one base').first().json.id }}",
         "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'leads').id }}",
         "operation": "update",
-        "id": "={{ $json.lead_id }}",
+        "id": "={{ $('Guard').first().json.lead_id }}",
         "dataToSend": "defineBelow",
         "fieldsUi": {
           "fieldValues": [
@@ -269,7 +221,7 @@
             },
             {
               "fieldName": "convert_note",
-              "fieldValue": "={{ $json.error_message }}"
+              "fieldValue": "={{ $json.error_message || $('Guard').first().json.error_message }}"
             }
           ]
         }
@@ -280,7 +232,7 @@
       "typeVersion": 3,
       "position": [
         2080,
-        950
+        760
       ],
       "credentials": {
         "nocoDbApiToken": {
@@ -301,7 +253,7 @@
           "fieldValues": [
             {
               "fieldName": "summary",
-              "fieldValue": "={{ 'Konwersja leada odrzucona: ' + $('Validate conversion').first().json.error_message }}"
+              "fieldValue": "={{ 'Konwersja leada odrzucona: ' + $json.convert_note }}"
             },
             {
               "fieldName": "type",
@@ -317,7 +269,7 @@
             },
             {
               "fieldName": "payload",
-              "fieldValue": "={{ JSON.stringify({ lead_id: $('Validate conversion').first().json.lead_id }) }}"
+              "fieldValue": "={{ JSON.stringify({ lead_id: $json.Id }) }}"
             }
           ]
         }
@@ -328,7 +280,7 @@
       "typeVersion": 3,
       "position": [
         2340,
-        950
+        760
       ],
       "credentials": {
         "nocoDbApiToken": {
@@ -380,7 +332,7 @@
       "typeVersion": 3,
       "position": [
         2080,
-        380
+        0
       ],
       "credentials": {
         "nocoDbApiToken": {
@@ -425,7 +377,7 @@
       "typeVersion": 3,
       "position": [
         2340,
-        380
+        0
       ],
       "credentials": {
         "nocoDbApiToken": {
@@ -473,7 +425,7 @@
       "typeVersion": 3,
       "position": [
         2600,
-        380
+        0
       ],
       "credentials": {
         "nocoDbApiToken": {
@@ -492,7 +444,7 @@
       "typeVersion": 2,
       "position": [
         2860,
-        380
+        0
       ]
     },
     {
@@ -512,7 +464,7 @@
       "typeVersion": 4,
       "position": [
         3120,
-        380
+        0
       ],
       "credentials": {
         "nocoDbApiToken": {
@@ -549,7 +501,7 @@
       "typeVersion": 3,
       "position": [
         3380,
-        380
+        0
       ],
       "credentials": {
         "nocoDbApiToken": {
@@ -568,7 +520,7 @@
       "typeVersion": 2,
       "position": [
         2340,
-        0
+        380
       ]
     }
   ],
@@ -610,79 +562,32 @@
       "main": [
         [
           {
-            "node": "Get lead primary person",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Get lead owner",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Get lead company",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Get existing opportunities of the lead",
+            "node": "Passed checks on the lead?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get lead primary person": {
+    "Passed checks on the lead?": {
       "main": [
         [
           {
-            "node": "Wait for lead data",
+            "node": "Get primary person",
             "type": "main",
             "index": 0
           }
-        ]
-      ]
-    },
-    "Get lead owner": {
-      "main": [
-        [],
+        ],
         [
           {
-            "node": "Wait for lead data",
+            "node": "Write conversion error",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get lead company": {
-      "main": [
-        [],
-        [],
-        [
-          {
-            "node": "Wait for lead data",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Get existing opportunities of the lead": {
-      "main": [
-        [],
-        [],
-        [],
-        [
-          {
-            "node": "Wait for lead data",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Wait for lead data": {
+    "Get primary person": {
       "main": [
         [
           {

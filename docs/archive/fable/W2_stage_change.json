@@ -53,7 +53,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\n// NocoDB odpala webhook przy KAZDEJ aktualizacji - dzialamy tylko, gdy realnie\n// zmienil sie etap. Wymaga \"send me previous record\" na webhooku tabeli.\nconst body = $input.first().json.body || $input.first().json;\nconst row = (body.data && body.data.rows && body.data.rows[0]) || {};\nconst prev = (body.data && body.data.previous_rows && body.data.previous_rows[0]) || {};\nconst s = row.stage, p = prev.stage;\nif (!s || s === p) return [];\n\nconst today = new Date().toISOString().slice(0, 10);\nconst patch = { Id: row.Id, stage_changed_at: new Date().toISOString() };\nif (s === 'Oferta wysłana')   patch.offer_sent_at = today;\nif (s === 'Umowa wysłana')    patch.contract_sent_at = today;\nif (s === 'Umowa podpisana')  { patch.state = 'won';      patch.closed_at = today; }\nif (s === 'Utracona')         { patch.state = 'lost';     patch.closed_at = today; }\nif (s === 'Zarchiwizowana')   { patch.state = 'archived'; patch.closed_at = today; }\n\n// Zadania przy przejsciach (docs/archive/fable/nocodb_crm_schema_v4.md, \"Zasady\n// tworzenia zadan\"). Przejscie na \"Audyt\" dojdzie w etapie 3.\nconst tasks = [];\nif (s === 'Rekomendacja / demo')\n  tasks.push({ task_type: 'prepare_offer', role: 'handlowiec', use_owner: true,\n               title: `Przygotuj ofertę: ${row.name}`, due_in_days: 1 });\nif (s === 'Umowa podpisana')\n  tasks.push({ task_type: 'invoice', role: 'finanse', use_owner: false,\n               title: `Wystaw fakturę: ${row.name}`, due_in_days: 3 });\n\nreturn [{ json: { opp_id: row.Id, opp_name: row.name || ('szansa #' + row.Id),\n  old_stage: p || '(brak)', new_stage: s, patch, tasks } }];\n"
+        "jsCode": "\n// NocoDB odpala webhook przy KAZDEJ aktualizacji - dzialamy tylko, gdy realnie\n// zmienil sie etap. Wymaga \"send me previous record\" na webhooku tabeli.\nconst body = $input.first().json.body || $input.first().json;\nconst row = (body.data && body.data.rows && body.data.rows[0]) || {};\nconst prev = (body.data && body.data.previous_rows && body.data.previous_rows[0]) || {};\nconst s = row.stage, p = prev.stage;\nif (!s || s === p) return [];\n\nconst today = new Date().toISOString().slice(0, 10);\nconst patch = { Id: row.Id, stage_changed_at: new Date().toISOString() };\nif (s === 'Oferta wysłana')   patch.offer_sent_at = today;\nif (s === 'Umowa wysłana')    patch.contract_sent_at = today;\nif (s === 'Umowa podpisana')  { patch.state = 'won';      patch.closed_at = today; }\nif (s === 'Utracona')         { patch.state = 'lost';     patch.closed_at = today; }\nif (s === 'Zarchiwizowana')   { patch.state = 'archived'; patch.closed_at = today; }\n\n// Zadania przy przejsciach (docs/archive/fable/nocodb_crm_schema_v4.md, \"Zasady\n// tworzenia zadan\"). Przejscie na \"Audyt\" dojdzie w etapie 3.\nconst tasks = [];\nif (s === 'Rekomendacja / demo')\n  tasks.push({ task_type: 'prepare_offer', role: 'handlowiec', use_owner: true,\n               title: `Przygotuj ofertę: ${row.name}`, due_in_days: 1 });\nif (s === 'Umowa podpisana')\n  tasks.push({ task_type: 'invoice', role: 'finanse', use_owner: false,\n               title: `Wystaw fakturę: ${row.name}`, due_in_days: 3 });\n\nconst idOf = o => (o && (o.Id || (Array.isArray(o) && o[0] && o[0].Id))) || null;\nconst owner_id = idOf(row.owner), buyer_id = idOf(row.person);\ntasks.forEach(t => { t.preferred_employee_id = t.use_owner ? owner_id : null; });\n\nreturn [{ json: { opp_id: row.Id, opp_name: row.name || ('szansa #' + row.Id),\n  old_stage: p || '(brak)', new_stage: s, patch, tasks, owner_id, buyer_id } }];\n"
       },
       "id": "guard-prepare",
       "name": "Guard & prepare",
@@ -66,18 +66,52 @@
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'sale_opportunities').id }}/links/cmfccw4jcw65cag/records/{{ $('Guard & prepare').first().json.opp_id }}?limit=200",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "nocoDbApiToken",
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ !!$('Guard & prepare').first().json.owner_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
         "options": {}
       },
-      "id": "get-opportunity-owner",
-      "name": "Get opportunity owner",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "owner-set-on-the-opportunity",
+      "name": "Owner set on the opportunity?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
       "position": [
         780,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'employees').id }}",
+        "operation": "get",
+        "id": "={{ $('Guard & prepare').first().json.owner_id }}"
+      },
+      "id": "get-owner-employee",
+      "name": "Get owner employee",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        1040,
         190
       ],
       "credentials": {
@@ -89,43 +123,7 @@
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'sale_opportunities').id }}/links/c7rcwykhrxcost6/records/{{ $('Guard & prepare').first().json.opp_id }}?limit=200",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "nocoDbApiToken",
-        "options": {}
-      },
-      "id": "get-opportunity-buyer",
-      "name": "Get opportunity buyer",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        780,
-        570
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "numberInputs": 2
-      },
-      "id": "wait-for-owner-and-buyer",
-      "name": "Wait for owner and buyer",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3,
-      "position": [
-        1040,
-        380
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "\nconst g = $('Guard & prepare').first().json;\nconst owner = (($('Get opportunity owner').first().json.list) || [])[0] || null;\nconst buyer = (($('Get opportunity buyer').first().json.list) || [])[0] || null;\nreturn [{ json: { ...g, owner_id: owner ? owner.Id : null,\n  owner_email: owner ? owner.email : null, buyer_id: buyer ? buyer.Id : null } }];\n"
+        "jsCode": "\nconst g = $('Guard & prepare').first().json;\nlet owner = null;\ntry { owner = $('Get owner employee').first().json; } catch (e) { owner = null; }\nreturn [{ json: { ...g, owner_email: owner && owner.email ? owner.email : null } }];\n"
       },
       "id": "assemble-transition",
       "name": "Assemble transition",
@@ -355,7 +353,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst a = $('Assemble transition').first().json;\nconst today = new Date();\nconst addDays = n => new Date(today.getTime() + n * 86400000).toISOString().slice(0, 10);\nreturn (a.tasks || []).map(t => ({ json: { ...t,\n  preferred_employee_id: t.use_owner ? a.owner_id : null,\n  due_date: addDays(t.due_in_days), on_date: addDays(t.due_in_days) } }));\n"
+        "jsCode": "\nconst a = $('Assemble transition').first().json;\nconst today = new Date();\nconst addDays = n => new Date(today.getTime() + n * 86400000).toISOString().slice(0, 10);\nreturn (a.tasks || []).map(t => ({ json: { ...t,\n  preferred_employee_id: t.preferred_employee_id || null,\n  due_date: addDays(t.due_in_days), on_date: addDays(t.due_in_days) } }));\n"
       },
       "id": "build-transition-tasks",
       "name": "Build transition tasks",
@@ -556,42 +554,32 @@
       "main": [
         [
           {
-            "node": "Get opportunity owner",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Get opportunity buyer",
+            "node": "Owner set on the opportunity?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get opportunity owner": {
+    "Owner set on the opportunity?": {
       "main": [
         [
           {
-            "node": "Wait for owner and buyer",
+            "node": "Get owner employee",
             "type": "main",
             "index": 0
           }
-        ]
-      ]
-    },
-    "Get opportunity buyer": {
-      "main": [
-        [],
+        ],
         [
           {
-            "node": "Wait for owner and buyer",
+            "node": "Assemble transition",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Wait for owner and buyer": {
+    "Get owner employee": {
       "main": [
         [
           {

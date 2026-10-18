@@ -429,62 +429,63 @@ def build_w14():
                           ("employees", "opportunities"), ("companies", "opportunities"),
                           ("sale_opportunities", "history"),
                           ("sale_opportunities", "activities"), ("leads", "activities")])
-    wh = webhook(f, "Button: Utwórz szansę sprzedaży", "w14-convert-lead", 0, 3)
-    b = base(f, 1, 3)
+    wh = webhook(f, "Button: Utwórz szansę sprzedaży", "w14-convert-lead", 0, 2)
+    b = base(f, 1, 2)
     guard = code(f, "Guard", """
-// Przycisk NocoDB wysyla caly wiersz leada w body.data.rows[0].
+// Przycisk NocoDB (payload v3) wysyla caly wiersz leada razem z polami relacji:
+// primary_person / owner / company jako {Id, ...} albo null, opportunities jako tablica.
 const body = $input.first().json.body || $input.first().json;
 const row = (body.data && body.data.rows && body.data.rows[0]) || body;
-return [{ json: { lead_id: row.Id, lead_name: row.lead_name || ('lead #' + row.Id),
-                  lead_type: row.lead_type || null } }];
-""", 2, 3)
-    mark = nc(f, "Set convert status: generating", "update", "leads", 3, 3,
+const idOf = o => (o && (o.Id || (Array.isArray(o) && o[0] && o[0].Id))) || null;
+const existing = Array.isArray(row.opportunities) ? row.opportunities.length
+               : (Number(row.opportunities) || 0);
+let error = null;
+if (!idOf(row.primary_person)) error = 'Brak głównego kontaktu (primary_person) na leadzie.';
+else if (existing) error = 'Szansa dla tego leada już istnieje (nie tworzę drugiej).';
+return [{ json: {
+  ok: !error, error_message: error, lead_id: row.Id,
+  lead_name: row.lead_name || ('lead #' + row.Id),
+  segment: row.lead_type === 'B2B' ? 'B2B' : 'B2C',
+  primary_person_id: idOf(row.primary_person), owner_id: idOf(row.owner),
+  company_id: idOf(row.company),
+} }];
+""", 2, 2)
+    mark = nc(f, "Set convert status: generating", "update", "leads", 3, 2,
               id="={{ $json.lead_id }}",
               fields={"convert_status": "generating", "convert_note": ""})
-    g_person = http_links_get(f, "Get lead primary person", "leads", "primary_person",
-                              "$('Guard').first().json.lead_id", 4, 1)
-    g_owner = http_links_get(f, "Get lead owner", "leads", "owner",
-                             "$('Guard').first().json.lead_id", 4, 2)
-    g_company = http_links_get(f, "Get lead company", "leads", "company",
-                               "$('Guard').first().json.lead_id", 4, 3)
-    g_exist = http_links_get(f, "Get existing opportunities of the lead", "leads",
-                             "opportunities", "$('Guard').first().json.lead_id", 4, 4)
-    mg = merge(f, "Wait for lead data", 4, 5, 3)
+    passed = if_(f, "Passed checks on the lead?",
+                 "={{ $('Guard').first().json.ok }}", 4, 2)
+    person = nc(f, "Get primary person", "get", "persons", 5, 1,
+                id="={{ $('Guard').first().json.primary_person_id }}")
     val = code(f, "Validate conversion", """
+// Jedyny odczyt spoza payloadu: tryb sprzedazy osoby (sales_mode) nie jest w
+// payloadzie przycisku, a pelny rekord osoby tak.
 const g = $('Guard').first().json;
-const person = (($('Get lead primary person').first().json.list) || [])[0];
-const owner = (($('Get lead owner').first().json.list) || [])[0];
-const company = (($('Get lead company').first().json.list) || [])[0];
-const existing = ($('Get existing opportunities of the lead').first().json.list) || [];
-let error = null;
-if (!person) error = 'Brak głównego kontaktu (primary_person) na leadzie.';
-else if (person.sales_mode === 'Tylko spotkania')
-  error = 'Główny kontakt ma tryb "Tylko spotkania" - nie tworzymy dla niego szansy.';
-else if (existing.length) error = 'Szansa dla tego leada już istnieje (nie tworzę drugiej).';
-return [{ json: {
-  ok: !error, error_message: error, lead_id: g.lead_id, lead_name: g.lead_name,
-  segment: g.lead_type === 'B2B' ? 'B2B' : 'B2C',
-  person_id: person ? person.Id : null, owner_id: owner ? owner.Id : null,
-  company_id: company ? company.Id : null,
-} }];
-""", 6, 3)
-    valid = if_(f, "Conversion allowed?", "={{ $json.ok }}", 7, 3)
-    err = nc(f, "Write conversion error", "update", "leads", 8, 5,
-             id="={{ $json.lead_id }}",
-             fields={"convert_status": "error", "convert_note": "={{ $json.error_message }}"})
-    err_act = nc(f, "Log activity: conversion refused", "create", "activities", 9, 5, fields={
-        "summary": "={{ 'Konwersja leada odrzucona: ' + $('Validate conversion').first().json.error_message }}",
+const p = $input.first().json;
+const error = p.sales_mode === 'Tylko spotkania'
+  ? 'Główny kontakt ma tryb "Tylko spotkania" - nie tworzymy dla niego szansy.' : null;
+return [{ json: { ...g, ok: !error, error_message: error, person_id: p.Id || g.primary_person_id } }];
+""", 6, 1)
+    valid = if_(f, "Conversion allowed?", "={{ $json.ok }}", 7, 1)
+    # Dwie sciezki bledu: kontrola z payloadu (komunikat w Guard) i kontrola
+    # sales_mode (komunikat w Validate conversion); id leada zawsze z Guard.
+    err = nc(f, "Write conversion error", "update", "leads", 8, 4,
+             id="={{ $('Guard').first().json.lead_id }}",
+             fields={"convert_status": "error",
+                     "convert_note": "={{ $json.error_message || $('Guard').first().json.error_message }}"})
+    err_act = nc(f, "Log activity: conversion refused", "create", "activities", 9, 4, fields={
+        "summary": "={{ 'Konwersja leada odrzucona: ' + $json.convert_note }}",
         "type": "automation_error", "flow": "W14", "triggered_by": "user",
-        "payload": "={{ JSON.stringify({ lead_id: $('Validate conversion').first().json.lead_id }) }}"})
-    create = nc(f, "Create sale opportunity", "create", "sale_opportunities", 8, 2, fields={
+        "payload": "={{ JSON.stringify({ lead_id: $json.Id }) }}"})
+    create = nc(f, "Create sale opportunity", "create", "sale_opportunities", 8, 0, fields={
         "name": "={{ $json.lead_name }}", "segment": "={{ $json.segment }}",
         "stage": "Nowa", "state": "open", "label": "Nowy klient",
         "stage_changed_at": "={{ $now.toISO() }}"}, on_error="continueErrorOutput")
     hist = nc(f, "Create first stage history row", "create",
-              "sale_opportunity_stage_history", 9, 2, fields={
+              "sale_opportunity_stage_history", 9, 0, fields={
                   "title": "Utworzono: Nowa", "to_stage": "Nowa",
                   "changed_at": "={{ $now.toISO() }}", "changed_by": "n8n:W14"})
-    act = nc(f, "Log activity: opportunity created", "create", "activities", 10, 2, fields={
+    act = nc(f, "Log activity: opportunity created", "create", "activities", 10, 0, fields={
         "summary": "={{ 'Utworzono szansę sprzedaży z leada: ' + $('Validate conversion').first().json.lead_name }}",
         "type": "stage_changed", "flow": "W14", "triggered_by": "user",
         "payload": "={{ JSON.stringify({ lead_id: $('Validate conversion').first().json.lead_id, opportunity_id: $('Create sale opportunity').first().json.Id }) }}"})
@@ -502,9 +503,9 @@ return [
   link('sale_opportunities', 'activities', opp, act),
   link('leads', 'activities', v.lead_id, act),
 ].filter(Boolean);
-""", 11, 2)
-    links = http_links_batch(f, "Link records to the new opportunity", 12, 2)
-    done = nc(f, "Set convert status: done", "update", "leads", 13, 2,
+""", 11, 0)
+    links = http_links_batch(f, "Link records to the new opportunity", 12, 0)
+    done = nc(f, "Set convert status: done", "update", "leads", 13, 0,
               id="={{ $('Validate conversion').first().json.lead_id }}",
               fields={"convert_status": "done", "convert_note": ""})
     unexpected = code(f, "Prepare unexpected error", """
@@ -512,15 +513,11 @@ const v = $('Validate conversion').first().json;
 const e = $input.first().json;
 return [{ json: { lead_id: v.lead_id, error_message:
   'Nie udało się utworzyć szansy: ' + ((e.error && (e.error.message || e.error)) || 'nieznany błąd') } }];
-""", 9, 0)
-    f.chain(wh, b, guard, mark)
-    f.to(mark, g_person)
-    f.to(mark, g_owner)
-    f.to(mark, g_company)
-    f.to(mark, g_exist)
-    for i, n in enumerate((g_person, g_owner, g_company, g_exist)):
-        f.to(n, mg, i)
-    f.chain(mg, val, valid)
+""", 9, 2)
+    f.chain(wh, b, guard, mark, passed)
+    f.to(passed, person, 0)
+    f.to(passed, err, 1)
+    f.chain(person, val, valid)
     f.to(valid, create, 0)
     f.to(valid, err, 1)
     f.chain(err, err_act)
@@ -567,20 +564,22 @@ if (s === 'Umowa podpisana')
   tasks.push({ task_type: 'invoice', role: 'finanse', use_owner: false,
                title: `Wystaw fakturę: ${row.name}`, due_in_days: 3 });
 
+const idOf = o => (o && (o.Id || (Array.isArray(o) && o[0] && o[0].Id))) || null;
+const owner_id = idOf(row.owner), buyer_id = idOf(row.person);
+tasks.forEach(t => { t.preferred_employee_id = t.use_owner ? owner_id : null; });
+
 return [{ json: { opp_id: row.Id, opp_name: row.name || ('szansa #' + row.Id),
-  old_stage: p || '(brak)', new_stage: s, patch, tasks } }];
+  old_stage: p || '(brak)', new_stage: s, patch, tasks, owner_id, buyer_id } }];
 """, 2, 2)
-    g_owner = http_links_get(f, "Get opportunity owner", "sale_opportunities", "owner",
-                             "$('Guard & prepare').first().json.opp_id", 3, 1)
-    g_person = http_links_get(f, "Get opportunity buyer", "sale_opportunities", "person",
-                              "$('Guard & prepare').first().json.opp_id", 3, 3)
-    mg = merge(f, "Wait for owner and buyer", 2, 4, 2)
+    has_owner_id = if_(f, "Owner set on the opportunity?",
+                       "={{ !!$('Guard & prepare').first().json.owner_id }}", 3, 2)
+    get_owner = nc(f, "Get owner employee", "get", "employees", 4, 1,
+                   id="={{ $('Guard & prepare').first().json.owner_id }}")
     asm = code(f, "Assemble transition", """
 const g = $('Guard & prepare').first().json;
-const owner = (($('Get opportunity owner').first().json.list) || [])[0] || null;
-const buyer = (($('Get opportunity buyer').first().json.list) || [])[0] || null;
-return [{ json: { ...g, owner_id: owner ? owner.Id : null,
-  owner_email: owner ? owner.email : null, buyer_id: buyer ? buyer.Id : null } }];
+let owner = null;
+try { owner = $('Get owner employee').first().json; } catch (e) { owner = null; }
+return [{ json: { ...g, owner_email: owner && owner.email ? owner.email : null } }];
 """, 5, 2)
     # --- gałąź A: kamienie milowe
     upd = http_patch(f, "Update opportunity milestones (variable field set)",
@@ -618,7 +617,7 @@ const a = $('Assemble transition').first().json;
 const today = new Date();
 const addDays = n => new Date(today.getTime() + n * 86400000).toISOString().slice(0, 10);
 return (a.tasks || []).map(t => ({ json: { ...t,
-  preferred_employee_id: t.use_owner ? a.owner_id : null,
+  preferred_employee_id: t.preferred_employee_id || null,
   due_date: addDays(t.due_in_days), on_date: addDays(t.due_in_days) } }));
 """, 6, 4)
     resolve = call(f, "Resolve who should do the task", "__W15_WORKFLOW_ID__", 7, 4)
@@ -652,11 +651,10 @@ return created.map(c => ({ json: { task_id: c.json.Id } }));
     send = call(f, "Notify assignee about the task", "__W3_WORKFLOW_ID__", 13, 4)
 
     f.chain(wh, b, guard)
-    f.to(guard, g_owner)
-    f.to(guard, g_person)
-    f.to(g_owner, mg, 0)
-    f.to(g_person, mg, 1)
-    f.chain(mg, asm)
+    f.to(guard, has_owner_id)
+    f.to(has_owner_id, get_owner, 0)
+    f.to(has_owner_id, asm, 1)
+    f.to(get_owner, asm)
     f.to(asm, upd)
     f.to(asm, hist)
     f.to(asm, build)
