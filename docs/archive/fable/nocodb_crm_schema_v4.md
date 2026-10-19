@@ -39,7 +39,7 @@ dało się planować; każda jest tania do zmiany, dopóki nie ruszy implementac
 | A1 | Etapy `stage` mają **polskie nazwy opcji** (zespół widzi je na kanbanie); w specyfikacji używam stałych kluczy technicznych z dzisiejszego `leads.stage`, a mapowanie jest w sekcji „Nazwy etapów" niżej. Lista etapów jak dziś; do potwierdzenia, czy klientka chce zamiast niej etapy z Excela | Demo pokazywało etapy po polsku z Excela, a flow (W2 i inne) porównują wartości opcji, więc zmiana nazw to zmiana w flow |
 | A2 | Pola `stage` **i** `state` zostają oba | mniej zmian we flow |
 | A3 | Konwersja lead → szansa **przyciskiem** „Utwórz szansę sprzedaży" na leadzie, nie automatem po `qualification = SQL` | wzorzec Buttonów w repo, brak ryzyka pętli webhooków |
-| A4 | „Typ szansy" = istniejące pole `label` wpisywane ręcznie | wystarcza na UAT; reguła wyliczania później |
+| A4 | Pole `label` zastąpione przez **`campaign`** (SingleSelect zarządzany przez zespół, np. „Black Week”). „Typ szansy” (nowy klient / upsell / odnowienie) nie ma teraz osobnego pola | decyzja użytkownika; patrz „Ryzyka i luki”: brak typu szansy wpływa na metryki i na import ze starego CRM |
 | A5 | `service_end_date` dodane od razu | tanie, potrzebne do widoku odnowień |
 | A6 | `owner` / `assignee` / `assigned_methodologist` to **linki do `employees`** (zamiast `User`); widoki „moje zadania" robimy po jednym na osobę | patrz „Ryzyka" niżej |
 | A7 | Zadania powstają **tylko w trzech przypadkach** (sekcja „Zasady tworzenia zadań"); przyciski generujące wynik zadania nie tworzą | decyzja z 2026-10-18: wynik w ≤10 s, stany pośrednie widać w polu status |
@@ -302,7 +302,7 @@ Szansa sprzedaży. Należy do osoby i firmy, nie do leada. Pole tytułowe: `name
 | `loss_reason` | SingleSelect `cena` / `brak_decyzji` / `konkurencja` / `przesuniete_w_czasie` / `inne` | z `leads` |
 | `loss_note` | LongText | z `leads` |
 | `deal_value` | Currency PLN | **prognoza**, nie `offers.total_price` (opis jak w v3) |
-| `label` | SingleSelect `Nowy klient` / `Upsell` / `Odnowienie` / `Projekt jednorazowy` / `Abonament` / `Pilne` / `hot` / `oferta_specjalna` | z `leads`, A4 |
+| `campaign` | SingleSelect, lista należy do zespołu (start: „Black Week”) | było `label` z `leads`, A4; skrypt ustawia opcje tylko na pustym polu i ich nie nadpisuje |
 | `offer_prep_status` | SingleSelect `none` / `waiting_goals` / `goals_provided` / `testimonials_provided` / `draft_ready` | z `leads` (W1 / W6b) |
 | `training_goals` | LongText | z `leads` |
 | `offer_sent_at`, `contract_sent_at`, `closed_at` | Date | z `leads`, pisze wyłącznie n8n |
@@ -532,7 +532,8 @@ Tylko zmienione i nowe. Pozostałe z `init-schema.py` zostają bez zmian
 | `leads.industry` | `persons.industry` (B2C) / `companies.industry` (B2B) |
 | `leads.stage`, `state` | `sale_opportunities.*` |
 | `leads.loss_reason`, `loss_note` | `sale_opportunities.*` |
-| `leads.deal_value`, `label` | `sale_opportunities.*` |
+| `leads.deal_value` | `sale_opportunities.deal_value` |
+| `leads.label` („typ szansy” z Excela: Nowy klient, Upsell, Odnowienie…) | brak odpowiednika; `sale_opportunities.campaign` to inne pojęcie (kampania) |
 | `leads.offer_prep_status`, `training_goals` | `sale_opportunities.*` |
 | `leads.offer_sent_at`, `contract_sent_at`, `closed_at` | `sale_opportunities.*` |
 | `leads.possible_duplicate` | `persons.possible_duplicate` |
@@ -715,6 +716,12 @@ instancji i dopiero wtedy utrwalamy decyzję:
   nie tworzy leada ani zadania, tylko wpis w `activities`, więc jeśli jej
   wiadomość wymagała reakcji, nikt jej nie zobaczy. Do rozważenia: osobny
   przypadek zadania albo powiadomienie do `admin`.
+- **Brak „typu szansy”.** Po zamianie `label` na `campaign` nic nie mówi, czy
+  szansa to nowy klient, upsell czy odnowienie. Tego wymagają metryki
+  akwizycji (przychód z nowych klientów vs kontynuacje, A4) i trzeba będzie
+  zmapować kolumnę „Szansa sprzedaży Etykieta” przy imporcie ze starego CRM.
+  Jeśli typ ma zostać, wystarczy osobne pole SingleSelect (np. `opportunity_type`)
+  obok `campaign`; dziś go nie ma.
 - **Tworzenie osób z listy HR.** `to_be_audited` wymaga istniejących osób.
   Przy trzech nowych osobach ktoś musi je najpierw utworzyć w `persons` (imię,
   e-mail, firma). Możliwe usprawnienie na później: publiczny formularz NocoDB

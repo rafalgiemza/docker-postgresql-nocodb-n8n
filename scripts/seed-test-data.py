@@ -293,9 +293,9 @@ def seed_stage1():
 
     # --- szanse
     def opp(key, name, segment, stage, state, value, owner, buyer, lead_id=None,
-            company=None, label="Nowy klient", **kw):
+            company=None, campaign=None, **kw):
         oid = rec("sale_opportunities", name=name, segment=segment, stage=stage,
-                  state=state, deal_value=value, label=label, **kw)
+                  state=state, deal_value=value, campaign=campaign, **kw)
         K["opp_" + key] = oid
         lnk("persons", "bought_opportunities", buyer, oid)
         lnk("employees", "opportunities", owner, oid)
@@ -327,7 +327,7 @@ def seed_stage1():
                      ("Audyt", 3)])
 
     o_kasia = opp("kasia", OPP["kasia"], "B2C", "Oferta wysłana", "open", 5200,
-                  K["przemek"], K["katarzyna"], label="Odnowienie",
+                  K["przemek"], K["katarzyna"], campaign="Black Week",
                   stage_changed_at=dt(-20), offer_sent_at=d(-20))
     history(o_kasia, [("Nowa", 40), ("Audyt", 30), ("Oferta wysłana", 20)])
 

@@ -495,7 +495,7 @@ return [{ json: { ...g, ok: !error, error_message: error, person_id: p.Id || g.p
         "payload": "={{ JSON.stringify({ lead_id: $json.Id }) }}"})
     create = nc(f, "Create sale opportunity", "create", "sale_opportunities", 8, 0, fields={
         "name": "={{ $json.lead_name }}", "segment": "={{ $json.segment }}",
-        "stage": "Nowa", "state": "open", "label": "Nowy klient",
+        "stage": "Nowa", "state": "open",
         "stage_changed_at": "={{ $now.toISO() }}"}, on_error="continueErrorOutput")
     hist = nc(f, "Create first stage history row", "create",
               "sale_opportunity_stage_history", 9, 0, fields={

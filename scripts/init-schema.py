@@ -524,10 +524,12 @@ TABLES = [
              "description": "Wartosc szansy (prognoza pipeline'u). Po "
                             "zatwierdzeniu oferty (status approved) "
                             "aktualizowana automatycznie z offers.approved_total."},
-            {"title": "label", "type": "SingleSelect",
-             "options": select("hot", "oferta_specjalna", "Nowy klient", "Upsell",
-                               "Odnowienie", "Projekt jednorazowy", "Abonament",
-                               "Pilne")},
+            {"title": "campaign", "type": "SingleSelect",
+             "options": select("Black Week"), "team_managed": True,
+             "description": "Kampania / akcja, ktorej dotyczy szansa (np. Black "
+                            "Week) - lista nalezy do zespolu: dopisuj i usuwaj "
+                            "opcje w UI. Skrypt ustawia opcje tylko raz, na "
+                            "pustym polu, i potem ich nie nadpisuje."},
             {"title": "offer_prep_status", "type": "SingleSelect",
              "options": select("none", "waiting_goals", "goals_provided",
                                "testimonials_provided", "draft_ready")},
@@ -1650,6 +1652,12 @@ def sync_select_options(ids, dry_run):
             col = table_columns(table_id).get(f["title"].lower())
             if not col:
                 print(f"!  {t['title']}.{f['title']}: pole nie istnieje, pomijam")
+                continue
+            # Listy nalezace do zespolu (np. campaign) ustawiamy tylko na pustym
+            # polu; kolejne uruchomienia skryptu nie kasuja opcji dopisanych w UI.
+            if f.get("team_managed") and (col.get("colOptions") or {}).get("options"):
+                print(f"=  {t['title']}.{f['title']}: lista zarzadzana przez zespol, "
+                      f"pomijam")
                 continue
             options = [{"title": c, "color": SELECT_COLORS[i % len(SELECT_COLORS)]}
                        for i, c in enumerate(choices)]

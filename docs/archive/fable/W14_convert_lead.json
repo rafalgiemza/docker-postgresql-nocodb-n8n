@@ -316,10 +316,6 @@
               "fieldValue": "open"
             },
             {
-              "fieldName": "label",
-              "fieldValue": "Nowy klient"
-            },
-            {
               "fieldName": "stage_changed_at",
               "fieldValue": "={{ $now.toISO() }}"
             }
