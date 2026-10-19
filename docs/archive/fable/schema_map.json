@@ -250,6 +250,43 @@
         "relation_type": "hm",
         "uidt": "LinkToAnotherRecord"
       },
+      "_nc_m2m_meetings_activities": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:22+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cbmn4x5gyq6t7ud",
+          "fk_column_id": "cfdgjgfh7vjbx78",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_meetings_activities_wxqubs_667",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c6ht8cd52of6hj1",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "m91t6bx1np04phz",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lxxkm43w0w0e91j",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:22+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cfdgjgfh7vjbx78",
+        "related_table": "m91t6bx1np04phz",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
       "_nc_m2m_sale_opportunit_activities": {
         "_raw_colOptions": {
           "base_id": "p6w78auzu6sjdoo",
@@ -366,6 +403,44 @@
         "relation_type": "mo",
         "uidt": "LinkToAnotherRecord"
       },
+      "meetings": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:22+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "c6ht8cd52of6hj1",
+          "fk_column_id": "ckqhq97hhjhqtln",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cbmn4x5gyq6t7ud",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "m91t6bx1np04phz",
+          "fk_mm_parent_column_id": "cuwulkjgiuvl0tq",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cybvr7hciuwcch0",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mmya7xfqbn9ho29",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lkdn87c5azjgwnw",
+          "ref_db_alias": null,
+          "type": "mo",
+          "updated_at": "2026-10-18 21:05:22+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "ckqhq97hhjhqtln",
+        "junction_table_name": "_nc_m2m_meetings_activities",
+        "related_table": "meetings",
+        "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
       "nc_created_by": {
         "id": "czkh60fnnpn01h2",
         "uidt": "CreatedBy"
@@ -476,6 +551,337 @@
       }
     },
     "id": "muybcf6ys4qg60r",
+    "source_id": "b0vvvho943bikyb"
+  },
+  "assessments": {
+    "fields": {
+      "CreatedAt": {
+        "id": "c0dmtdh398z4e9z",
+        "uidt": "CreatedTime"
+      },
+      "Generuj needs summary": {
+        "id": "c2osyhkd5bnt63k",
+        "uidt": "Button"
+      },
+      "Id": {
+        "id": "cni3ktg93w61rvv",
+        "uidt": "ID"
+      },
+      "UpdatedAt": {
+        "id": "crysblhz2rt0fb3",
+        "uidt": "LastModifiedTime"
+      },
+      "_nc_m2m_assessments_tasks": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:24+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c02vl9uu5r2uyfe",
+          "fk_column_id": "cj27x2l9umoqf4h",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_assessment_tasks_oal7767lad",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cni3ktg93w61rvv",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "modac694a80q79k",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lucouwn8yua4n7h",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:24+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cj27x2l9umoqf4h",
+        "related_table": "modac694a80q79k",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_meetings_assessments": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:22+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c2j5icd9h8xuydq",
+          "fk_column_id": "cgn1uwqxzlt1gu8",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_meetings_assessment_t35kvrqu6q",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cni3ktg93w61rvv",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mht71wmw3bk5qcu",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l9xujsxpc0e07c5",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:22+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cgn1uwqxzlt1gu8",
+        "related_table": "mht71wmw3bk5qcu",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_persons_assessments": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:15+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cdydsselwjbdnf5",
+          "fk_column_id": "c3ju1v1a6ezbh7p",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_persons_assessment_xg261l7pll",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cni3ktg93w61rvv",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "m0xqinaoqhb0tpo",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l5wo48ju5604hmz",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:15+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "c3ju1v1a6ezbh7p",
+        "related_table": "m0xqinaoqhb0tpo",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "ai_status": {
+        "id": "citu41gh785v9tp",
+        "uidt": "SingleSelect"
+      },
+      "assessed_at": {
+        "id": "cs9pofi30g53yt5",
+        "uidt": "Date"
+      },
+      "auditor_notes": {
+        "id": "cwugapgasv5l5gt",
+        "uidt": "LongText"
+      },
+      "cefr_accuracy": {
+        "id": "cu5yiylgmgakc29",
+        "uidt": "SingleLineText"
+      },
+      "cefr_communication": {
+        "id": "cdckwwxa43kbwii",
+        "uidt": "SingleLineText"
+      },
+      "cefr_fluency": {
+        "id": "c0hr76d5h130y4a",
+        "uidt": "SingleLineText"
+      },
+      "cefr_overall": {
+        "id": "cmdwfv6jqbizq23",
+        "uidt": "SingleLineText"
+      },
+      "cefr_range": {
+        "id": "chqegdz689p65q4",
+        "uidt": "SingleLineText"
+      },
+      "gaps": {
+        "id": "clmj6q32uhpllg1",
+        "uidt": "LongText"
+      },
+      "manager_needs": {
+        "id": "cb29q0fylucwjxm",
+        "uidt": "LongText"
+      },
+      "meeting": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:22+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cni3ktg93w61rvv",
+          "fk_column_id": "cqehzzj0rs3zcb5",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "c2j5icd9h8xuydq",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mht71wmw3bk5qcu",
+          "fk_mm_parent_column_id": "c9lk04bx5ddetj8",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cybvr7hciuwcch0",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mmya7xfqbn9ho29",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lkpwnfw7qb9whuq",
+          "ref_db_alias": null,
+          "type": "mo",
+          "updated_at": "2026-10-18 21:05:22+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "cqehzzj0rs3zcb5",
+        "junction_table_name": "_nc_m2m_meetings_assessments",
+        "related_table": "meetings",
+        "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "nc_created_by": {
+        "id": "cgyvtosgiqck6tl",
+        "uidt": "CreatedBy"
+      },
+      "nc_order": {
+        "id": "c3fhxgl8s7h9zqe",
+        "uidt": "Order"
+      },
+      "nc_row_meta": {
+        "id": "c2x95sv1wecwvcq",
+        "uidt": "Meta"
+      },
+      "nc_updated_by": {
+        "id": "c2mub0ryy1t7ps0",
+        "uidt": "LastModifiedBy"
+      },
+      "needs_summary": {
+        "id": "c1ckikmdlbflvtk",
+        "uidt": "LongText"
+      },
+      "person": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:15+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cni3ktg93w61rvv",
+          "fk_column_id": "cuz1yb62a3s6ouu",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cdydsselwjbdnf5",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "m0xqinaoqhb0tpo",
+          "fk_mm_parent_column_id": "csef6zsayg24ja2",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c06vy13zrxsm4am",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mpx62ir9qmx0mnk",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lbbgkpskto7xkps",
+          "ref_db_alias": null,
+          "type": "mo",
+          "updated_at": "2026-10-18 21:05:15+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "cuz1yb62a3s6ouu",
+        "junction_table_name": "_nc_m2m_persons_assessments",
+        "related_table": "persons",
+        "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "position": {
+        "id": "cxyxfbpul9xtmsr",
+        "uidt": "SingleLineText"
+      },
+      "report_data_json": {
+        "id": "c0ln3yuwj6o87jd",
+        "uidt": "LongText"
+      },
+      "report_file": {
+        "id": "cr99x5kjel9u11y",
+        "uidt": "Attachment"
+      },
+      "self_assessment": {
+        "id": "cfyq4jj56dg5nux",
+        "uidt": "LongText"
+      },
+      "strengths": {
+        "id": "cb7nv0hms2nx140",
+        "uidt": "LongText"
+      },
+      "tasks": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:24+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cni3ktg93w61rvv",
+          "fk_column_id": "crko2ykwj0zepb1",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "c02vl9uu5r2uyfe",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "modac694a80q79k",
+          "fk_mm_parent_column_id": "c5t8qjmekbf09bg",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "ca1w27i4wrpkr1v",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "m64wtoh1yzulgtu",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lh07i69sx1go6hh",
+          "ref_db_alias": null,
+          "type": "om",
+          "updated_at": "2026-10-18 21:05:24+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "crko2ykwj0zepb1",
+        "junction_table_name": "_nc_m2m_assessments_tasks",
+        "related_table": "tasks",
+        "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "title": {
+        "id": "cpkip6idxo3u91f",
+        "uidt": "SingleLineText"
+      }
+    },
+    "id": "mor04rigx4pobfs",
     "source_id": "b0vvvho943bikyb"
   },
   "companies": {
@@ -600,6 +1006,43 @@
         },
         "id": "c6b380kkjr9uhvz",
         "related_table": "mtnwcesq4y1ea06",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_companies_testimonials": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:14+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "ci407ohwevqplt8",
+          "fk_column_id": "cf0hi2kyl0zmap1",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_companies_testimonia_popq9f0dyh",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "ctpo5bcby63ljdp",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mqnz1wjhv65toxh",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "ljbpmb944de84lc",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:14+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cf0hi2kyl0zmap1",
+        "related_table": "mqnz1wjhv65toxh",
         "relation_type": "hm",
         "uidt": "LinkToAnotherRecord"
       },
@@ -768,9 +1211,251 @@
       "size": {
         "id": "c6mcsv3nabiafel",
         "uidt": "SingleSelect"
+      },
+      "testimonials": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:14+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "ctpo5bcby63ljdp",
+          "fk_column_id": "crmooclo5nigia4",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "ci407ohwevqplt8",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mqnz1wjhv65toxh",
+          "fk_mm_parent_column_id": "cpfwrkp2ol363h7",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cjsufrrteft7r1q",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mn7xn0zwixz6ov8",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lxknbec4eyvwrao",
+          "ref_db_alias": null,
+          "type": "om",
+          "updated_at": "2026-10-18 21:05:14+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "crmooclo5nigia4",
+        "junction_table_name": "_nc_m2m_companies_testimonials",
+        "related_table": "testimonials",
+        "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
       }
     },
     "id": "m1ojja010nv8eyw",
+    "source_id": "b0vvvho943bikyb"
+  },
+  "document_templates": {
+    "fields": {
+      "CreatedAt": {
+        "id": "ch76bc8z502cyfh",
+        "uidt": "CreatedTime"
+      },
+      "Id": {
+        "id": "c993eeo9x1gy83v",
+        "uidt": "ID"
+      },
+      "UpdatedAt": {
+        "id": "cqew80exdttdnbq",
+        "uidt": "LastModifiedTime"
+      },
+      "_nc_m2m_document_templa_materials": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:27+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "clc95d5x4rh7w3o",
+          "fk_column_id": "ceavd4mpa019dl2",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_document_t_materials_1ssa387_lq",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c993eeo9x1gy83v",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mh9gd0fkp7azs3u",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lzt57ddegqoka9k",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:27+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "ceavd4mpa019dl2",
+        "related_table": "mh9gd0fkp7azs3u",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_document_templa_offers": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:26+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cc7vyucskc7i4gi",
+          "fk_column_id": "cdhgu76xs999l9r",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_document_t_offers_xs0y2_6jpb",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c993eeo9x1gy83v",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mbsj4u1zvrqcumb",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l0mcsl8gp4w3h1x",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:26+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cdhgu76xs999l9r",
+        "related_table": "mbsj4u1zvrqcumb",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "active": {
+        "id": "c8hikkkevj2v0ma",
+        "uidt": "Checkbox"
+      },
+      "file": {
+        "id": "c6ied5xvpt3uwqr",
+        "uidt": "Attachment"
+      },
+      "kind": {
+        "id": "cxvzck5dxjrzqjd",
+        "uidt": "SingleSelect"
+      },
+      "materials": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:27+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "c993eeo9x1gy83v",
+          "fk_column_id": "c31qul5tjmxdqo1",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "clc95d5x4rh7w3o",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mh9gd0fkp7azs3u",
+          "fk_mm_parent_column_id": "c3gf2229gmqkz52",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c7kecewu5couyzo",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "m1712sen4kpqdt0",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lp8lqinnqwejy38",
+          "ref_db_alias": null,
+          "type": "om",
+          "updated_at": "2026-10-18 21:05:27+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "c31qul5tjmxdqo1",
+        "junction_table_name": "_nc_m2m_document_templa_materials",
+        "related_table": "materials",
+        "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "name": {
+        "id": "cm3wdxnoq0csmyn",
+        "uidt": "SingleLineText"
+      },
+      "nc_created_by": {
+        "id": "c1mzbgcw44xr9ro",
+        "uidt": "CreatedBy"
+      },
+      "nc_order": {
+        "id": "ciwunt5fkmbt6sp",
+        "uidt": "Order"
+      },
+      "nc_row_meta": {
+        "id": "ch85ytts4nelzbz",
+        "uidt": "Meta"
+      },
+      "nc_updated_by": {
+        "id": "ctjhjapqy827w4o",
+        "uidt": "LastModifiedBy"
+      },
+      "notes": {
+        "id": "c7yfix37lcpwfzk",
+        "uidt": "LongText"
+      },
+      "offers": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:26+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "c993eeo9x1gy83v",
+          "fk_column_id": "cmu4lj83d239oed",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cc7vyucskc7i4gi",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mbsj4u1zvrqcumb",
+          "fk_mm_parent_column_id": "cvvmpom16dpsvxm",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c2av5j6xcysc240",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mxa45gmy92e0dl1",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lzv9rdz06csz6l9",
+          "ref_db_alias": null,
+          "type": "om",
+          "updated_at": "2026-10-18 21:05:26+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "cmu4lj83d239oed",
+        "junction_table_name": "_nc_m2m_document_templa_offers",
+        "related_table": "offers",
+        "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
+      }
+    },
+    "id": "mnu0brz25qqj1b3",
     "source_id": "b0vvvho943bikyb"
   },
   "employees": {
@@ -895,6 +1580,43 @@
         },
         "id": "cjiwcglx1fvv7o5",
         "related_table": "mmzsphtq59o06d6",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_employees_meetings": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:26+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cnwtkxz7yg8jpie",
+          "fk_column_id": "c0xpokoex7ermiv",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_employees_meetings_0v6krose9i",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cm90pfsyyqucjgk",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mp4ouxz7t66gl1a",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "ltum723hi089k1i",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:26+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "c0xpokoex7ermiv",
+        "related_table": "mp4ouxz7t66gl1a",
         "relation_type": "hm",
         "uidt": "LinkToAnotherRecord"
       },
@@ -1207,6 +1929,44 @@
         "id": "c2wfaaneb499966",
         "junction_table_name": "_nc_m2m_employees_leads",
         "related_table": "leads",
+        "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "meetings": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:26+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cm90pfsyyqucjgk",
+          "fk_column_id": "cyv312ldy13ehgf",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cnwtkxz7yg8jpie",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mp4ouxz7t66gl1a",
+          "fk_mm_parent_column_id": "csa7rwof07mv4yo",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cybvr7hciuwcch0",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mmya7xfqbn9ho29",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l89eedcdcrhqhre",
+          "ref_db_alias": null,
+          "type": "om",
+          "updated_at": "2026-10-18 21:05:26+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "cyv312ldy13ehgf",
+        "junction_table_name": "_nc_m2m_employees_meetings",
+        "related_table": "meetings",
         "relation_type": "om",
         "uidt": "LinkToAnotherRecord"
       },
@@ -1963,6 +2723,1725 @@
     "id": "m8dr662o4ct0hg3",
     "source_id": "b0vvvho943bikyb"
   },
+  "materials": {
+    "fields": {
+      "CreatedAt": {
+        "id": "cscbbz5n518skvn",
+        "uidt": "CreatedTime"
+      },
+      "Generuj prezentację": {
+        "id": "cfisnz5pknvzvf5",
+        "uidt": "Button"
+      },
+      "Generuj szkic treści": {
+        "id": "c5wll0fumi4sqio",
+        "uidt": "Button"
+      },
+      "Generuj zarys slajdów": {
+        "id": "cmbcy19qd40kjlx",
+        "uidt": "Button"
+      },
+      "Id": {
+        "id": "c7kecewu5couyzo",
+        "uidt": "ID"
+      },
+      "UpdatedAt": {
+        "id": "c4jb41vnmfba9pr",
+        "uidt": "LastModifiedTime"
+      },
+      "_nc_m2m_document_templa_materials": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:27+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c3gf2229gmqkz52",
+          "fk_column_id": "ca1svnp7ykizwlc",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_document_t_materials_rbfkvvltpa",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c7kecewu5couyzo",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mh9gd0fkp7azs3u",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lm122mvimsd694h",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:27+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "ca1svnp7ykizwlc",
+        "related_table": "mh9gd0fkp7azs3u",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "brief": {
+        "id": "cuiy3vrpnc4t6oq",
+        "uidt": "LongText"
+      },
+      "content_ai_status": {
+        "id": "cab9csdcl8mro5w",
+        "uidt": "SingleSelect"
+      },
+      "content_draft": {
+        "id": "cmk52ndcmziuurb",
+        "uidt": "LongText"
+      },
+      "document_templates": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:27+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "c7kecewu5couyzo",
+          "fk_column_id": "c2n3hhsnlxbhcom",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "c3gf2229gmqkz52",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mh9gd0fkp7azs3u",
+          "fk_mm_parent_column_id": "clc95d5x4rh7w3o",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c993eeo9x1gy83v",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mnu0brz25qqj1b3",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l2xv0jfz6sda4ah",
+          "ref_db_alias": null,
+          "type": "mo",
+          "updated_at": "2026-10-18 21:05:27+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "c2n3hhsnlxbhcom",
+        "junction_table_name": "_nc_m2m_document_templa_materials",
+        "related_table": "document_templates",
+        "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "file_note": {
+        "id": "chfu1yqg24erc8y",
+        "uidt": "LongText"
+      },
+      "file_status": {
+        "id": "cvbar1n7lke36en",
+        "uidt": "SingleSelect"
+      },
+      "nc_created_by": {
+        "id": "ckqqxrzcms3h20a",
+        "uidt": "CreatedBy"
+      },
+      "nc_order": {
+        "id": "c8q2lxl9uvjgnrg",
+        "uidt": "Order"
+      },
+      "nc_row_meta": {
+        "id": "cyy8400i3pn2zpo",
+        "uidt": "Meta"
+      },
+      "nc_updated_by": {
+        "id": "cquu1mf3dzw21yr",
+        "uidt": "LastModifiedBy"
+      },
+      "outline": {
+        "id": "cui64tyb0wt4mxo",
+        "uidt": "LongText"
+      },
+      "outline_ai_status": {
+        "id": "c2xeq6by9rvszb4",
+        "uidt": "SingleSelect"
+      },
+      "presentation_file": {
+        "id": "cfz8a25sv9spw18",
+        "uidt": "Attachment"
+      },
+      "title": {
+        "id": "cjdxq9k86heso1u",
+        "uidt": "SingleLineText"
+      }
+    },
+    "id": "m1712sen4kpqdt0",
+    "source_id": "b0vvvho943bikyb"
+  },
+  "meetings": {
+    "fields": {
+      "CreatedAt": {
+        "id": "c08vz0wo8eir3rg",
+        "uidt": "CreatedTime"
+      },
+      "Generuj analizę": {
+        "id": "cztm8jcikp6or4x",
+        "uidt": "Button"
+      },
+      "Id": {
+        "id": "cybvr7hciuwcch0",
+        "uidt": "ID"
+      },
+      "UpdatedAt": {
+        "id": "csw63ol3tudllw7",
+        "uidt": "LastModifiedTime"
+      },
+      "_nc_m2m_employees_meetings": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:26+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "csa7rwof07mv4yo",
+          "fk_column_id": "cwvgwc8fml06vl1",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_employees_meetings_phpvtczmea",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cybvr7hciuwcch0",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mp4ouxz7t66gl1a",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l93kgwg3ho8h0id",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:26+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cwvgwc8fml06vl1",
+        "related_table": "mp4ouxz7t66gl1a",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_meetings_activities": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:22+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cuwulkjgiuvl0tq",
+          "fk_column_id": "c9a0tcz7ka2y8xl",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_meetings_activities_6121dtsbgw",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cybvr7hciuwcch0",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "m91t6bx1np04phz",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l4gy3luriufkzkn",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:22+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "c9a0tcz7ka2y8xl",
+        "related_table": "m91t6bx1np04phz",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_meetings_assessments": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:22+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c9lk04bx5ddetj8",
+          "fk_column_id": "cj4y8xha7y740iv",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_meetings_assessment_3zfj8fh3g0",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cybvr7hciuwcch0",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mht71wmw3bk5qcu",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "liqvjwoz7ycm7sr",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:22+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cj4y8xha7y740iv",
+        "related_table": "mht71wmw3bk5qcu",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_meetings_persons": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:04:39+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "ccpunr3eo883ie2",
+          "fk_column_id": "cwb24md9q1palkf",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_meetings_persons_v1ck93y3ge",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cybvr7hciuwcch0",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mgpfxip86snlvaw",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "ltg7izudg9dblk0",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:04:39+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cwb24md9q1palkf",
+        "related_table": "mgpfxip86snlvaw",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_meetings_tasks": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:23+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c0k1hkoomdxetqw",
+          "fk_column_id": "czqmv3kw04b0rrv",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_meetings_tasks_5hic4jczyx",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cybvr7hciuwcch0",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mo6szsrhau3d2p5",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "ln1c2hai5uyt6iv",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:23+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "czqmv3kw04b0rrv",
+        "related_table": "mo6szsrhau3d2p5",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_sale_opportunit_meetings": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:19+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cr81a769x6yckec",
+          "fk_column_id": "cv1mksq5pm9eyvo",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_sale_oppor_meetings_3vczgpg7aj",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cybvr7hciuwcch0",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mc1rc4qnpimw59r",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "ltsj4k1nudnw395",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:19+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cv1mksq5pm9eyvo",
+        "related_table": "mc1rc4qnpimw59r",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "activities": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:22+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cybvr7hciuwcch0",
+          "fk_column_id": "c71do1waarrshby",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cuwulkjgiuvl0tq",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "m91t6bx1np04phz",
+          "fk_mm_parent_column_id": "cbmn4x5gyq6t7ud",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c6ht8cd52of6hj1",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "muybcf6ys4qg60r",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l0vjvvs2m3w9ode",
+          "ref_db_alias": null,
+          "type": "om",
+          "updated_at": "2026-10-18 21:05:22+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "c71do1waarrshby",
+        "junction_table_name": "_nc_m2m_meetings_activities",
+        "related_table": "activities",
+        "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "ai_analysis_raw": {
+        "id": "catwnse57xg8i94",
+        "uidt": "LongText"
+      },
+      "ai_status": {
+        "id": "c2974t0hcau0snc",
+        "uidt": "SingleSelect"
+      },
+      "assessments": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:22+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cybvr7hciuwcch0",
+          "fk_column_id": "c3me99b2vqun0vd",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "c9lk04bx5ddetj8",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mht71wmw3bk5qcu",
+          "fk_mm_parent_column_id": "c2j5icd9h8xuydq",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cni3ktg93w61rvv",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mor04rigx4pobfs",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lk8uh1bu5k1hv6y",
+          "ref_db_alias": null,
+          "type": "om",
+          "updated_at": "2026-10-18 21:05:22+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "c3me99b2vqun0vd",
+        "junction_table_name": "_nc_m2m_meetings_assessments",
+        "related_table": "assessments",
+        "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "attendees": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:21+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cybvr7hciuwcch0",
+          "fk_column_id": "cmrv13ovsp3m1zt",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "ccpunr3eo883ie2",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mgpfxip86snlvaw",
+          "fk_mm_parent_column_id": "cw3dn006rqq4d3h",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c06vy13zrxsm4am",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mpx62ir9qmx0mnk",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "llxo2x4avvq497b",
+          "ref_db_alias": null,
+          "type": "mm",
+          "updated_at": "2026-10-18 21:05:21+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": null
+        },
+        "id": "cmrv13ovsp3m1zt",
+        "junction_table_name": "_nc_m2m_meetings_persons",
+        "related_table": "persons",
+        "relation_type": "mm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "business_context": {
+        "id": "c54jz1gadz0nr3t",
+        "uidt": "LongText"
+      },
+      "challenges": {
+        "id": "civlka9bve5gpof",
+        "uidt": "LongText"
+      },
+      "communication_situations": {
+        "id": "cl9b43tovtot58i",
+        "uidt": "LongText"
+      },
+      "ends_at": {
+        "id": "cfe57q2x9ooenie",
+        "uidt": "DateTime"
+      },
+      "external_id": {
+        "id": "ci2t9vrykl60w9z",
+        "uidt": "SingleLineText"
+      },
+      "goals": {
+        "id": "c3uy8zf17m2uipe",
+        "uidt": "LongText"
+      },
+      "meeting_type": {
+        "id": "cqlwt6pa8i439oj",
+        "uidt": "SingleSelect"
+      },
+      "nc_created_by": {
+        "id": "ccajw0b7le4y069",
+        "uidt": "CreatedBy"
+      },
+      "nc_order": {
+        "id": "c5nppd6ar0urdm5",
+        "uidt": "Order"
+      },
+      "nc_row_meta": {
+        "id": "csmy0fvzbhtwwb4",
+        "uidt": "Meta"
+      },
+      "nc_updated_by": {
+        "id": "cb4z2t1v6v59klb",
+        "uidt": "LastModifiedBy"
+      },
+      "notes": {
+        "id": "cftqmrsrjqno68a",
+        "uidt": "LongText"
+      },
+      "outcome": {
+        "id": "c7uopymqjcx0iyo",
+        "uidt": "LongText"
+      },
+      "owner": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:26+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cybvr7hciuwcch0",
+          "fk_column_id": "ch7xwp8qtj9x2q9",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "csa7rwof07mv4yo",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mp4ouxz7t66gl1a",
+          "fk_mm_parent_column_id": "cnwtkxz7yg8jpie",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cm90pfsyyqucjgk",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mq3n08rva2rnfnp",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l821iygqxjogua1",
+          "ref_db_alias": null,
+          "type": "mo",
+          "updated_at": "2026-10-18 21:05:26+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "ch7xwp8qtj9x2q9",
+        "junction_table_name": "_nc_m2m_employees_meetings",
+        "related_table": "employees",
+        "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "participant_types": {
+        "id": "comtkqjwii7tuin",
+        "uidt": "LongText"
+      },
+      "sale_opportunity": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:20+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cybvr7hciuwcch0",
+          "fk_column_id": "cyo4kq3xkhyqgez",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cr81a769x6yckec",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mc1rc4qnpimw59r",
+          "fk_mm_parent_column_id": "czju80gg7alsws8",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cmc2boff62cl64e",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mmbqqynthpmjlqt",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "ltc9pi3tlnprmzn",
+          "ref_db_alias": null,
+          "type": "mo",
+          "updated_at": "2026-10-18 21:05:20+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "cyo4kq3xkhyqgez",
+        "junction_table_name": "_nc_m2m_sale_opportunit_meetings",
+        "related_table": "sale_opportunities",
+        "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "starts_at": {
+        "id": "cjum8cqu14m10eg",
+        "uidt": "DateTime"
+      },
+      "status": {
+        "id": "c4ma2eymh56hedg",
+        "uidt": "SingleSelect"
+      },
+      "tasks": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:23+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cybvr7hciuwcch0",
+          "fk_column_id": "cuw961m8hslqpfl",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "c0k1hkoomdxetqw",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mo6szsrhau3d2p5",
+          "fk_mm_parent_column_id": "ciauzv28h0aj825",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "ca1w27i4wrpkr1v",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "m64wtoh1yzulgtu",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lwllbpfvl2j666n",
+          "ref_db_alias": null,
+          "type": "om",
+          "updated_at": "2026-10-18 21:05:23+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "cuw961m8hslqpfl",
+        "junction_table_name": "_nc_m2m_meetings_tasks",
+        "related_table": "tasks",
+        "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "title": {
+        "id": "c19kaa9m4px7ex0",
+        "uidt": "SingleLineText"
+      },
+      "transcript": {
+        "id": "csn8nn6kj6rmx7t",
+        "uidt": "LongText"
+      }
+    },
+    "id": "mmya7xfqbn9ho29",
+    "source_id": "b0vvvho943bikyb"
+  },
+  "newsletter_stats": {
+    "fields": {
+      "CreatedAt": {
+        "id": "cr3vo01hwnlatvd",
+        "uidt": "CreatedTime"
+      },
+      "Id": {
+        "id": "ch40ij3qqhbsqc5",
+        "uidt": "ID"
+      },
+      "UpdatedAt": {
+        "id": "cg4rz1siiqry4lj",
+        "uidt": "LastModifiedTime"
+      },
+      "bounces_count": {
+        "id": "c5a921051zfrnj1",
+        "uidt": "Number"
+      },
+      "campaign_id": {
+        "id": "cybrz29mlctzous",
+        "uidt": "SingleLineText"
+      },
+      "campaign_status": {
+        "id": "cw7pcu361x29qa0",
+        "uidt": "SingleLineText"
+      },
+      "click_rate": {
+        "id": "ckhf01el0j7xbzu",
+        "uidt": "Decimal"
+      },
+      "clicks_count": {
+        "id": "c1w19eannt43az3",
+        "uidt": "Number"
+      },
+      "name": {
+        "id": "cp35gvuaqusw46x",
+        "uidt": "SingleLineText"
+      },
+      "nc_created_by": {
+        "id": "cbunckrhpsvnwlq",
+        "uidt": "CreatedBy"
+      },
+      "nc_order": {
+        "id": "ca2idsl3n8xmwys",
+        "uidt": "Order"
+      },
+      "nc_row_meta": {
+        "id": "c986d3jlxmfyxtp",
+        "uidt": "Meta"
+      },
+      "nc_updated_by": {
+        "id": "cjukxbw4fimkdhv",
+        "uidt": "LastModifiedBy"
+      },
+      "open_rate": {
+        "id": "czgqswahexn0f5j",
+        "uidt": "Decimal"
+      },
+      "opens_count": {
+        "id": "cjlnju313wahm7e",
+        "uidt": "Number"
+      },
+      "recipients_count": {
+        "id": "cm96mmmt0mp7rxi",
+        "uidt": "Number"
+      },
+      "sent_at": {
+        "id": "c2xrixa0xo11s6n",
+        "uidt": "DateTime"
+      },
+      "subject": {
+        "id": "cxi6vc4q5029elk",
+        "uidt": "SingleLineText"
+      },
+      "synced_at": {
+        "id": "cl2p49t61n78atg",
+        "uidt": "DateTime"
+      },
+      "unsubscribes_count": {
+        "id": "cyq9v93307e2pmj",
+        "uidt": "Number"
+      }
+    },
+    "id": "mk5mjx7b6d1s7qh",
+    "source_id": "b0vvvho943bikyb"
+  },
+  "offers": {
+    "fields": {
+      "CreatedAt": {
+        "id": "ccemu1jli2g2mgl",
+        "uidt": "CreatedTime"
+      },
+      "Id": {
+        "id": "c2av5j6xcysc240",
+        "uidt": "ID"
+      },
+      "UpdatedAt": {
+        "id": "cknxar7nt72dycd",
+        "uidt": "LastModifiedTime"
+      },
+      "Utwórz nową wersję": {
+        "id": "ckoep255mtgi1za",
+        "uidt": "Button"
+      },
+      "_nc_m2m_document_templa_offers": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:26+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cvvmpom16dpsvxm",
+          "fk_column_id": "cskgznp6iwg8t4g",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_document_t_offers_8taj2cnwab",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c2av5j6xcysc240",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mbsj4u1zvrqcumb",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l82xgy3u7v99xok",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:26+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cskgznp6iwg8t4g",
+        "related_table": "mbsj4u1zvrqcumb",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_offers_pricings": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:04:48+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c7ec8rn1ywcu2ui",
+          "fk_column_id": "clapccxbldly1qc",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_offers_pricing_5vam7tgw9t",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c2av5j6xcysc240",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mxd3aszq4sml6no",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l4ygdo1a9cjj8y5",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:04:48+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "clapccxbldly1qc",
+        "related_table": "mxd3aszq4sml6no",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_offers_recommendations": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:28+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cn1fnwg5j5tbx9a",
+          "fk_column_id": "cwqxv8dp6hrueka",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_offers_recommenda_ehmb8aat08",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c2av5j6xcysc240",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mj356jwoydvh7am",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l7m1990szze5n9m",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:28+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cwqxv8dp6hrueka",
+        "related_table": "mj356jwoydvh7am",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_offers_tasks": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:25+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "ckkv196v38oopkz",
+          "fk_column_id": "cgd9lu2n0vur4v0",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_offers_tasks_w5pc3w7vo8",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c2av5j6xcysc240",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mpncwj3z30ijhjk",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lnjophm834y5sq2",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:25+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cgd9lu2n0vur4v0",
+        "related_table": "mpncwj3z30ijhjk",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_offers_testimonials": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:04:46+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c6ggekximpz2dkw",
+          "fk_column_id": "cimclshi8nkpopi",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_offers_testimonia_e2ja32ppk2",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c2av5j6xcysc240",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mp4mf6lc5rxtxhq",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "le1neym4a53wn5y",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:04:46+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cimclshi8nkpopi",
+        "related_table": "mp4mf6lc5rxtxhq",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_sale_opportunit_offers": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:21+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cggnlsn5ipbj68e",
+          "fk_column_id": "clepgu9ik5bjjz1",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_sale_oppor_offers_t14uqrmwka",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c2av5j6xcysc240",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mtbhcetl4cxf531",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "llrkollqbiob89t",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:21+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "clepgu9ik5bjjz1",
+        "related_table": "mtbhcetl4cxf531",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "approved_total": {
+        "id": "c8uyparve20uyyw",
+        "uidt": "Currency"
+      },
+      "data_json": {
+        "id": "c9s9k7bgb1knqh5",
+        "uidt": "LongText"
+      },
+      "document_templates": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:26+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "c2av5j6xcysc240",
+          "fk_column_id": "czg265kdkk5me2z",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cvvmpom16dpsvxm",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mbsj4u1zvrqcumb",
+          "fk_mm_parent_column_id": "cc7vyucskc7i4gi",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c993eeo9x1gy83v",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mnu0brz25qqj1b3",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lzbzbwftz6yjv5e",
+          "ref_db_alias": null,
+          "type": "mo",
+          "updated_at": "2026-10-18 21:05:26+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "czg265kdkk5me2z",
+        "junction_table_name": "_nc_m2m_document_templa_offers",
+        "related_table": "document_templates",
+        "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "file": {
+        "id": "c9zh4dg7udhqro8",
+        "uidt": "Attachment"
+      },
+      "generuj ofertę": {
+        "id": "c6mbnhrio1k6dc5",
+        "uidt": "Button"
+      },
+      "hours": {
+        "id": "cbfkywb1kj95uej",
+        "uidt": "Number"
+      },
+      "nc_created_by": {
+        "id": "chhjgnz9080zc91",
+        "uidt": "CreatedBy"
+      },
+      "nc_order": {
+        "id": "c2q3ykejneyfigs",
+        "uidt": "Order"
+      },
+      "nc_row_meta": {
+        "id": "coi4oslduc005p3",
+        "uidt": "Meta"
+      },
+      "nc_updated_by": {
+        "id": "chlynyapesamkn4",
+        "uidt": "LastModifiedBy"
+      },
+      "pricing": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:28+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "c2av5j6xcysc240",
+          "fk_column_id": "cfr3yrlyzyusmjw",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "c7ec8rn1ywcu2ui",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mxd3aszq4sml6no",
+          "fk_mm_parent_column_id": "cfnjq0usw4jjdke",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c10i7r1t04coptv",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "m34fki8ixb49p2w",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lmqfppu5mw9ppr0",
+          "ref_db_alias": null,
+          "type": "mm",
+          "updated_at": "2026-10-18 21:05:28+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": null
+        },
+        "id": "cfr3yrlyzyusmjw",
+        "junction_table_name": "_nc_m2m_offers_pricing",
+        "related_table": "pricing",
+        "relation_type": "mm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "product_type": {
+        "id": "cal0vs0mpx2swlw",
+        "uidt": "MultiSelect"
+      },
+      "recommendations": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:29+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "c2av5j6xcysc240",
+          "fk_column_id": "cbpdzrkdl0h9k77",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cn1fnwg5j5tbx9a",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mj356jwoydvh7am",
+          "fk_mm_parent_column_id": "cnq8cw4r9of50a6",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cgfeil8ggza0ydb",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mwynjv2bm219zkn",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lbtfnp6oyb3190s",
+          "ref_db_alias": null,
+          "type": "om",
+          "updated_at": "2026-10-18 21:05:29+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "cbpdzrkdl0h9k77",
+        "junction_table_name": "_nc_m2m_offers_recommendations",
+        "related_table": "recommendations",
+        "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "sale_opportunity": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:21+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "c2av5j6xcysc240",
+          "fk_column_id": "czoz1kavws1r5d3",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cggnlsn5ipbj68e",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mtbhcetl4cxf531",
+          "fk_mm_parent_column_id": "c7sh5fez4tlbujt",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cmc2boff62cl64e",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mmbqqynthpmjlqt",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l4uk68vf5ft6xg6",
+          "ref_db_alias": null,
+          "type": "mo",
+          "updated_at": "2026-10-18 21:05:21+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "czoz1kavws1r5d3",
+        "junction_table_name": "_nc_m2m_sale_opportunit_offers",
+        "related_table": "sale_opportunities",
+        "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "selected_testimonials": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:27+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "c2av5j6xcysc240",
+          "fk_column_id": "c6tjg46855peni1",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "c6ggekximpz2dkw",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mp4mf6lc5rxtxhq",
+          "fk_mm_parent_column_id": "c0c4b5nhoob5608",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cjsufrrteft7r1q",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mn7xn0zwixz6ov8",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lgbnwlponwr4btl",
+          "ref_db_alias": null,
+          "type": "mm",
+          "updated_at": "2026-10-18 21:05:27+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": null
+        },
+        "id": "c6tjg46855peni1",
+        "junction_table_name": "_nc_m2m_offers_testimonials",
+        "related_table": "testimonials",
+        "relation_type": "mm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "sent_at": {
+        "id": "c12wpreydccc71p",
+        "uidt": "Date"
+      },
+      "status": {
+        "id": "ccykjn6sdmyi28m",
+        "uidt": "SingleSelect"
+      },
+      "tasks": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:25+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "c2av5j6xcysc240",
+          "fk_column_id": "cmmhg1p1lthqsft",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "ckkv196v38oopkz",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mpncwj3z30ijhjk",
+          "fk_mm_parent_column_id": "cb42f79lq239fsp",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "ca1w27i4wrpkr1v",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "m64wtoh1yzulgtu",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "ltbnm6xhe754yfb",
+          "ref_db_alias": null,
+          "type": "om",
+          "updated_at": "2026-10-18 21:05:25+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "cmmhg1p1lthqsft",
+        "junction_table_name": "_nc_m2m_offers_tasks",
+        "related_table": "tasks",
+        "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "title": {
+        "id": "cxh7utqmdbe06te",
+        "uidt": "SingleLineText"
+      },
+      "total_price": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:04:54+00:00",
+          "deleted": null,
+          "error": null,
+          "fk_column_id": "cjynzejljjll8yn",
+          "fk_relation_column_id": "cbpdzrkdl0h9k77",
+          "fk_rollup_column_id": "c64x5jexdkggvrs",
+          "fk_workspace_id": "wpgg1mff",
+          "id": "rljrh5fh7cg4lprx",
+          "rollup_function": "sum",
+          "updated_at": "2026-10-18 21:04:54+00:00"
+        },
+        "id": "cjynzejljjll8yn",
+        "uidt": "Rollup"
+      },
+      "valid_until": {
+        "id": "ccvikelvcb8k32t",
+        "uidt": "Date"
+      },
+      "version": {
+        "id": "cqnopjx55eezid2",
+        "uidt": "Number"
+      },
+      "version_note": {
+        "id": "c9hdlqbdepk5vix",
+        "uidt": "LongText"
+      },
+      "version_status": {
+        "id": "cmzuyu2c2ghbp7l",
+        "uidt": "SingleSelect"
+      },
+      "warnings": {
+        "id": "c41tr8w286yxdaj",
+        "uidt": "LongText"
+      }
+    },
+    "id": "mxa45gmy92e0dl1",
+    "source_id": "b0vvvho943bikyb"
+  },
+  "package_core_slides": {
+    "fields": {
+      "CreatedAt": {
+        "id": "cybuvjh6cj5uvz5",
+        "uidt": "CreatedTime"
+      },
+      "Id": {
+        "id": "c6bp13sep8yiwhz",
+        "uidt": "ID"
+      },
+      "UpdatedAt": {
+        "id": "cn8xpiesgv48dv7",
+        "uidt": "LastModifiedTime"
+      },
+      "_nc_m2m_selected_packag_package_core_sls": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:31+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c4wa83mm32f6w2e",
+          "fk_column_id": "cdd63wlfa8wdtmx",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_selected_p_package_co_f6nwpnzdyy",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c6bp13sep8yiwhz",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mlz40pgroir9fih",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l8qiyv5k79w4ll0",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:31+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cdd63wlfa8wdtmx",
+        "related_table": "mlz40pgroir9fih",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "description": {
+        "id": "ckuqz5o0tuqh2fr",
+        "uidt": "LongText"
+      },
+      "name": {
+        "id": "c0si6asenjcga3o",
+        "uidt": "SingleLineText"
+      },
+      "nc_created_by": {
+        "id": "cuwljkfncgq94i5",
+        "uidt": "CreatedBy"
+      },
+      "nc_order": {
+        "id": "ct4vfv2x4ezwx3k",
+        "uidt": "Order"
+      },
+      "nc_row_meta": {
+        "id": "cm80c2vso68d7a0",
+        "uidt": "Meta"
+      },
+      "nc_updated_by": {
+        "id": "c1qwi6gk8px8bhh",
+        "uidt": "LastModifiedBy"
+      },
+      "selected_package_variants_cores": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:31+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "c6bp13sep8yiwhz",
+          "fk_column_id": "cbt8cprrgcy3gmk",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "c4wa83mm32f6w2e",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mlz40pgroir9fih",
+          "fk_mm_parent_column_id": "csci782p6e70s67",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cvcpwfpsi6f1g7k",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "myj8gtitlgy43t8",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l7seyee59ghp2a9",
+          "ref_db_alias": null,
+          "type": "mo",
+          "updated_at": "2026-10-18 21:05:31+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "cbt8cprrgcy3gmk",
+        "junction_table_name": "_nc_m2m_selected_packag_package_core_sl",
+        "related_table": "selected_package_variants_cores",
+        "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "title": {
+        "id": "cg53yo3z5i66z54",
+        "uidt": "SingleLineText"
+      }
+    },
+    "id": "ms2cmruxz8try7k",
+    "source_id": "b0vvvho943bikyb"
+  },
+  "package_variants_adons": {
+    "fields": {
+      "CreatedAt": {
+        "id": "c822buho35o7r7k",
+        "uidt": "CreatedTime"
+      },
+      "Id": {
+        "id": "cw2cwi5sl6uk5yr",
+        "uidt": "ID"
+      },
+      "UpdatedAt": {
+        "id": "cbju9y2r763u817",
+        "uidt": "LastModifiedTime"
+      },
+      "_nc_m2m_package_variant_selected_packag1s": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:32+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c464528ut0ydczl",
+          "fk_column_id": "cd0mp1xln5mqgr7",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_package_va_selected_p_cciw5ujd8g",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cw2cwi5sl6uk5yr",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mb284h7rrr0tuuc",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l16ugw9iahny8y2",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:32+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cd0mp1xln5mqgr7",
+        "related_table": "mb284h7rrr0tuuc",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "default_hours": {
+        "id": "cu5hx7r7d199b7n",
+        "uidt": "Number"
+      },
+      "description": {
+        "id": "clwh9phlte9rra0",
+        "uidt": "LongText"
+      },
+      "key": {
+        "id": "cyv44is7c7fsy5q",
+        "uidt": "SingleLineText"
+      },
+      "name": {
+        "id": "c4p72s66hsrl9gr",
+        "uidt": "SingleLineText"
+      },
+      "nc_created_by": {
+        "id": "cwdq6jbh5xqz388",
+        "uidt": "CreatedBy"
+      },
+      "nc_order": {
+        "id": "c25uk78keyuvzz9",
+        "uidt": "Order"
+      },
+      "nc_row_meta": {
+        "id": "c29kueqlsm2xfcj",
+        "uidt": "Meta"
+      },
+      "nc_updated_by": {
+        "id": "cnla6xnlhnjslsg",
+        "uidt": "LastModifiedBy"
+      },
+      "selected_package_variants_adons": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:32+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cw2cwi5sl6uk5yr",
+          "fk_column_id": "csqwo6nll4sz9o9",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "c464528ut0ydczl",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mb284h7rrr0tuuc",
+          "fk_mm_parent_column_id": "cwxtyghhbzalgl7",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c0hb4bcuryncrfk",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "m72rbunvyys0ojy",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "la4ib5jmp8meq7t",
+          "ref_db_alias": null,
+          "type": "om",
+          "updated_at": "2026-10-18 21:05:32+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "csqwo6nll4sz9o9",
+        "junction_table_name": "_nc_m2m_package_variant_selected_packag1",
+        "related_table": "selected_package_variants_adons",
+        "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
+      }
+    },
+    "id": "meo1ptjqv5qzua6",
+    "source_id": "b0vvvho943bikyb"
+  },
+  "package_variants_cores": {
+    "fields": {
+      "CreatedAt": {
+        "id": "c6vnvmf5u09plpy",
+        "uidt": "CreatedTime"
+      },
+      "Id": {
+        "id": "c1wymcysy9vgwfk",
+        "uidt": "ID"
+      },
+      "UpdatedAt": {
+        "id": "c5aqdci09c9tmci",
+        "uidt": "LastModifiedTime"
+      },
+      "_nc_m2m_package_variant_selected_packags": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:30+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "ciokis4or49cbmw",
+          "fk_column_id": "ctwzen8dtysw30s",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_package_va_selected_p_htofc2v6et",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c1wymcysy9vgwfk",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mypswcjwiatyeag",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lb7in5513ni9dnt",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:30+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "ctwzen8dtysw30s",
+        "related_table": "mypswcjwiatyeag",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "description": {
+        "id": "c3bs4cg9553mizp",
+        "uidt": "LongText"
+      },
+      "name": {
+        "id": "cdafp76rxxqyl8h",
+        "uidt": "SingleLineText"
+      },
+      "nc_created_by": {
+        "id": "cwtpy0ou5nor0pl",
+        "uidt": "CreatedBy"
+      },
+      "nc_order": {
+        "id": "cxdfc2xefq91vc8",
+        "uidt": "Order"
+      },
+      "nc_row_meta": {
+        "id": "ckmx7ydckrxsc5j",
+        "uidt": "Meta"
+      },
+      "nc_updated_by": {
+        "id": "ch43w96les4j4wo",
+        "uidt": "LastModifiedBy"
+      },
+      "selected_package_variants_cores": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:30+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "c1wymcysy9vgwfk",
+          "fk_column_id": "cyi9jovnip953u4",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "ciokis4or49cbmw",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mypswcjwiatyeag",
+          "fk_mm_parent_column_id": "codncj0asdryutr",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cvcpwfpsi6f1g7k",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "myj8gtitlgy43t8",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l9kz2rytgwuatta",
+          "ref_db_alias": null,
+          "type": "om",
+          "updated_at": "2026-10-18 21:05:30+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "cyi9jovnip953u4",
+        "junction_table_name": "_nc_m2m_package_variant_selected_packag",
+        "related_table": "selected_package_variants_cores",
+        "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
+      }
+    },
+    "id": "mawfj65b56bz4ep",
+    "source_id": "b0vvvho943bikyb"
+  },
   "persons": {
     "fields": {
       "CreatedAt": {
@@ -2088,6 +4567,80 @@
         "relation_type": "hm",
         "uidt": "LinkToAnotherRecord"
       },
+      "_nc_m2m_meetings_persons": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:04:39+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cw3dn006rqq4d3h",
+          "fk_column_id": "cyn4zo0rykmma3a",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_meetings_persons_xap5qjnc95",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c06vy13zrxsm4am",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mgpfxip86snlvaw",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lb40e0q0k4mslqw",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:04:39+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cyn4zo0rykmma3a",
+        "related_table": "mgpfxip86snlvaw",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_persons_assessments": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:15+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "csef6zsayg24ja2",
+          "fk_column_id": "c4cwuf8pp29lr5w",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_persons_assessment_eyizoi1o3m",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c06vy13zrxsm4am",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "m0xqinaoqhb0tpo",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l56rf6h1rmxpwmu",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:15+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "c4cwuf8pp29lr5w",
+        "related_table": "m0xqinaoqhb0tpo",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
       "_nc_m2m_persons_leads": {
         "_raw_colOptions": {
           "base_id": "p6w78auzu6sjdoo",
@@ -2199,6 +4752,43 @@
         "relation_type": "hm",
         "uidt": "LinkToAnotherRecord"
       },
+      "_nc_m2m_persons_recommendations": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:17+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c1byiyatfoyn0xj",
+          "fk_column_id": "cu4ksfwj3bd1l98",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_persons_recommenda_1d6c7y3c09",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c06vy13zrxsm4am",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "ms49x47g0v47mmw",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lbz85lykjf3bbi6",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:17+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cu4ksfwj3bd1l98",
+        "related_table": "ms49x47g0v47mmw",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
       "_nc_m2m_persons_sale_opportunits": {
         "_raw_colOptions": {
           "base_id": "p6w78auzu6sjdoo",
@@ -2273,6 +4863,155 @@
         "relation_type": "hm",
         "uidt": "LinkToAnotherRecord"
       },
+      "_nc_m2m_sale_opportunit_persons": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:04:34+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cq9zo8ln0xbwkw2",
+          "fk_column_id": "coj70uuy5t4002b",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_sale_oppor_persons_vjdmrpxfsd",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c06vy13zrxsm4am",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mrbq77or7lzsngd",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lhy99cznecqqn3s",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:04:34+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "coj70uuy5t4002b",
+        "related_table": "mrbq77or7lzsngd",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_sale_opportunit_persons1s": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:04:36+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cdng4j4kjesjbkv",
+          "fk_column_id": "cagykxirnhabr0f",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_sale_oppor_persons_tls243s07s",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c06vy13zrxsm4am",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mg4pt5z6b78qygc",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "luy6io9xde8gred",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:04:36+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cagykxirnhabr0f",
+        "related_table": "mg4pt5z6b78qygc",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_sale_opportunit_persons2s": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:04:36+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c8tgjf1yv7adl4i",
+          "fk_column_id": "c553dww9dkq7eid",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_sale_oppor_persons_hxzto1dhi4",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c06vy13zrxsm4am",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mt9uh4zbzg8j16l",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lzsy0a91j6466ux",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:04:36+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "c553dww9dkq7eid",
+        "related_table": "mt9uh4zbzg8j16l",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "assessments": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:15+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "c06vy13zrxsm4am",
+          "fk_column_id": "c9k6vww96kze1pf",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "csef6zsayg24ja2",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "m0xqinaoqhb0tpo",
+          "fk_mm_parent_column_id": "cdydsselwjbdnf5",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cni3ktg93w61rvv",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mor04rigx4pobfs",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l350tohk87qquuk",
+          "ref_db_alias": null,
+          "type": "om",
+          "updated_at": "2026-10-18 21:05:15+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "c9k6vww96kze1pf",
+        "junction_table_name": "_nc_m2m_persons_assessments",
+        "related_table": "assessments",
+        "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
+      },
       "assigned_methodologist": {
         "_raw_colOptions": {
           "base_id": "p6w78auzu6sjdoo",
@@ -2309,6 +5048,82 @@
         "junction_table_name": "_nc_m2m_employees_persons",
         "related_table": "employees",
         "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "attended_meetings": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:04:40+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c06vy13zrxsm4am",
+          "fk_column_id": "cj5kdkh9ucvxhac",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cw3dn006rqq4d3h",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mgpfxip86snlvaw",
+          "fk_mm_parent_column_id": "ccpunr3eo883ie2",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cybvr7hciuwcch0",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mmya7xfqbn9ho29",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l1wxh712v878fm4",
+          "ref_db_alias": null,
+          "type": "mm",
+          "updated_at": "2026-10-18 21:05:21+00:00",
+          "ur": "NO ACTION",
+          "version": 2,
+          "virtual": null
+        },
+        "id": "cj5kdkh9ucvxhac",
+        "junction_table_name": "_nc_m2m_meetings_persons",
+        "related_table": "meetings",
+        "relation_type": "mm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "audited_in": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:04:37+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c06vy13zrxsm4am",
+          "fk_column_id": "cwq3vf0x1r2lm6t",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "c8tgjf1yv7adl4i",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mt9uh4zbzg8j16l",
+          "fk_mm_parent_column_id": "cx5dd814t24p01z",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cmc2boff62cl64e",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mmbqqynthpmjlqt",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l5wn8b0ofpey3tq",
+          "ref_db_alias": null,
+          "type": "mm",
+          "updated_at": "2026-10-18 21:05:19+00:00",
+          "ur": "NO ACTION",
+          "version": 2,
+          "virtual": null
+        },
+        "id": "cwq3vf0x1r2lm6t",
+        "junction_table_name": "_nc_m2m_sale_opportunit_persons2",
+        "related_table": "sale_opportunities",
+        "relation_type": "mm",
         "uidt": "LinkToAnotherRecord"
       },
       "bought_opportunities": {
@@ -2469,6 +5284,44 @@
         "id": "cbk8ggih7ie5txc",
         "uidt": "LongText"
       },
+      "participant_in": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:04:35+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c06vy13zrxsm4am",
+          "fk_column_id": "c8ymi91pyv7n9b8",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cq9zo8ln0xbwkw2",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mrbq77or7lzsngd",
+          "fk_mm_parent_column_id": "cgb51u688ti0vl4",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cmc2boff62cl64e",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mmbqqynthpmjlqt",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l3qbplw1n7098z7",
+          "ref_db_alias": null,
+          "type": "mm",
+          "updated_at": "2026-10-18 21:05:18+00:00",
+          "ur": "NO ACTION",
+          "version": 2,
+          "virtual": null
+        },
+        "id": "c8ymi91pyv7n9b8",
+        "junction_table_name": "_nc_m2m_sale_opportunit_persons",
+        "related_table": "sale_opportunities",
+        "relation_type": "mm",
+        "uidt": "LinkToAnotherRecord"
+      },
       "persons": {
         "_raw_colOptions": {
           "base_id": "p6w78auzu6sjdoo",
@@ -2591,6 +5444,44 @@
         "relation_type": "om",
         "uidt": "LinkToAnotherRecord"
       },
+      "recommendations": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:17+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "c06vy13zrxsm4am",
+          "fk_column_id": "c4id0bo1pxazle9",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "c1byiyatfoyn0xj",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "ms49x47g0v47mmw",
+          "fk_mm_parent_column_id": "cdv215wmsq6d5gx",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cgfeil8ggza0ydb",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mwynjv2bm219zkn",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lpsudldfmdyn051",
+          "ref_db_alias": null,
+          "type": "om",
+          "updated_at": "2026-10-18 21:05:17+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "c4id0bo1pxazle9",
+        "junction_table_name": "_nc_m2m_persons_recommendations",
+        "related_table": "recommendations",
+        "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
+      },
       "role_context": {
         "id": "cwy2dxu93zz3ck8",
         "uidt": "LongText"
@@ -2636,9 +5527,224 @@
         "related_table": "tasks",
         "relation_type": "om",
         "uidt": "LinkToAnotherRecord"
+      },
+      "to_be_audited_in": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:04:36+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c06vy13zrxsm4am",
+          "fk_column_id": "cohrtxvpioyqdg5",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cdng4j4kjesjbkv",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mg4pt5z6b78qygc",
+          "fk_mm_parent_column_id": "cjw6s34dltu4okj",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cmc2boff62cl64e",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mmbqqynthpmjlqt",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lemx90p2bt0i2gj",
+          "ref_db_alias": null,
+          "type": "mm",
+          "updated_at": "2026-10-18 21:05:18+00:00",
+          "ur": "NO ACTION",
+          "version": 2,
+          "virtual": null
+        },
+        "id": "cohrtxvpioyqdg5",
+        "junction_table_name": "_nc_m2m_sale_opportunit_persons1",
+        "related_table": "sale_opportunities",
+        "relation_type": "mm",
+        "uidt": "LinkToAnotherRecord"
       }
     },
     "id": "mpx62ir9qmx0mnk",
+    "source_id": "b0vvvho943bikyb"
+  },
+  "pricing": {
+    "fields": {
+      "CreatedAt": {
+        "id": "cypkda1h5z141vd",
+        "uidt": "CreatedTime"
+      },
+      "Id": {
+        "id": "c10i7r1t04coptv",
+        "uidt": "ID"
+      },
+      "UpdatedAt": {
+        "id": "c4ei7spvn3ejz1n",
+        "uidt": "LastModifiedTime"
+      },
+      "_nc_m2m_offers_pricings": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:04:48+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cfnjq0usw4jjdke",
+          "fk_column_id": "czqem7ameqagzap",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_offers_pricing_g53bwb0tj8",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c10i7r1t04coptv",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mxd3aszq4sml6no",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "luxd4sog2ylm62l",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:04:48+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "czqem7ameqagzap",
+        "related_table": "mxd3aszq4sml6no",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "continuation_bonus_hours": {
+        "id": "ckd1yy2vsci540f",
+        "uidt": "Decimal"
+      },
+      "course_type": {
+        "id": "cejf9ahj7fth3r5",
+        "uidt": "SingleSelect"
+      },
+      "customer_segment": {
+        "id": "c4vb4ibfbt37t0g",
+        "uidt": "SingleSelect"
+      },
+      "discounted_price": {
+        "id": "capvqbbkyqq9iwj",
+        "uidt": "Currency"
+      },
+      "group_size": {
+        "id": "c49is4kw4csssqm",
+        "uidt": "Number"
+      },
+      "hours": {
+        "id": "cjnfe68t3hczy5z",
+        "uidt": "Number"
+      },
+      "hours_with_bonus": {
+        "id": "crtge248df4ds2k",
+        "uidt": "Decimal"
+      },
+      "nc_created_by": {
+        "id": "cybp1isdgprtxi2",
+        "uidt": "CreatedBy"
+      },
+      "nc_order": {
+        "id": "c91syf1av2rbg2m",
+        "uidt": "Order"
+      },
+      "nc_row_meta": {
+        "id": "cd76y3h7eb6mvj7",
+        "uidt": "Meta"
+      },
+      "nc_updated_by": {
+        "id": "c02upznjzweniu4",
+        "uidt": "LastModifiedBy"
+      },
+      "offers": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:04:48+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c10i7r1t04coptv",
+          "fk_column_id": "c3zuc1pkl6pn90i",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cfnjq0usw4jjdke",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mxd3aszq4sml6no",
+          "fk_mm_parent_column_id": "c7ec8rn1ywcu2ui",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c2av5j6xcysc240",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mxa45gmy92e0dl1",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lxwdaoup8hr1z6i",
+          "ref_db_alias": null,
+          "type": "mm",
+          "updated_at": "2026-10-18 21:05:28+00:00",
+          "ur": "NO ACTION",
+          "version": 2,
+          "virtual": null
+        },
+        "id": "c3zuc1pkl6pn90i",
+        "junction_table_name": "_nc_m2m_offers_pricing",
+        "related_table": "offers",
+        "relation_type": "mm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "price_per_hour": {
+        "id": "cw0750wutj1rgy3",
+        "uidt": "Currency"
+      },
+      "price_per_hour_per_person": {
+        "id": "c09pfz4slgtpuxc",
+        "uidt": "Currency"
+      },
+      "price_per_hour_per_person_with_bonus": {
+        "id": "crhc5aqsxjop7yj",
+        "uidt": "Currency"
+      },
+      "price_per_hour_with_bonus": {
+        "id": "cges7eldslekziw",
+        "uidt": "Currency"
+      },
+      "product": {
+        "id": "crekit483s3kea7",
+        "uidt": "SingleSelect"
+      },
+      "total_price": {
+        "id": "c87eypap2jk73qo",
+        "uidt": "Currency"
+      },
+      "training_group_size": {
+        "id": "c46n2e7q7imhvbx",
+        "uidt": "SingleSelect"
+      },
+      "upfront_payment_bonus": {
+        "id": "c8kc4fl67pfhno3",
+        "uidt": "Checkbox"
+      },
+      "valid_from": {
+        "id": "catcfhpavgazdzj",
+        "uidt": "Date"
+      },
+      "valid_to": {
+        "id": "ccmduhh4yh172ls",
+        "uidt": "Date"
+      }
+    },
+    "id": "m34fki8ixb49p2w",
     "source_id": "b0vvvho943bikyb"
   },
   "projects": {
@@ -2837,11 +5943,761 @@
     "id": "mrn343haxd6q8d3",
     "source_id": "b0vvvho943bikyb"
   },
+  "recommendation_packages": {
+    "fields": {
+      "CreatedAt": {
+        "id": "clvllz1jt911grn",
+        "uidt": "CreatedTime"
+      },
+      "Id": {
+        "id": "ca5ftqx5as1u19a",
+        "uidt": "ID"
+      },
+      "UpdatedAt": {
+        "id": "cjntakbv613sfgw",
+        "uidt": "LastModifiedTime"
+      },
+      "_nc_m2m_recommendations_recommendation_s": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:29+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cpzv0p5uc59a76i",
+          "fk_column_id": "ckvq4ifras3zaoh",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_recommenda_recommenda_tpji6qdyvz",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "ca5ftqx5as1u19a",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "myctz0ltt2iui97",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lhsxdef4gtt7bm1",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:29+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "ckvq4ifras3zaoh",
+        "related_table": "myctz0ltt2iui97",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_training_descri_recommendation_s": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:29+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cvyq36ax0lodk6c",
+          "fk_column_id": "cxrkmmb9ct9wlh5",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_training_d_recommenda_yv97_lbx28",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "ca5ftqx5as1u19a",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "m1yjw6n0j8j8l0i",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lq21bxj40wkcbsb",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:29+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cxrkmmb9ct9wlh5",
+        "related_table": "m1yjw6n0j8j8l0i",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "hours_in_package": {
+        "id": "crp6bulk6vc03mh",
+        "uidt": "Number"
+      },
+      "nc_created_by": {
+        "id": "c2ox5lihzdpt8us",
+        "uidt": "CreatedBy"
+      },
+      "nc_order": {
+        "id": "cjata60ozjajzv4",
+        "uidt": "Order"
+      },
+      "nc_row_meta": {
+        "id": "c2j83ucvqt1p7ct",
+        "uidt": "Meta"
+      },
+      "nc_updated_by": {
+        "id": "cuqt7bb6c2on87q",
+        "uidt": "LastModifiedBy"
+      },
+      "package_name": {
+        "id": "cxpptxlky1nzy3c",
+        "uidt": "SingleLineText"
+      },
+      "recommendations": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:29+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "ca5ftqx5as1u19a",
+          "fk_column_id": "c9aqlpx5seygyc4",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cpzv0p5uc59a76i",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "myctz0ltt2iui97",
+          "fk_mm_parent_column_id": "ccjagzrrpadr2xm",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cgfeil8ggza0ydb",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mwynjv2bm219zkn",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lm670qqgd5y01hr",
+          "ref_db_alias": null,
+          "type": "mo",
+          "updated_at": "2026-10-18 21:05:29+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "c9aqlpx5seygyc4",
+        "junction_table_name": "_nc_m2m_recommendations_recommendation_",
+        "related_table": "recommendations",
+        "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "sort_order": {
+        "id": "c26xrckuzhv9a31",
+        "uidt": "Number"
+      },
+      "training_descriptions": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:29+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "ca5ftqx5as1u19a",
+          "fk_column_id": "cttyq2xd2g8a7e0",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cvyq36ax0lodk6c",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "m1yjw6n0j8j8l0i",
+          "fk_mm_parent_column_id": "cy33hio8d3x8hn5",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cx3in6gtw5g0iip",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mrk1tyq1ys21wyn",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l7ceup5bzs55h75",
+          "ref_db_alias": null,
+          "type": "mo",
+          "updated_at": "2026-10-18 21:05:29+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "cttyq2xd2g8a7e0",
+        "junction_table_name": "_nc_m2m_training_descri_recommendation_",
+        "related_table": "training_descriptions",
+        "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "training_group_size": {
+        "id": "clpexasyesu3195",
+        "uidt": "SingleSelect"
+      }
+    },
+    "id": "m0jkbvxrcetlshd",
+    "source_id": "b0vvvho943bikyb"
+  },
+  "recommendations": {
+    "fields": {
+      "CreatedAt": {
+        "id": "ctz8d5elgzocm9t",
+        "uidt": "CreatedTime"
+      },
+      "Id": {
+        "id": "cgfeil8ggza0ydb",
+        "uidt": "ID"
+      },
+      "UpdatedAt": {
+        "id": "cv1yhs18zb0rrk3",
+        "uidt": "LastModifiedTime"
+      },
+      "_nc_m2m_offers_recommendations": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:28+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cnq8cw4r9of50a6",
+          "fk_column_id": "cbm7wd0j3rpdcvy",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_offers_recommenda_6ky9x4zbuh",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cgfeil8ggza0ydb",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mj356jwoydvh7am",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lywr7j3qfxhwy5a",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:28+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cbm7wd0j3rpdcvy",
+        "related_table": "mj356jwoydvh7am",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_persons_recommendations": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:16+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cdv215wmsq6d5gx",
+          "fk_column_id": "c5hi519lw805d70",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_persons_recommenda_6pebdaww_h",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cgfeil8ggza0ydb",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "ms49x47g0v47mmw",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lqhjp1ezsa2d2w8",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:16+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "c5hi519lw805d70",
+        "related_table": "ms49x47g0v47mmw",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_recommendations_recommendation_s": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:29+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "ccjagzrrpadr2xm",
+          "fk_column_id": "c796iogwhp2e1ka",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_recommenda_recommenda_xct21wsjob",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cgfeil8ggza0ydb",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "myctz0ltt2iui97",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lf3wyk0kl9gix81",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:29+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "c796iogwhp2e1ka",
+        "related_table": "myctz0ltt2iui97",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_recommendations_selected_packag1s": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:32+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cbx5754xacp2sz8",
+          "fk_column_id": "cafv2qzjcjhqtpz",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_recommenda_selected_p_9b83kqlaiv",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cgfeil8ggza0ydb",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mqjoinvi82c6lrb",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lmin52xx5vazuf7",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:32+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cafv2qzjcjhqtpz",
+        "related_table": "mqjoinvi82c6lrb",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_recommendations_selected_packags": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:30+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cf4vzjmggdkxlq1",
+          "fk_column_id": "cc53oafa00bqaai",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_recommenda_selected_p_z36b0d5iy_",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cgfeil8ggza0ydb",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mplapewcbrt495m",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l6tfpt8cp2z1vtx",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:30+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cc53oafa00bqaai",
+        "related_table": "mplapewcbrt495m",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_recommendations_tasks": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:25+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c0e2xqkzdcnthlt",
+          "fk_column_id": "cnts2xa0y9qkdud",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_recommenda_tasks_6pape5tp9i",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cgfeil8ggza0ydb",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mcikz1svpvuxqe8",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lv5v75dveclcxg2",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:25+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cnts2xa0y9qkdud",
+        "related_table": "mcikz1svpvuxqe8",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "adons_subtotal": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:04:54+00:00",
+          "deleted": null,
+          "error": null,
+          "fk_column_id": "c101efcnewoo92u",
+          "fk_relation_column_id": "c1o2xjaw9t6vqdq",
+          "fk_rollup_column_id": "cj1tol9fdkm51z3",
+          "fk_workspace_id": "wpgg1mff",
+          "id": "rlmek0ybhohoarnk",
+          "rollup_function": "sum",
+          "updated_at": "2026-10-18 21:04:54+00:00"
+        },
+        "id": "c101efcnewoo92u",
+        "uidt": "Rollup"
+      },
+      "ai_status": {
+        "id": "c2rg33703n8gslp",
+        "uidt": "SingleSelect"
+      },
+      "cores_subtotal": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:04:53+00:00",
+          "deleted": null,
+          "error": null,
+          "fk_column_id": "c4txf2mttetzttw",
+          "fk_relation_column_id": "cvdbiw4s9yt4egw",
+          "fk_rollup_column_id": "cerg8mhgj4h54yz",
+          "fk_workspace_id": "wpgg1mff",
+          "id": "rl81ps9j2vez2831",
+          "rollup_function": "sum",
+          "updated_at": "2026-10-18 21:04:53+00:00"
+        },
+        "id": "c4txf2mttetzttw",
+        "uidt": "Rollup"
+      },
+      "headline": {
+        "id": "cqub1b2h2wa2vh7",
+        "uidt": "SingleLineText"
+      },
+      "nc_created_by": {
+        "id": "cezmh4lrapvv515",
+        "uidt": "CreatedBy"
+      },
+      "nc_order": {
+        "id": "c7jxyh6che6arf2",
+        "uidt": "Order"
+      },
+      "nc_row_meta": {
+        "id": "cvipk7n3ek5joyi",
+        "uidt": "Meta"
+      },
+      "nc_updated_by": {
+        "id": "czj21zrtyh6ugpf",
+        "uidt": "LastModifiedBy"
+      },
+      "offers": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:29+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cgfeil8ggza0ydb",
+          "fk_column_id": "c20lee2yhxry2ob",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cnq8cw4r9of50a6",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mj356jwoydvh7am",
+          "fk_mm_parent_column_id": "cn1fnwg5j5tbx9a",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c2av5j6xcysc240",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mxa45gmy92e0dl1",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lsvda9qkzots2rk",
+          "ref_db_alias": null,
+          "type": "mo",
+          "updated_at": "2026-10-18 21:05:29+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "c20lee2yhxry2ob",
+        "junction_table_name": "_nc_m2m_offers_recommendations",
+        "related_table": "offers",
+        "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "package_total": {
+        "id": "c64x5jexdkggvrs",
+        "uidt": "Formula"
+      },
+      "packages": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:29+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cgfeil8ggza0ydb",
+          "fk_column_id": "ci32waotu8rxyyy",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "ccjagzrrpadr2xm",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "myctz0ltt2iui97",
+          "fk_mm_parent_column_id": "cpzv0p5uc59a76i",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "ca5ftqx5as1u19a",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "m0jkbvxrcetlshd",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lhi1lxu6xmh5gh2",
+          "ref_db_alias": null,
+          "type": "om",
+          "updated_at": "2026-10-18 21:05:29+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "ci32waotu8rxyyy",
+        "junction_table_name": "_nc_m2m_recommendations_recommendation_",
+        "related_table": "recommendation_packages",
+        "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "person": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:17+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cgfeil8ggza0ydb",
+          "fk_column_id": "ci62olr9koltwll",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cdv215wmsq6d5gx",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "ms49x47g0v47mmw",
+          "fk_mm_parent_column_id": "c1byiyatfoyn0xj",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c06vy13zrxsm4am",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mpx62ir9qmx0mnk",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l8mmn9qvpgzhear",
+          "ref_db_alias": null,
+          "type": "mo",
+          "updated_at": "2026-10-18 21:05:17+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "ci62olr9koltwll",
+        "junction_table_name": "_nc_m2m_persons_recommendations",
+        "related_table": "persons",
+        "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "priority": {
+        "id": "c4i58q3r8syv77d",
+        "uidt": "SingleSelect"
+      },
+      "rationale": {
+        "id": "c9s72cgqfrmnxqi",
+        "uidt": "LongText"
+      },
+      "selected_adons": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:32+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cgfeil8ggza0ydb",
+          "fk_column_id": "c1o2xjaw9t6vqdq",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cbx5754xacp2sz8",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mqjoinvi82c6lrb",
+          "fk_mm_parent_column_id": "c42x18ynr5pw2a9",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c0hb4bcuryncrfk",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "m72rbunvyys0ojy",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lesi6k0oezxy3br",
+          "ref_db_alias": null,
+          "type": "om",
+          "updated_at": "2026-10-18 21:05:32+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "c1o2xjaw9t6vqdq",
+        "junction_table_name": "_nc_m2m_recommendations_selected_packag1",
+        "related_table": "selected_package_variants_adons",
+        "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "selected_cores": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:30+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cgfeil8ggza0ydb",
+          "fk_column_id": "cvdbiw4s9yt4egw",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cf4vzjmggdkxlq1",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mplapewcbrt495m",
+          "fk_mm_parent_column_id": "c924d0j717xhv7v",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cvcpwfpsi6f1g7k",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "myj8gtitlgy43t8",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lyy31zgdfaz924r",
+          "ref_db_alias": null,
+          "type": "om",
+          "updated_at": "2026-10-18 21:05:30+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "cvdbiw4s9yt4egw",
+        "junction_table_name": "_nc_m2m_recommendations_selected_packag",
+        "related_table": "selected_package_variants_cores",
+        "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "tasks": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:25+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cgfeil8ggza0ydb",
+          "fk_column_id": "c4bbww77minpf43",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "c0e2xqkzdcnthlt",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mcikz1svpvuxqe8",
+          "fk_mm_parent_column_id": "c0kl2vqd3q8tefo",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "ca1w27i4wrpkr1v",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "m64wtoh1yzulgtu",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lrmww26hcl8te44",
+          "ref_db_alias": null,
+          "type": "om",
+          "updated_at": "2026-10-18 21:05:25+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "c4bbww77minpf43",
+        "junction_table_name": "_nc_m2m_recommendations_tasks",
+        "related_table": "tasks",
+        "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "title": {
+        "id": "c695soe8mki815d",
+        "uidt": "SingleLineText"
+      },
+      "type": {
+        "id": "c9wju3ivjaayf67",
+        "uidt": "SingleSelect"
+      }
+    },
+    "id": "mwynjv2bm219zkn",
+    "source_id": "b0vvvho943bikyb"
+  },
   "sale_opportunities": {
     "fields": {
       "CreatedAt": {
         "id": "c6dzub2uss40svw",
         "uidt": "CreatedTime"
+      },
+      "Generuj zadania audytowe": {
+        "id": "cruigu4x2ftfda0",
+        "uidt": "Button"
       },
       "Id": {
         "id": "cmc2boff62cl64e",
@@ -3036,6 +6892,191 @@
         "relation_type": "hm",
         "uidt": "LinkToAnotherRecord"
       },
+      "_nc_m2m_sale_opportunit_meetings": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:19+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "czju80gg7alsws8",
+          "fk_column_id": "cggcqf2dehbpmvw",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_sale_oppor_meetings_t4jb2e98wn",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cmc2boff62cl64e",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mc1rc4qnpimw59r",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lrzg4qbourd1id6",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:19+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cggcqf2dehbpmvw",
+        "related_table": "mc1rc4qnpimw59r",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_sale_opportunit_offers": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:21+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c7sh5fez4tlbujt",
+          "fk_column_id": "cpvarfib3q4izgn",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_sale_oppor_offers_k5andg9h1_",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cmc2boff62cl64e",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mtbhcetl4cxf531",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "llwndgp8eo46g3u",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:21+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cpvarfib3q4izgn",
+        "related_table": "mtbhcetl4cxf531",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_sale_opportunit_persons": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:04:35+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cgb51u688ti0vl4",
+          "fk_column_id": "c3go512lrzd7j5u",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_sale_oppor_persons_0ofqh_9gig",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cmc2boff62cl64e",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mrbq77or7lzsngd",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lliw2hnobd8w5jk",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:04:35+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "c3go512lrzd7j5u",
+        "related_table": "mrbq77or7lzsngd",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_sale_opportunit_persons1s": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:04:36+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cjw6s34dltu4okj",
+          "fk_column_id": "c0ie6q4y7aiwano",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_sale_oppor_persons_gk8uvv364g",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cmc2boff62cl64e",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mg4pt5z6b78qygc",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lon5uc9vqg5ldih",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:04:36+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "c0ie6q4y7aiwano",
+        "related_table": "mg4pt5z6b78qygc",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_sale_opportunit_persons2s": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:04:37+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cx5dd814t24p01z",
+          "fk_column_id": "ch8rn9yd5qyn0fz",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_sale_oppor_persons_eka_yv1l2n",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cmc2boff62cl64e",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mt9uh4zbzg8j16l",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lpv1q34f62ow6ai",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:04:37+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "ch8rn9yd5qyn0fz",
+        "related_table": "mt9uh4zbzg8j16l",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
       "_nc_m2m_sale_opportunit_sale_opportunits": {
         "_raw_colOptions": {
           "base_id": "p6w78auzu6sjdoo",
@@ -3160,6 +7201,44 @@
         "id": "crn6pg5noxpjkgi",
         "uidt": "SingleSelect"
       },
+      "audited": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:19+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cmc2boff62cl64e",
+          "fk_column_id": "c94xps0bfd3tdru",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cx5dd814t24p01z",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mt9uh4zbzg8j16l",
+          "fk_mm_parent_column_id": "c8tgjf1yv7adl4i",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c06vy13zrxsm4am",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mpx62ir9qmx0mnk",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l2dweuhrpuymlkx",
+          "ref_db_alias": null,
+          "type": "mm",
+          "updated_at": "2026-10-18 21:05:19+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": null
+        },
+        "id": "c94xps0bfd3tdru",
+        "junction_table_name": "_nc_m2m_sale_opportunit_persons2",
+        "related_table": "persons",
+        "relation_type": "mm",
+        "uidt": "LinkToAnotherRecord"
+      },
       "closed_at": {
         "id": "caakmjpa7or8p4b",
         "uidt": "Date"
@@ -3264,6 +7343,44 @@
         "id": "c4icoi4mpvc7bdw",
         "uidt": "SingleSelect"
       },
+      "meetings": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:20+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cmc2boff62cl64e",
+          "fk_column_id": "c19mj9hutepy4kx",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "czju80gg7alsws8",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mc1rc4qnpimw59r",
+          "fk_mm_parent_column_id": "cr81a769x6yckec",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cybvr7hciuwcch0",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mmya7xfqbn9ho29",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lcgil5zyetoiv2l",
+          "ref_db_alias": null,
+          "type": "om",
+          "updated_at": "2026-10-18 21:05:20+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "c19mj9hutepy4kx",
+        "junction_table_name": "_nc_m2m_sale_opportunit_meetings",
+        "related_table": "meetings",
+        "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
+      },
       "name": {
         "id": "c1kca57xrhsfymp",
         "uidt": "SingleLineText"
@@ -3295,6 +7412,44 @@
       "offer_sent_at": {
         "id": "cjzol7cdlorltfp",
         "uidt": "Date"
+      },
+      "offers": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:21+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cmc2boff62cl64e",
+          "fk_column_id": "chyqa3yavhgl1e7",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "c7sh5fez4tlbujt",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mtbhcetl4cxf531",
+          "fk_mm_parent_column_id": "cggnlsn5ipbj68e",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c2av5j6xcysc240",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mxa45gmy92e0dl1",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lgjh8ja4pjdwi63",
+          "ref_db_alias": null,
+          "type": "om",
+          "updated_at": "2026-10-18 21:05:21+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "chyqa3yavhgl1e7",
+        "junction_table_name": "_nc_m2m_sale_opportunit_offers",
+        "related_table": "offers",
+        "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
       },
       "owner": {
         "_raw_colOptions": {
@@ -3332,6 +7487,44 @@
         "junction_table_name": "_nc_m2m_employees_sale_opportunit",
         "related_table": "employees",
         "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "participants": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:18+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cmc2boff62cl64e",
+          "fk_column_id": "cn4ucrtpvapmwt4",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cgb51u688ti0vl4",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mrbq77or7lzsngd",
+          "fk_mm_parent_column_id": "cq9zo8ln0xbwkw2",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c06vy13zrxsm4am",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mpx62ir9qmx0mnk",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lj0tf93187nrfxd",
+          "ref_db_alias": null,
+          "type": "mm",
+          "updated_at": "2026-10-18 21:05:18+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": null
+        },
+        "id": "cn4ucrtpvapmwt4",
+        "junction_table_name": "_nc_m2m_sale_opportunit_persons",
+        "related_table": "persons",
+        "relation_type": "mm",
         "uidt": "LinkToAnotherRecord"
       },
       "person": {
@@ -3466,6 +7659,44 @@
         "junction_table_name": "_nc_m2m_sale_opportunit_tasks",
         "related_table": "tasks",
         "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "to_be_audited": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:18+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cmc2boff62cl64e",
+          "fk_column_id": "c8znfdni0ht0xe7",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cjw6s34dltu4okj",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mg4pt5z6b78qygc",
+          "fk_mm_parent_column_id": "cdng4j4kjesjbkv",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c06vy13zrxsm4am",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mpx62ir9qmx0mnk",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l8vyh0osh2elb1a",
+          "ref_db_alias": null,
+          "type": "mm",
+          "updated_at": "2026-10-18 21:05:18+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": null
+        },
+        "id": "c8znfdni0ht0xe7",
+        "junction_table_name": "_nc_m2m_sale_opportunit_persons1",
+        "related_table": "persons",
+        "relation_type": "mm",
         "uidt": "LinkToAnotherRecord"
       },
       "training_goals": {
@@ -3603,6 +7834,481 @@
       }
     },
     "id": "mo2pg7elyhvjd9o",
+    "source_id": "b0vvvho943bikyb"
+  },
+  "selected_package_variants_adons": {
+    "fields": {
+      "CreatedAt": {
+        "id": "cpiaax5b2fcmxsl",
+        "uidt": "CreatedTime"
+      },
+      "Id": {
+        "id": "c0hb4bcuryncrfk",
+        "uidt": "ID"
+      },
+      "UpdatedAt": {
+        "id": "c823xkaevprlrjq",
+        "uidt": "LastModifiedTime"
+      },
+      "_nc_m2m_package_variant_selected_packag1s": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:32+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cwxtyghhbzalgl7",
+          "fk_column_id": "cq8k0jq5woaxnhi",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_package_va_selected_p_ui57k_m5y4",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c0hb4bcuryncrfk",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mb284h7rrr0tuuc",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "ll7b7x65d1aeyuk",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:32+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cq8k0jq5woaxnhi",
+        "related_table": "mb284h7rrr0tuuc",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_recommendations_selected_packag1s": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:32+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c42x18ynr5pw2a9",
+          "fk_column_id": "cdh0n0tjbvx0nxy",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_recommenda_selected_p_cjp8azjcla",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c0hb4bcuryncrfk",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mqjoinvi82c6lrb",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lfosqvtpfqblzrj",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:32+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cdh0n0tjbvx0nxy",
+        "related_table": "mqjoinvi82c6lrb",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "hours": {
+        "id": "cgzcmze1mh2je9b",
+        "uidt": "Number"
+      },
+      "line_total": {
+        "id": "cj1tol9fdkm51z3",
+        "uidt": "Formula"
+      },
+      "nc_created_by": {
+        "id": "cfzin0bqqttnjml",
+        "uidt": "CreatedBy"
+      },
+      "nc_order": {
+        "id": "cnypazbeomhcbaz",
+        "uidt": "Order"
+      },
+      "nc_row_meta": {
+        "id": "c6ok12rx3g42k72",
+        "uidt": "Meta"
+      },
+      "nc_updated_by": {
+        "id": "codd6dwimf9gkzv",
+        "uidt": "LastModifiedBy"
+      },
+      "package_variants_adons": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:32+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "c0hb4bcuryncrfk",
+          "fk_column_id": "cnadloca29ghvhi",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cwxtyghhbzalgl7",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mb284h7rrr0tuuc",
+          "fk_mm_parent_column_id": "c464528ut0ydczl",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cw2cwi5sl6uk5yr",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "meo1ptjqv5qzua6",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lrry1atljtyghdh",
+          "ref_db_alias": null,
+          "type": "mo",
+          "updated_at": "2026-10-18 21:05:32+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "cnadloca29ghvhi",
+        "junction_table_name": "_nc_m2m_package_variant_selected_packag1",
+        "related_table": "package_variants_adons",
+        "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "price": {
+        "id": "c4c7jgqwknw2ece",
+        "uidt": "Currency"
+      },
+      "recommendations": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:32+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "c0hb4bcuryncrfk",
+          "fk_column_id": "cvb6slho4ufat8k",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "c42x18ynr5pw2a9",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mqjoinvi82c6lrb",
+          "fk_mm_parent_column_id": "cbx5754xacp2sz8",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cgfeil8ggza0ydb",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mwynjv2bm219zkn",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lrhfhd28i0jjjj1",
+          "ref_db_alias": null,
+          "type": "mo",
+          "updated_at": "2026-10-18 21:05:32+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "cvb6slho4ufat8k",
+        "junction_table_name": "_nc_m2m_recommendations_selected_packag1",
+        "related_table": "recommendations",
+        "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "title": {
+        "id": "cty7ub49g0dk9p3",
+        "uidt": "SingleLineText"
+      }
+    },
+    "id": "m72rbunvyys0ojy",
+    "source_id": "b0vvvho943bikyb"
+  },
+  "selected_package_variants_cores": {
+    "fields": {
+      "CreatedAt": {
+        "id": "coaroaia3vjtin9",
+        "uidt": "CreatedTime"
+      },
+      "Id": {
+        "id": "cvcpwfpsi6f1g7k",
+        "uidt": "ID"
+      },
+      "UpdatedAt": {
+        "id": "ci2ze0epliglkzq",
+        "uidt": "LastModifiedTime"
+      },
+      "_nc_m2m_package_variant_selected_packags": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:30+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "codncj0asdryutr",
+          "fk_column_id": "crcmzn6medsp6wd",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_package_va_selected_p_94kpohpe3f",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cvcpwfpsi6f1g7k",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mypswcjwiatyeag",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lzv3v05musfisxu",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:30+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "crcmzn6medsp6wd",
+        "related_table": "mypswcjwiatyeag",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_recommendations_selected_packags": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:30+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c924d0j717xhv7v",
+          "fk_column_id": "cb4qqki4835n0nv",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_recommenda_selected_p_sn070mjjea",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cvcpwfpsi6f1g7k",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mplapewcbrt495m",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l8qluueh2wkzkro",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:30+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cb4qqki4835n0nv",
+        "related_table": "mplapewcbrt495m",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_selected_packag_package_core_sls": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:31+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "csci782p6e70s67",
+          "fk_column_id": "c18j7nzi4mltyzv",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_selected_p_package_co_hcruz2nbso",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cvcpwfpsi6f1g7k",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mlz40pgroir9fih",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lh36x47h1j2goc8",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:31+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "c18j7nzi4mltyzv",
+        "related_table": "mlz40pgroir9fih",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "hours": {
+        "id": "cpi9yfhb95lnlye",
+        "uidt": "Number"
+      },
+      "line_total": {
+        "id": "cerg8mhgj4h54yz",
+        "uidt": "Formula"
+      },
+      "nc_created_by": {
+        "id": "czvl9luh7sf72a3",
+        "uidt": "CreatedBy"
+      },
+      "nc_order": {
+        "id": "c7b9dqrgdi37zh9",
+        "uidt": "Order"
+      },
+      "nc_row_meta": {
+        "id": "c4382vudzpzz040",
+        "uidt": "Meta"
+      },
+      "nc_updated_by": {
+        "id": "cslpqb0rz55715m",
+        "uidt": "LastModifiedBy"
+      },
+      "package_variants_cores": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:30+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cvcpwfpsi6f1g7k",
+          "fk_column_id": "ca5wb7dgarsn9n1",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "codncj0asdryutr",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mypswcjwiatyeag",
+          "fk_mm_parent_column_id": "ciokis4or49cbmw",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c1wymcysy9vgwfk",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mawfj65b56bz4ep",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lb5zl84hmamqlgu",
+          "ref_db_alias": null,
+          "type": "mo",
+          "updated_at": "2026-10-18 21:05:30+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "ca5wb7dgarsn9n1",
+        "junction_table_name": "_nc_m2m_package_variant_selected_packag",
+        "related_table": "package_variants_cores",
+        "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "price": {
+        "id": "c3c0lq9h1ttbwun",
+        "uidt": "Currency"
+      },
+      "recommendations": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:30+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cvcpwfpsi6f1g7k",
+          "fk_column_id": "ckhjyhi0chvqllf",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "c924d0j717xhv7v",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mplapewcbrt495m",
+          "fk_mm_parent_column_id": "cf4vzjmggdkxlq1",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cgfeil8ggza0ydb",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mwynjv2bm219zkn",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lm1n4klrxwz7zbh",
+          "ref_db_alias": null,
+          "type": "mo",
+          "updated_at": "2026-10-18 21:05:30+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "ckhjyhi0chvqllf",
+        "junction_table_name": "_nc_m2m_recommendations_selected_packag",
+        "related_table": "recommendations",
+        "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "slides": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:31+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cvcpwfpsi6f1g7k",
+          "fk_column_id": "c4k2nb6ubqds3yn",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "csci782p6e70s67",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mlz40pgroir9fih",
+          "fk_mm_parent_column_id": "c4wa83mm32f6w2e",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c6bp13sep8yiwhz",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "ms2cmruxz8try7k",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lp2a6pea6mkjp8s",
+          "ref_db_alias": null,
+          "type": "om",
+          "updated_at": "2026-10-18 21:05:31+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "c4k2nb6ubqds3yn",
+        "junction_table_name": "_nc_m2m_selected_packag_package_core_sl",
+        "related_table": "package_core_slides",
+        "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "title": {
+        "id": "coud1fbwsr0z0tj",
+        "uidt": "SingleLineText"
+      }
+    },
+    "id": "myj8gtitlgy43t8",
     "source_id": "b0vvvho943bikyb"
   },
   "task_templates": {
@@ -3898,6 +8604,43 @@
         "id": "col1on1iivzh7q0",
         "uidt": "LastModifiedTime"
       },
+      "_nc_m2m_assessments_tasks": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:24+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c5t8qjmekbf09bg",
+          "fk_column_id": "cr17b6m67ce0jog",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_assessment_tasks_5s2gf_eeh_",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "ca1w27i4wrpkr1v",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "modac694a80q79k",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "l4ghhjwnlrvwjgn",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:24+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cr17b6m67ce0jog",
+        "related_table": "modac694a80q79k",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
       "_nc_m2m_employees_tasks": {
         "_raw_colOptions": {
           "base_id": "p6w78auzu6sjdoo",
@@ -3972,6 +8715,80 @@
         "relation_type": "hm",
         "uidt": "LinkToAnotherRecord"
       },
+      "_nc_m2m_meetings_tasks": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:23+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "ciauzv28h0aj825",
+          "fk_column_id": "cy3aujf8et76h7p",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_meetings_tasks_r24z59uees",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "ca1w27i4wrpkr1v",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mo6szsrhau3d2p5",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "ljnwwt7fp8ygjd9",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:23+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cy3aujf8et76h7p",
+        "related_table": "mo6szsrhau3d2p5",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_offers_tasks": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:25+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cb42f79lq239fsp",
+          "fk_column_id": "czdjrr8gcdj6rm7",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_offers_tasks_uc4jfde6kx",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "ca1w27i4wrpkr1v",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mpncwj3z30ijhjk",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "liavj484jhwk6ez",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:25+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "czdjrr8gcdj6rm7",
+        "related_table": "mpncwj3z30ijhjk",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
       "_nc_m2m_persons_tasks": {
         "_raw_colOptions": {
           "base_id": "p6w78auzu6sjdoo",
@@ -4043,6 +8860,43 @@
         },
         "id": "ch931c4evfnq2sr",
         "related_table": "muh6izskr06weae",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_recommendations_tasks": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:25+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c0kl2vqd3q8tefo",
+          "fk_column_id": "cxoeh3ill6dqcvj",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_recommenda_tasks_jrm1mfodqt",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "ca1w27i4wrpkr1v",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mcikz1svpvuxqe8",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "luhnar457mvcoz3",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:25+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cxoeh3ill6dqcvj",
+        "related_table": "mcikz1svpvuxqe8",
         "relation_type": "hm",
         "uidt": "LinkToAnotherRecord"
       },
@@ -4195,6 +9049,44 @@
         "relation_type": "om",
         "uidt": "LinkToAnotherRecord"
       },
+      "assessment": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:24+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "ca1w27i4wrpkr1v",
+          "fk_column_id": "cyfmgueusqtwnqd",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "c5t8qjmekbf09bg",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "modac694a80q79k",
+          "fk_mm_parent_column_id": "c02vl9uu5r2uyfe",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cni3ktg93w61rvv",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mor04rigx4pobfs",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lol2553tjl096sg",
+          "ref_db_alias": null,
+          "type": "mo",
+          "updated_at": "2026-10-18 21:05:24+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "cyfmgueusqtwnqd",
+        "junction_table_name": "_nc_m2m_assessments_tasks",
+        "related_table": "assessments",
+        "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
       "assignee": {
         "_raw_colOptions": {
           "base_id": "p6w78auzu6sjdoo",
@@ -4283,6 +9175,44 @@
         "relation_type": "mo",
         "uidt": "LinkToAnotherRecord"
       },
+      "meeting": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:23+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "ca1w27i4wrpkr1v",
+          "fk_column_id": "cfkp9snuoj5ki6q",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "ciauzv28h0aj825",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mo6szsrhau3d2p5",
+          "fk_mm_parent_column_id": "c0k1hkoomdxetqw",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cybvr7hciuwcch0",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mmya7xfqbn9ho29",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lyaagcpsg8mtkos",
+          "ref_db_alias": null,
+          "type": "mo",
+          "updated_at": "2026-10-18 21:05:23+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "cfkp9snuoj5ki6q",
+        "junction_table_name": "_nc_m2m_meetings_tasks",
+        "related_table": "meetings",
+        "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
       "nc_created_by": {
         "id": "cexh4jcjqi1fhv7",
         "uidt": "CreatedBy"
@@ -4298,6 +9228,44 @@
       "nc_updated_by": {
         "id": "ck3jm5w9caym4l4",
         "uidt": "LastModifiedBy"
+      },
+      "offer": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:25+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "ca1w27i4wrpkr1v",
+          "fk_column_id": "crbp0qgwuraeb5o",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cb42f79lq239fsp",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mpncwj3z30ijhjk",
+          "fk_mm_parent_column_id": "ckkv196v38oopkz",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c2av5j6xcysc240",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mxa45gmy92e0dl1",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lxxgq7qvmrla4db",
+          "ref_db_alias": null,
+          "type": "mo",
+          "updated_at": "2026-10-18 21:05:25+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "crbp0qgwuraeb5o",
+        "junction_table_name": "_nc_m2m_offers_tasks",
+        "related_table": "offers",
+        "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
       },
       "person": {
         "_raw_colOptions": {
@@ -4376,6 +9344,44 @@
         "id": "cuzndprmwopsj4m",
         "junction_table_name": "_nc_m2m_projects_tasks",
         "related_table": "projects",
+        "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "recommendation": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:25+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "ca1w27i4wrpkr1v",
+          "fk_column_id": "c2eyoqmmswmwu11",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "c0kl2vqd3q8tefo",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mcikz1svpvuxqe8",
+          "fk_mm_parent_column_id": "c0e2xqkzdcnthlt",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cgfeil8ggza0ydb",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mwynjv2bm219zkn",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lk5ps68d6fi0zjj",
+          "ref_db_alias": null,
+          "type": "mo",
+          "updated_at": "2026-10-18 21:05:25+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "c2eyoqmmswmwu11",
+        "junction_table_name": "_nc_m2m_recommendations_tasks",
+        "related_table": "recommendations",
         "relation_type": "mo",
         "uidt": "LinkToAnotherRecord"
       },
@@ -4473,6 +9479,419 @@
       }
     },
     "id": "m64wtoh1yzulgtu",
+    "source_id": "b0vvvho943bikyb"
+  },
+  "testimonials": {
+    "fields": {
+      "CreatedAt": {
+        "id": "ciz95r2qja7n724",
+        "uidt": "CreatedTime"
+      },
+      "Id": {
+        "id": "cjsufrrteft7r1q",
+        "uidt": "ID"
+      },
+      "UpdatedAt": {
+        "id": "cls0nfx746vjxsa",
+        "uidt": "LastModifiedTime"
+      },
+      "_nc_m2m_companies_testimonials": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:14+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cpfwrkp2ol363h7",
+          "fk_column_id": "ck6xfkhusskg4le",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_companies_testimonia_cdri96fgh0",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cjsufrrteft7r1q",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mqnz1wjhv65toxh",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lbwisghll1wgymo",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:14+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "ck6xfkhusskg4le",
+        "related_table": "mqnz1wjhv65toxh",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "_nc_m2m_offers_testimonials": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:04:46+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "c0c4b5nhoob5608",
+          "fk_column_id": "cmgn6fd498q58xd",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_offers_testimonia_9qg2xgo9nz",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cjsufrrteft7r1q",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mp4mf6lc5rxtxhq",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lcjesu4x0j3mtic",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:04:46+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "cmgn6fd498q58xd",
+        "related_table": "mp4mf6lc5rxtxhq",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "active": {
+        "id": "c6dm0vkksau396f",
+        "uidt": "Checkbox"
+      },
+      "avatar": {
+        "id": "cv6phwbnp89ogkc",
+        "uidt": "Attachment"
+      },
+      "buyer_persona": {
+        "id": "cw2br1h58vcsa3t",
+        "uidt": "SingleLineText"
+      },
+      "client_name": {
+        "id": "c6mnt5bxfugql6h",
+        "uidt": "SingleLineText"
+      },
+      "companies": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:14+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cjsufrrteft7r1q",
+          "fk_column_id": "cu107qqwqrl330a",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cpfwrkp2ol363h7",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mqnz1wjhv65toxh",
+          "fk_mm_parent_column_id": "ci407ohwevqplt8",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "ctpo5bcby63ljdp",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "m1ojja010nv8eyw",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lad237rmsjjprw5",
+          "ref_db_alias": null,
+          "type": "mo",
+          "updated_at": "2026-10-18 21:05:14+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "cu107qqwqrl330a",
+        "junction_table_name": "_nc_m2m_companies_testimonials",
+        "related_table": "companies",
+        "relation_type": "mo",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "company_logo": {
+        "id": "crrz8kiyd4hhtvb",
+        "uidt": "Attachment"
+      },
+      "content": {
+        "id": "ceuug8ajujd6yc2",
+        "uidt": "LongText"
+      },
+      "generuj obrazek": {
+        "id": "croe4c7oqkvvb9h",
+        "uidt": "Button"
+      },
+      "generuj slajd": {
+        "id": "ci1hksks7wm0xdc",
+        "uidt": "Button"
+      },
+      "image": {
+        "id": "chcy6c9pjvj7w5h",
+        "uidt": "Attachment"
+      },
+      "image_note": {
+        "id": "c4ipjt3zs1fn91l",
+        "uidt": "LongText"
+      },
+      "image_status": {
+        "id": "c7ragb6h85qps05",
+        "uidt": "SingleSelect"
+      },
+      "in_source_pptx": {
+        "id": "cjsxbac2z8bmdes",
+        "uidt": "Checkbox"
+      },
+      "nc_created_by": {
+        "id": "crp3la8f4v9hx9z",
+        "uidt": "CreatedBy"
+      },
+      "nc_order": {
+        "id": "c0nn3nuxmnqzzi1",
+        "uidt": "Order"
+      },
+      "nc_row_meta": {
+        "id": "cwi8k5o8itk57ps",
+        "uidt": "Meta"
+      },
+      "nc_updated_by": {
+        "id": "cq2ailn78igrowr",
+        "uidt": "LastModifiedBy"
+      },
+      "notes": {
+        "id": "cse8sgqulovml6g",
+        "uidt": "LongText"
+      },
+      "offers": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:04:47+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cjsufrrteft7r1q",
+          "fk_column_id": "ccs6h2v7fa71clj",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "c0c4b5nhoob5608",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "mp4mf6lc5rxtxhq",
+          "fk_mm_parent_column_id": "c6ggekximpz2dkw",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "c2av5j6xcysc240",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "mxa45gmy92e0dl1",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "liw1vj9h6vdvc8b",
+          "ref_db_alias": null,
+          "type": "mm",
+          "updated_at": "2026-10-18 21:05:27+00:00",
+          "ur": "NO ACTION",
+          "version": 2,
+          "virtual": null
+        },
+        "id": "ccs6h2v7fa71clj",
+        "junction_table_name": "_nc_m2m_offers_testimonials",
+        "related_table": "offers",
+        "relation_type": "mm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "position": {
+        "id": "cao7p7ups6ei7ty",
+        "uidt": "SingleLineText"
+      },
+      "refers_to": {
+        "id": "c07k5lr7an52l4p",
+        "uidt": "SingleLineText"
+      },
+      "slide_file": {
+        "id": "ct4hedelehvogi0",
+        "uidt": "Attachment"
+      },
+      "slide_note": {
+        "id": "cmbpnz49pz5aspx",
+        "uidt": "LongText"
+      },
+      "slide_status": {
+        "id": "czu7hkcflauu0nd",
+        "uidt": "SingleSelect"
+      },
+      "title": {
+        "id": "cy4nuuhq0bp6fhv",
+        "uidt": "SingleLineText"
+      },
+      "translation": {
+        "id": "ciupqpvnxdyhqi6",
+        "uidt": "LongText"
+      },
+      "type": {
+        "id": "ct0ib7y965shmqx",
+        "uidt": "SingleSelect"
+      },
+      "usage_consent": {
+        "id": "cyqx3x7ihyg3vi6",
+        "uidt": "SingleSelect"
+      },
+      "usage_limitations": {
+        "id": "ce7njfzalpcyjdr",
+        "uidt": "LongText"
+      },
+      "variant": {
+        "id": "ckqa5mv6ncnmv11",
+        "uidt": "MultiSelect"
+      }
+    },
+    "id": "mn7xn0zwixz6ov8",
+    "source_id": "b0vvvho943bikyb"
+  },
+  "training_descriptions": {
+    "fields": {
+      "CreatedAt": {
+        "id": "cbymykpvrq9hi0u",
+        "uidt": "CreatedTime"
+      },
+      "Id": {
+        "id": "cx3in6gtw5g0iip",
+        "uidt": "ID"
+      },
+      "UpdatedAt": {
+        "id": "chrdncw9xj2zd22",
+        "uidt": "LastModifiedTime"
+      },
+      "_nc_m2m_training_descri_recommendation_s": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:29+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": "NO ACTION",
+          "fk_child_column_id": "cy33hio8d3x8hn5",
+          "fk_column_id": "c2vtzxcwiv5zlw6",
+          "fk_display_value_column_id": null,
+          "fk_index_name": "fk_training_d_recommenda_3towzo933u",
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": null,
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": null,
+          "fk_mm_parent_column_id": null,
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "cx3in6gtw5g0iip",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "m1yjw6n0j8j8l0i",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "la9l02hc2x8z38x",
+          "ref_db_alias": null,
+          "type": "hm",
+          "updated_at": "2026-10-18 21:05:29+00:00",
+          "ur": "NO ACTION",
+          "version": 1,
+          "virtual": false
+        },
+        "id": "c2vtzxcwiv5zlw6",
+        "related_table": "m1yjw6n0j8j8l0i",
+        "relation_type": "hm",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "active": {
+        "id": "ct1n5nqixutnweh",
+        "uidt": "Checkbox"
+      },
+      "description": {
+        "id": "cg0w07vkmgjoylu",
+        "uidt": "LongText"
+      },
+      "hours_in_package": {
+        "id": "cwps3nwgsofv9ez",
+        "uidt": "Number"
+      },
+      "learning_goal": {
+        "id": "cmxodjj7vjs7hcs",
+        "uidt": "LongText"
+      },
+      "nc_created_by": {
+        "id": "c6zprn5dsi2ish6",
+        "uidt": "CreatedBy"
+      },
+      "nc_order": {
+        "id": "cudnud9ay28o0zj",
+        "uidt": "Order"
+      },
+      "nc_row_meta": {
+        "id": "cwdmz679pvtsuiv",
+        "uidt": "Meta"
+      },
+      "nc_updated_by": {
+        "id": "c7ykc773aop82kc",
+        "uidt": "LastModifiedBy"
+      },
+      "recommendation_packages": {
+        "_raw_colOptions": {
+          "base_id": "p6w78auzu6sjdoo",
+          "created_at": "2026-10-18 21:05:30+00:00",
+          "db_type": null,
+          "deleted": null,
+          "dr": null,
+          "fk_child_column_id": "cx3in6gtw5g0iip",
+          "fk_column_id": "c2wijozompkrv8g",
+          "fk_display_value_column_id": null,
+          "fk_index_name": null,
+          "fk_mm_base_id": null,
+          "fk_mm_child_column_id": "cy33hio8d3x8hn5",
+          "fk_mm_child_order_column_id": null,
+          "fk_mm_model_id": "m1yjw6n0j8j8l0i",
+          "fk_mm_parent_column_id": "cvyq36ax0lodk6c",
+          "fk_mm_parent_order_column_id": null,
+          "fk_mm_source_id": null,
+          "fk_parent_column_id": "ca5ftqx5as1u19a",
+          "fk_related_base_id": null,
+          "fk_related_model_id": "m0jkbvxrcetlshd",
+          "fk_related_source_id": null,
+          "fk_target_view_id": null,
+          "fk_workspace_id": "wpgg1mff",
+          "id": "lfk5l7ujnnued6i",
+          "ref_db_alias": null,
+          "type": "om",
+          "updated_at": "2026-10-18 21:05:30+00:00",
+          "ur": null,
+          "version": 2,
+          "virtual": false
+        },
+        "id": "c2wijozompkrv8g",
+        "junction_table_name": "_nc_m2m_training_descri_recommendation_",
+        "related_table": "recommendation_packages",
+        "relation_type": "om",
+        "uidt": "LinkToAnotherRecord"
+      },
+      "title": {
+        "id": "ckqyyw9z27ikgiv",
+        "uidt": "SingleLineText"
+      },
+      "training_type": {
+        "id": "ce0obrazro2upgh",
+        "uidt": "SingleSelect"
+      }
+    },
+    "id": "mrk1tyq1ys21wyn",
     "source_id": "b0vvvho943bikyb"
   }
 }
