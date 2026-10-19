@@ -1,0 +1,198 @@
+{
+  "name": "W20 - Compute opportunity type (subflow)",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "opportunity-type-input",
+      "name": "Opportunity type: input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "base",
+        "operation": "get",
+        "workspaceId": {
+          "__rl": true,
+          "value": "wpgg1mff",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "p6w78auzu6sjdoo",
+          "mode": "list",
+          "cachedResultName": "CRM Base"
+        }
+      },
+      "id": "get-one-base",
+      "name": "Get one base",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        260,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'persons').id }}/links/ck5jkdn5f4dadnp/records/{{ $('Opportunity type: input').first().json.person_id || 0 }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-opportunities-of-the-person",
+      "name": "Get opportunities of the person",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        520,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'companies').id }}/links/ch3qnvrhuo1wc2s/records/{{ $('Opportunity type: input').first().json.company_id || 0 }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-opportunities-of-the-company",
+      "name": "Get opportunities of the company",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        520,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "numberInputs": 2
+      },
+      "id": "wait-for-both-histories",
+      "name": "Wait for both histories",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        780,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Regula (deterministyczna, bez AI): historia osoby i firmy = ich WYGRANE szanse.\n//   brak wygranej                          -> Nowy klient\n//   poprzednia usluga trwa (koniec >= dzis) -> Upsell\n//   koniec nie dawniej niz GAP miesiecy    -> Kontynuacja\n//   inaczej                                -> Powrot po przerwie\n// Koniec uslugi = service_end_date, a gdy brak: closed_at.\nconst GAP_MONTHS = 6;\nlet a = [], b = [];\ntry { a = $('Get opportunities of the person').first().json.list || []; } catch (e) {}\ntry { b = $('Get opportunities of the company').first().json.list || []; } catch (e) {}\nconst all = new Map();\n[...a, ...b].forEach(o => all.set(o.Id, o));\nconst won = [...all.values()].filter(o => o.state === 'won');\nconst today = new Date().toISOString().slice(0, 10);\nconst endOf = o => String(o.service_end_date || o.closed_at || '').slice(0, 10) || null;\nconst addMonths = (d, m) => { const x = new Date(d + 'T00:00:00Z'); x.setUTCMonth(x.getUTCMonth() + m); return x.toISOString().slice(0, 10); };\nlet type, reason;\nconst ends = won.map(endOf).filter(Boolean).sort();\nif (!won.length) { type = 'Nowy klient'; reason = 'brak wcześniejszej wygranej szansy'; }\nelse if (!ends.length) { type = 'Kontynuacja'; reason = 'wygrana szansa bez daty zakończenia usługi'; }\nelse if (ends[ends.length - 1] >= today) { type = 'Upsell'; reason = 'poprzednia usługa jeszcze trwa'; }\nelse if (addMonths(ends[ends.length - 1], GAP_MONTHS) >= today) { type = 'Kontynuacja'; reason = 'poprzednia usługa skończyła się ' + ends[ends.length - 1]; }\nelse { type = 'Powrót po przerwie'; reason = 'poprzednia usługa skończyła się ' + ends[ends.length - 1] + ' (ponad ' + GAP_MONTHS + ' mies.)'; }\nreturn [{ json: { opportunity_type: type, type_reason: reason } }];\n"
+      },
+      "id": "compute-opportunity-type",
+      "name": "Compute opportunity type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        380
+      ]
+    }
+  ],
+  "connections": {
+    "Opportunity type: input": {
+      "main": [
+        [
+          {
+            "node": "Get one base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get one base": {
+      "main": [
+        [
+          {
+            "node": "Get opportunities of the person",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get opportunities of the company",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get opportunities of the person": {
+      "main": [
+        [
+          {
+            "node": "Wait for both histories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get opportunities of the company": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Wait for both histories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for both histories": {
+      "main": [
+        [
+          {
+            "node": "Compute opportunity type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

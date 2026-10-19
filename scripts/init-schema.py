@@ -497,6 +497,8 @@ TABLES = [
                             "nigdy nie bedzie leadem ani kupujacym (np. "
                             "ksiegowa, specjalista): flow tworzace leady i "
                             "szanse ja pomijaja, spotkania sie tworza normalnie."},
+            gen_status_field("new_opportunity", "Utwórz szansę sprzedaży"),
+            gen_note_field("new_opportunity", "Utwórz szansę sprzedaży"),
             {"title": "notes", "type": "LongText",
              "description": "Trwale notatki o osobie."},
             {"title": "legacy_id", "type": "Number"},
@@ -530,6 +532,13 @@ TABLES = [
                             "Week) - lista nalezy do zespolu: dopisuj i usuwaj "
                             "opcje w UI. Skrypt ustawia opcje tylko raz, na "
                             "pustym polu, i potem ich nie nadpisuje."},
+            {"title": "opportunity_type", "type": "SingleSelect",
+             "options": select("Nowy klient", "Kontynuacja", "Upsell", "Powrót po przerwie"),
+             "description": "Typ szansy, wyliczany RAZ przy jej tworzeniu przez W20 "
+                            "(regula: brak wygranej szansy osoby/firmy = Nowy klient; "
+                            "poprzednia usluga jeszcze trwa = Upsell; koniec uslugi "
+                            "nie dawniej niz 6 miesiecy temu = Kontynuacja; inaczej "
+                            "Powrot po przerwie). Pozniej sie nie zmienia."},
             {"title": "offer_prep_status", "type": "SingleSelect",
              "options": select("none", "waiting_goals", "goals_provided",
                                "testimonials_provided", "draft_ready")},
@@ -1484,6 +1493,7 @@ BUTTONS = [
     ("materials", "Generuj prezentację"),
     # v4
     ("leads", "Utwórz szansę sprzedaży"),
+    ("persons", "Utwórz szansę sprzedaży"),
     ("sale_opportunities", "Generuj zadania audytowe"),
     ("offers", "Utwórz nową wersję"),
 ]
@@ -1725,6 +1735,25 @@ def create_tables(dry_run, source_id):
         ids[key] = api("POST", f"/api/v2/meta/bases/{BASE_ID}/{source_id}/tables",
                        json=to_v2_table(t))["id"]
     return ids
+
+
+def add_missing_fields(ids, dry_run):
+    """Dopisuje do ISTNIEJACYCH tabel pola zwykle z TABLES, ktorych jeszcze nie
+    ma (np. nowe pole dodane do definicji po pierwszym `make init-schema`).
+    Wylacznie addytywnie: nie zmienia ani nie usuwa istniejacych pol. Opcje
+    SingleSelect ustawia potem sync_select_options()."""
+    for t in TABLES:
+        table_id = ids.get(t["title"].lower())
+        if not table_id or str(table_id).startswith("<"):
+            continue
+        have = existing_fields(table_id) if not dry_run else set()
+        for f in t["fields"]:
+            if f["title"].lower() in have:
+                continue
+            if dry_run:
+                continue
+            print(f"+  {t['title']}.{f['title']}: dopisuje brakujace pole ({f['type']})")
+            api("POST", f"/api/v2/meta/tables/{table_id}/columns", json=to_v2_column(f))
 
 
 def create_relations(ids, dry_run):
@@ -1994,6 +2023,8 @@ if __name__ == "__main__":
         print()
     print(f"--- tabele ({len(TABLES)}) ---")
     ids = create_tables(args.dry_run, source_id)
+    print(f"\n--- brakujace pola w istniejacych tabelach ---")
+    add_missing_fields(ids, args.dry_run)
     print(f"\n--- ikonki tabel ---")
     sync_table_icons(ids, args.dry_run)
     print(f"\n--- relacje ({len(RELATIONS)}) ---")

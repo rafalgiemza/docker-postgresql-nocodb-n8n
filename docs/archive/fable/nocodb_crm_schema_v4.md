@@ -39,7 +39,8 @@ dało się planować; każda jest tania do zmiany, dopóki nie ruszy implementac
 | A1 | Etapy `stage` mają **polskie nazwy opcji** (zespół widzi je na kanbanie); w specyfikacji używam stałych kluczy technicznych z dzisiejszego `leads.stage`, a mapowanie jest w sekcji „Nazwy etapów" niżej. Lista etapów jak dziś; do potwierdzenia, czy klientka chce zamiast niej etapy z Excela | Demo pokazywało etapy po polsku z Excela, a flow (W2 i inne) porównują wartości opcji, więc zmiana nazw to zmiana w flow |
 | A2 | Pola `stage` **i** `state` zostają oba | mniej zmian we flow |
 | A3 | Konwersja lead → szansa **przyciskiem** „Utwórz szansę sprzedaży" na leadzie, nie automatem po `qualification = SQL` | wzorzec Buttonów w repo, brak ryzyka pętli webhooków |
-| A4 | Pole `label` zastąpione przez **`campaign`** (SingleSelect zarządzany przez zespół, np. „Black Week”). „Typ szansy” (nowy klient / upsell / odnowienie) nie ma teraz osobnego pola | decyzja użytkownika; patrz „Ryzyka i luki”: brak typu szansy wpływa na metryki i na import ze starego CRM |
+| A4 | Pole `label` zastąpione przez **`campaign`** (SingleSelect zarządzany przez zespół, np. „Black Week”). Typ szansy ma osobne pole **`opportunity_type`** (A15) | decyzja użytkownika |
+| A15 | `opportunity_type` (Nowy klient / Kontynuacja / Upsell / Powrót po przerwie) jest wyliczany **raz, przy tworzeniu szansy**, przez flow W20 (bez AI), i potem się nie zmienia. Historia = wygrane szanse osoby i firmy; koniec usługi = `service_end_date`, a gdy brak: `closed_at`. Brak wygranej: Nowy klient; usługa trwa: Upsell; koniec nie dawniej niż **6 miesięcy** temu: Kontynuacja; inaczej: Powrót po przerwie | próg 6 miesięcy ustalony przez użytkownika; stała `OPPORTUNITY_TYPE_GAP_MONTHS` w generatorze |
 | A5 | `service_end_date` dodane od razu | tanie, potrzebne do widoku odnowień |
 | A6 | `owner` / `assignee` / `assigned_methodologist` to **linki do `employees`** (zamiast `User`); widoki „moje zadania" robimy po jednym na osobę | patrz „Ryzyka" niżej |
 | A7 | Zadania powstają **tylko w trzech przypadkach** (sekcja „Zasady tworzenia zadań"); przyciski generujące wynik zadania nie tworzą | decyzja z 2026-10-18: wynik w ≤10 s, stany pośrednie widać w polu status |
@@ -233,6 +234,8 @@ Każdy człowiek spoza zespołu CoAction, jeden wiersz na osobę. Klucz dedupu:
 | `frequency` | SingleSelect `codziennie` / `kilka_razy_w_tyg` / `rzadko` | było `participants.frequency` |
 | `assigned_methodologist` | link → `employees` | było polem `User` w `participants` |
 | `sales_mode` | SingleSelect `Standard` / `Tylko spotkania` | **nowe**; puste = `Standard` (NocoDB nie ustawi domyślnej opcji, więc flow traktują puste jak Standard). `Tylko spotkania` = osoba, która nigdy nie będzie leadem ani kupującym (np. księgowa, specjalista, osoba z obsługi): ma tylko tworzyć spotkania po umówieniu się. Ustawia zespół ręcznie na osobie |
+| `new_opportunity_status`, `new_opportunity_note` | SingleSelect `generating` / `done` / `error`, LongText | **nowe**: feedback przycisku „Utwórz szansę sprzedaży” na osobie (W21) |
+| przycisk **„Utwórz szansę sprzedaży”** | Button | **nowy**: tworzy szansę dla znanej osoby bez nowego leada (klient powracający, kontynuacja, upsell); typ wylicza W20; szansa wskazuje pierwotny lead osoby |
 | `notes` | LongText | trwałe notatki o osobie |
 | `legacy_id` | Number | tylko jeśli import będzie łączył osoby |
 
@@ -304,6 +307,7 @@ Szansa sprzedaży. Należy do osoby i firmy, nie do leada. Pole tytułowe: `name
 | `loss_reason` | SingleSelect `cena` / `brak_decyzji` / `konkurencja` / `przesuniete_w_czasie` / `inne` | z `leads` |
 | `loss_note` | LongText | z `leads` |
 | `deal_value` | Currency PLN | **prognoza**, nie `offers.total_price` (opis jak w v3) |
+| `opportunity_type` | SingleSelect `Nowy klient` / `Kontynuacja` / `Upsell` / `Powrót po przerwie` | A15; wylicza W20 przy tworzeniu szansy (W14 z leada, W21 z osoby), potem bez zmian |
 | `campaign` | SingleSelect, lista należy do zespołu (start: „Black Week”) | było `label` z `leads`, A4; skrypt ustawia opcje tylko na pustym polu i ich nie nadpisuje |
 | `offer_prep_status` | SingleSelect `none` / `waiting_goals` / `goals_provided` / `testimonials_provided` / `draft_ready` | z `leads` (W1 / W6b) |
 | `training_goals` | LongText | z `leads` |
@@ -567,7 +571,9 @@ Liczba odwołań do `leads` / `participants` w JSON-ach `docs/archive/fable/`
 | W7 bookings_meetings_sync | 1 | 1 | zastąpiony nowym flow zasilanym webhookami cal.com (patrz „Rezerwacje cal.com" niżej) |
 | W9 offer_package_texts | 1 | 0 | `sale_opportunities` |
 | W3 task_notifications, W0 recurring_tasks | 0 | 0 | wysyłają e-maile; adres z `employees.email`, zastępca z `absences`. Skąd biorą adres dziś: do sprawdzenia |
-| NOWY | | | konwersja lead → szansa (przycisk na `leads`) |
+| NOWY | | | konwersja lead → szansa (przycisk na `leads`); typ szansy z W20 |
+| NOWY | | | W20: wyliczenie `opportunity_type` (podflow) |
+| NOWY | | | W21: szansa dla znanej osoby bez nowego leada (przycisk na `persons`) |
 | NOWY | | | „Generuj zadania audytowe" (przycisk na `sale_opportunities`) |
 | NOWY | | | przeniesienie `to_be_audited` → `audited` przy utworzeniu oceny |
 | NOWY | | | dzienne przypomnienie o niezatwierdzonych szkicach AI (przypadek 3) |
@@ -720,12 +726,15 @@ instancji i dopiero wtedy utrwalamy decyzję:
   nie tworzy leada ani zadania, tylko wpis w `activities`, więc jeśli jej
   wiadomość wymagała reakcji, nikt jej nie zobaczy. Do rozważenia: osobny
   przypadek zadania albo powiadomienie do `admin`.
-- **Brak „typu szansy”.** Po zamianie `label` na `campaign` nic nie mówi, czy
-  szansa to nowy klient, upsell czy odnowienie. Tego wymagają metryki
-  akwizycji (przychód z nowych klientów vs kontynuacje, A4) i trzeba będzie
-  zmapować kolumnę „Szansa sprzedaży Etykieta” przy imporcie ze starego CRM.
-  Jeśli typ ma zostać, wystarczy osobne pole SingleSelect (np. `opportunity_type`)
-  obok `campaign`; dziś go nie ma.
+- **Typ szansy zależy od `service_end_date`.** Reguła A15 liczy koniec usługi z
+  `service_end_date`, a gdy go brak, z `closed_at` (data podpisania). Jeśli nikt
+  nie wpisze końca usługi, kolejna szansa klienta może dostać zły typ
+  (np. Kontynuacja zamiast Upsellu przy trwającej usłudze). Nic nie pilnuje
+  wypełnienia tego pola.
+- **Import ze starego CRM.** Kolumna „Szansa sprzedaży Etykieta” (Nowy klient,
+  Upsell, Odnowienie, Projekt jednorazowy, Abonament) mapuje się na
+  `opportunity_type` tylko częściowo (brak odpowiedników dla „Projekt
+  jednorazowy” i „Abonament”). Do rozstrzygnięcia przy imporcie.
 - **Tworzenie osób z listy HR.** `to_be_audited` wymaga istniejących osób.
   Przy trzech nowych osobach ktoś musi je najpierw utworzyć w `persons` (imię,
   e-mail, firma). Możliwe usprawnienie na później: publiczny formularz NocoDB

@@ -291,6 +291,41 @@
     },
     {
       "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "__W20_WORKFLOW_ID__",
+          "mode": "id"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "compute-opportunity-type",
+      "name": "Compute opportunity type",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        2080,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst v = $('Validate conversion').first().json;\nconst t = $input.first().json;\nreturn [{ json: { ...v, opportunity_type: t.opportunity_type, type_reason: t.type_reason } }];\n"
+      },
+      "id": "attach-the-type-to-the-conversion-data",
+      "name": "Attach the type to the conversion data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        190
+      ]
+    },
+    {
+      "parameters": {
         "authentication": "nocoDbApiToken",
         "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
         "projectId": "={{ $('Get one base').first().json.id }}",
@@ -316,6 +351,10 @@
               "fieldValue": "open"
             },
             {
+              "fieldName": "opportunity_type",
+              "fieldValue": "={{ $json.opportunity_type }}"
+            },
+            {
               "fieldName": "stage_changed_at",
               "fieldValue": "={{ $now.toISO() }}"
             }
@@ -327,7 +366,7 @@
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        2080,
+        2340,
         0
       ],
       "credentials": {
@@ -609,7 +648,7 @@
       "main": [
         [
           {
-            "node": "Create sale opportunity",
+            "node": "Compute opportunity type",
             "type": "main",
             "index": 0
           }
@@ -617,6 +656,28 @@
         [
           {
             "node": "Write conversion error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute opportunity type": {
+      "main": [
+        [
+          {
+            "node": "Attach the type to the conversion data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach the type to the conversion data": {
+      "main": [
+        [
+          {
+            "node": "Create sale opportunity",
             "type": "main",
             "index": 0
           }

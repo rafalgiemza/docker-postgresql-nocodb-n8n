@@ -1,0 +1,644 @@
+{
+  "name": "W21 - Create sale opportunity for a known person (button on person)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "w21-opportunity-for-person",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "button-utw-rz-szans-sprzeda-y-osoba",
+      "name": "Button: Utwórz szansę sprzedaży (osoba)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        380
+      ],
+      "webhookId": "wh-w21-opportunity-for-person"
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "base",
+        "operation": "get",
+        "workspaceId": {
+          "__rl": true,
+          "value": "wpgg1mff",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "p6w78auzu6sjdoo",
+          "mode": "list",
+          "cachedResultName": "CRM Base"
+        }
+      },
+      "id": "get-one-base",
+      "name": "Get one base",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        260,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'persons').id }}",
+        "operation": "update",
+        "id": "={{ $('Button: Utwórz szansę sprzedaży (osoba)').first().json.body.data.rows[0].Id }}",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "new_opportunity_status",
+              "fieldValue": "generating"
+            },
+            {
+              "fieldName": "new_opportunity_note",
+              "fieldValue": ""
+            }
+          ]
+        }
+      },
+      "id": "set-new-opportunity-status-generating",
+      "name": "Set new_opportunity_status: generating",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        520,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Przycisk NocoDB (payload v3): wiersz osoby z relacjami (company, leads).\nconst body = $('Button: Utwórz szansę sprzedaży (osoba)').first().json.body || $('Button: Utwórz szansę sprzedaży (osoba)').first().json;\nconst row = (body.data && body.data.rows && body.data.rows[0]) || body;\nconst idOf = o => (o && (o.Id || (Array.isArray(o) && o[0] && o[0].Id))) || null;\nconst leads = (Array.isArray(row.leads) ? row.leads : []).map(l => l.Id).filter(Boolean).sort((x, y) => x - y);\nconst comp = row.company;\nlet error = null;\nif (row.sales_mode === 'Tylko spotkania')\n  error = 'Ta osoba ma tryb \"Tylko spotkania\" - nie tworzymy dla niej szansy.';\nreturn [{ json: { ok: !error, error_message: error, person_id: row.Id,\n  person_name: row.full_name || ('osoba #' + row.Id),\n  company_id: idOf(comp), company_name: (comp && (comp.name || comp.title)) || '',\n  segment: idOf(comp) ? 'B2B' : 'B2C',\n  source_lead_id: leads[0] || null } }];\n"
+      },
+      "id": "guard",
+      "name": "Guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Guard').first().json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "creating-an-opportunity-allowed",
+      "name": "Creating an opportunity allowed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1040,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'persons').id }}",
+        "operation": "update",
+        "id": "={{ $('Guard').first().json.person_id }}",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "new_opportunity_status",
+              "fieldValue": "error"
+            },
+            {
+              "fieldName": "new_opportunity_note",
+              "fieldValue": "={{ $json.error_message }}"
+            }
+          ]
+        }
+      },
+      "id": "write-the-refusal",
+      "name": "Write the refusal",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        1300,
+        760
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "__W20_WORKFLOW_ID__",
+          "mode": "id"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "compute-opportunity-type",
+      "name": "Compute opportunity type",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1300,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "__W15_WORKFLOW_ID__",
+          "mode": "id"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "resolve-who-should-own-the-opportunity",
+      "name": "Resolve who should own the opportunity",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1560,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst g = $('Guard').first().json;\nconst t = $('Compute opportunity type').first().json;\nconst o = $input.first().json;\nreturn [{ json: { ...g, opportunity_type: t.opportunity_type, type_reason: t.type_reason,\n  owner_id: o.assignee_id || null,\n  name: (g.company_name || g.person_name) + ' – ' + t.opportunity_type } }];\n"
+      },
+      "id": "assemble-new-opportunity",
+      "name": "Assemble new opportunity",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1820,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'sale_opportunities').id }}",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "name",
+              "fieldValue": "={{ $json.name }}"
+            },
+            {
+              "fieldName": "segment",
+              "fieldValue": "={{ $json.segment }}"
+            },
+            {
+              "fieldName": "stage",
+              "fieldValue": "Nowa"
+            },
+            {
+              "fieldName": "state",
+              "fieldValue": "open"
+            },
+            {
+              "fieldName": "opportunity_type",
+              "fieldValue": "={{ $json.opportunity_type }}"
+            },
+            {
+              "fieldName": "stage_changed_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "id": "create-sale-opportunity",
+      "name": "Create sale opportunity",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2080,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'sale_opportunity_stage_history').id }}",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "Utworzono: Nowa"
+            },
+            {
+              "fieldName": "to_stage",
+              "fieldValue": "Nowa"
+            },
+            {
+              "fieldName": "changed_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldName": "changed_by",
+              "fieldValue": "n8n:W21"
+            }
+          ]
+        }
+      },
+      "id": "create-first-stage-history-row",
+      "name": "Create first stage history row",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2340,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'activities').id }}",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "summary",
+              "fieldValue": "={{ 'Utworzono szansę (' + $('Assemble new opportunity').first().json.opportunity_type + ') dla: ' + $('Assemble new opportunity').first().json.person_name }}"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "stage_changed"
+            },
+            {
+              "fieldName": "flow",
+              "fieldValue": "W21"
+            },
+            {
+              "fieldName": "triggered_by",
+              "fieldValue": "user"
+            },
+            {
+              "fieldName": "payload",
+              "fieldValue": "={{ JSON.stringify({ person_id: $('Assemble new opportunity').first().json.person_id, reason: $('Assemble new opportunity').first().json.type_reason }) }}"
+            }
+          ]
+        }
+      },
+      "id": "log-activity-opportunity-created",
+      "name": "Log activity: opportunity created",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2600,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const FIELD = {\n \"persons.bought_opportunities\": \"ck5jkdn5f4dadnp\",\n \"leads.opportunities\": \"cpvgaer9v6h69yp\",\n \"employees.opportunities\": \"c9ssurqn7ppm0c1\",\n \"companies.opportunities\": \"ch3qnvrhuo1wc2s\",\n \"sale_opportunities.history\": \"cxxcfkznvd4gh83\",\n \"sale_opportunities.activities\": \"co11vdft4h2hp2h\"\n};\n\nconst TBL = t => $('Get one base').first().json.tables.find(x => x.title === t).id;\nconst link = (table, field, recordId, targetIds) => {\n  const ids = (Array.isArray(targetIds) ? targetIds : [targetIds]).filter(Boolean);\n  if (!recordId || !ids.length) return null;\n  return { json: { table_id: TBL(table), field_id: FIELD[table + '.' + field],\n                   record_id: recordId, body: JSON.stringify(ids.map(Id => ({ Id }))) } };\n};\n\nconst a = $('Assemble new opportunity').first().json;\nconst opp = $('Create sale opportunity').first().json.Id;\nreturn [\n  link('persons', 'bought_opportunities', a.person_id, opp),\n  link('leads', 'opportunities', a.source_lead_id, opp),\n  link('employees', 'opportunities', a.owner_id, opp),\n  link('companies', 'opportunities', a.company_id, opp),\n  link('sale_opportunities', 'history', opp, $('Create first stage history row').first().json.Id),\n  link('sale_opportunities', 'activities', opp, $('Log activity: opportunity created').first().json.Id),\n].filter(Boolean);\n"
+      },
+      "id": "prepare-links",
+      "name": "Prepare links",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $json.table_id }}/links/{{ $json.field_id }}/records/{{ $json.record_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "link-records-to-the-new-opportunity",
+      "name": "Link records to the new opportunity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        3120,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'persons').id }}",
+        "operation": "update",
+        "id": "={{ $('Assemble new opportunity').first().json.person_id }}",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "new_opportunity_status",
+              "fieldValue": "done"
+            },
+            {
+              "fieldName": "new_opportunity_note",
+              "fieldValue": "={{ 'Utworzono szansę typu: ' + $('Assemble new opportunity').first().json.opportunity_type + ' (' + $('Assemble new opportunity').first().json.type_reason + ').' }}"
+            }
+          ]
+        }
+      },
+      "id": "set-new-opportunity-status-done",
+      "name": "Set new_opportunity_status: done",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        3380,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst g = $('Guard').first().json;\nconst e = $input.first().json;\nreturn [{ json: { error_message: 'Nie udało się utworzyć szansy: ' + ((e.error && (e.error.message || e.error)) || 'nieznany błąd') } }];\n"
+      },
+      "id": "prepare-unexpected-error",
+      "name": "Prepare unexpected error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2340,
+        570
+      ]
+    }
+  ],
+  "connections": {
+    "Button: Utwórz szansę sprzedaży (osoba)": {
+      "main": [
+        [
+          {
+            "node": "Get one base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get one base": {
+      "main": [
+        [
+          {
+            "node": "Set new_opportunity_status: generating",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set new_opportunity_status: generating": {
+      "main": [
+        [
+          {
+            "node": "Guard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guard": {
+      "main": [
+        [
+          {
+            "node": "Creating an opportunity allowed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Creating an opportunity allowed?": {
+      "main": [
+        [
+          {
+            "node": "Compute opportunity type",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Write the refusal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute opportunity type": {
+      "main": [
+        [
+          {
+            "node": "Resolve who should own the opportunity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve who should own the opportunity": {
+      "main": [
+        [
+          {
+            "node": "Assemble new opportunity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble new opportunity": {
+      "main": [
+        [
+          {
+            "node": "Create sale opportunity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create sale opportunity": {
+      "main": [
+        [
+          {
+            "node": "Create first stage history row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare unexpected error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare unexpected error": {
+      "main": [
+        [
+          {
+            "node": "Write the refusal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create first stage history row": {
+      "main": [
+        [
+          {
+            "node": "Log activity: opportunity created",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log activity: opportunity created": {
+      "main": [
+        [
+          {
+            "node": "Prepare links",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare links": {
+      "main": [
+        [
+          {
+            "node": "Link records to the new opportunity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link records to the new opportunity": {
+      "main": [
+        [
+          {
+            "node": "Set new_opportunity_status: done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

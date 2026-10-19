@@ -494,9 +494,15 @@ return [{ json: { ...g, ok: !error, error_message: error, person_id: p.Id || g.p
         "summary": "={{ 'Konwersja leada odrzucona: ' + $json.convert_note }}",
         "type": "automation_error", "flow": "W14", "triggered_by": "user",
         "payload": "={{ JSON.stringify({ lead_id: $json.Id }) }}"})
-    create = nc(f, "Create sale opportunity", "create", "sale_opportunities", 8, 0, fields={
+    typ = call(f, "Compute opportunity type", "__W20_WORKFLOW_ID__", 8, 0)
+    typ_att = code(f, "Attach the type to the conversion data", """
+const v = $('Validate conversion').first().json;
+const t = $input.first().json;
+return [{ json: { ...v, opportunity_type: t.opportunity_type, type_reason: t.type_reason } }];
+""", 8, 1)
+    create = nc(f, "Create sale opportunity", "create", "sale_opportunities", 9, 0, fields={
         "name": "={{ $json.lead_name }}", "segment": "={{ $json.segment }}",
-        "stage": "Nowa", "state": "open",
+        "stage": "Nowa", "state": "open", "opportunity_type": "={{ $json.opportunity_type }}",
         "stage_changed_at": "={{ $now.toISO() }}"}, on_error="continueErrorOutput")
     hist = nc(f, "Create first stage history row", "create",
               "sale_opportunity_stage_history", 9, 0, fields={
@@ -536,8 +542,9 @@ return [{ json: { lead_id: v.lead_id, error_message:
     f.to(passed, person, 0)
     f.to(passed, err, 1)
     f.chain(person, val, valid)
-    f.to(valid, create, 0)
+    f.to(valid, typ, 0)
     f.to(valid, err, 1)
+    f.chain(typ, typ_att, create)
     f.chain(err, err_act)
     f.to(create, hist, 0)
     f.to(create, unexpected, 1)
@@ -1632,6 +1639,147 @@ return [{ json: { message: 'Generowanie needs summary nie powiodło się (' + ms
     return f
 
 
+# ================================================================== W20
+OPPORTUNITY_TYPE_GAP_MONTHS = 6    # prog miedzy "Kontynuacja" a "Powrot po przerwie"
+
+
+def build_w20():
+    f = Flow("W20 - Compute opportunity type (subflow)")
+    t = f.add("Opportunity type: input", "n8n-nodes-base.executeWorkflowTrigger", 1.1,
+              {"inputSource": "passthrough"}, 0, 2)
+    b = base(f, 1, 2)
+    g_p = http_links_get(f, "Get opportunities of the person", "persons", "bought_opportunities",
+                         "$('Opportunity type: input').first().json.person_id || 0", 2, 1)
+    g_c = http_links_get(f, "Get opportunities of the company", "companies", "opportunities",
+                         "$('Opportunity type: input').first().json.company_id || 0", 2, 3)
+    for n_ in f.nodes:
+        if n_["name"] in ("Get opportunities of the person", "Get opportunities of the company"):
+            n_["onError"] = "continueRegularOutput"
+            n_["alwaysOutputData"] = True
+    mg = merge(f, "Wait for both histories", 2, 3, 2)
+    calc = code(f, "Compute opportunity type", """
+// Regula (deterministyczna, bez AI): historia osoby i firmy = ich WYGRANE szanse.
+//   brak wygranej                          -> Nowy klient
+//   poprzednia usluga trwa (koniec >= dzis) -> Upsell
+//   koniec nie dawniej niz GAP miesiecy    -> Kontynuacja
+//   inaczej                                -> Powrot po przerwie
+// Koniec uslugi = service_end_date, a gdy brak: closed_at.
+const GAP_MONTHS = %d;
+let a = [], b = [];
+try { a = $('Get opportunities of the person').first().json.list || []; } catch (e) {}
+try { b = $('Get opportunities of the company').first().json.list || []; } catch (e) {}
+const all = new Map();
+[...a, ...b].forEach(o => all.set(o.Id, o));
+const won = [...all.values()].filter(o => o.state === 'won');
+const today = new Date().toISOString().slice(0, 10);
+const endOf = o => String(o.service_end_date || o.closed_at || '').slice(0, 10) || null;
+const addMonths = (d, m) => { const x = new Date(d + 'T00:00:00Z'); x.setUTCMonth(x.getUTCMonth() + m); return x.toISOString().slice(0, 10); };
+let type, reason;
+const ends = won.map(endOf).filter(Boolean).sort();
+if (!won.length) { type = 'Nowy klient'; reason = 'brak wcześniejszej wygranej szansy'; }
+else if (!ends.length) { type = 'Kontynuacja'; reason = 'wygrana szansa bez daty zakończenia usługi'; }
+else if (ends[ends.length - 1] >= today) { type = 'Upsell'; reason = 'poprzednia usługa jeszcze trwa'; }
+else if (addMonths(ends[ends.length - 1], GAP_MONTHS) >= today) { type = 'Kontynuacja'; reason = 'poprzednia usługa skończyła się ' + ends[ends.length - 1]; }
+else { type = 'Powrót po przerwie'; reason = 'poprzednia usługa skończyła się ' + ends[ends.length - 1] + ' (ponad ' + GAP_MONTHS + ' mies.)'; }
+return [{ json: { opportunity_type: type, type_reason: reason } }];
+""" % OPPORTUNITY_TYPE_GAP_MONTHS, 4, 2)
+    f.chain(t, b)
+    f.to(b, g_p)
+    f.to(b, g_c)
+    f.to(g_p, mg, 0)
+    f.to(g_c, mg, 1)
+    f.chain(mg, calc)
+    return f
+
+
+# ================================================================== W21
+def build_w21():
+    f = Flow("W21 - Create sale opportunity for a known person (button on person)")
+    FIELD = field_map_js([("persons", "bought_opportunities"), ("leads", "opportunities"),
+                          ("employees", "opportunities"), ("companies", "opportunities"),
+                          ("sale_opportunities", "history"), ("sale_opportunities", "activities")])
+    BTN = "Button: Utwórz szansę sprzedaży (osoba)"
+    wh = webhook(f, BTN, "w21-opportunity-for-person", 0, 2)
+    b = base(f, 1, 2)
+    mark = nc(f, "Set new_opportunity_status: generating", "update", "persons", 2, 2,
+              id="={{ $('%s').first().json.body.data.rows[0].Id }}" % BTN,
+              fields={"new_opportunity_status": "generating", "new_opportunity_note": ""})
+    guard = code(f, "Guard", """
+// Przycisk NocoDB (payload v3): wiersz osoby z relacjami (company, leads).
+const body = $('%s').first().json.body || $('%s').first().json;
+const row = (body.data && body.data.rows && body.data.rows[0]) || body;
+const idOf = o => (o && (o.Id || (Array.isArray(o) && o[0] && o[0].Id))) || null;
+const leads = (Array.isArray(row.leads) ? row.leads : []).map(l => l.Id).filter(Boolean).sort((x, y) => x - y);
+const comp = row.company;
+let error = null;
+if (row.sales_mode === 'Tylko spotkania')
+  error = 'Ta osoba ma tryb "Tylko spotkania" - nie tworzymy dla niej szansy.';
+return [{ json: { ok: !error, error_message: error, person_id: row.Id,
+  person_name: row.full_name || ('osoba #' + row.Id),
+  company_id: idOf(comp), company_name: (comp && (comp.name || comp.title)) || '',
+  segment: idOf(comp) ? 'B2B' : 'B2C',
+  source_lead_id: leads[0] || null } }];
+""" % (BTN, BTN), 3, 2)
+    ok = if_(f, "Creating an opportunity allowed?", "={{ $('Guard').first().json.ok }}", 4, 2)
+    err = nc(f, "Write the refusal", "update", "persons", 5, 4,
+             id="={{ $('Guard').first().json.person_id }}",
+             fields={"new_opportunity_status": "error",
+                     "new_opportunity_note": "={{ $json.error_message }}"})
+    typ = call(f, "Compute opportunity type", "__W20_WORKFLOW_ID__", 5, 1)
+    owner = call(f, "Resolve who should own the opportunity", "__W15_WORKFLOW_ID__", 6, 1)
+    asm = code(f, "Assemble new opportunity", """
+const g = $('Guard').first().json;
+const t = $('Compute opportunity type').first().json;
+const o = $input.first().json;
+return [{ json: { ...g, opportunity_type: t.opportunity_type, type_reason: t.type_reason,
+  owner_id: o.assignee_id || null,
+  name: (g.company_name || g.person_name) + ' – ' + t.opportunity_type } }];
+""", 7, 1)
+    create = nc(f, "Create sale opportunity", "create", "sale_opportunities", 8, 1, fields={
+        "name": "={{ $json.name }}", "segment": "={{ $json.segment }}",
+        "stage": "Nowa", "state": "open", "opportunity_type": "={{ $json.opportunity_type }}",
+        "stage_changed_at": "={{ $now.toISO() }}"}, on_error="continueErrorOutput")
+    hist = nc(f, "Create first stage history row", "create",
+              "sale_opportunity_stage_history", 9, 1, fields={
+                  "title": "Utworzono: Nowa", "to_stage": "Nowa",
+                  "changed_at": "={{ $now.toISO() }}", "changed_by": "n8n:W21"})
+    act = nc(f, "Log activity: opportunity created", "create", "activities", 10, 1, fields={
+        "summary": "={{ 'Utworzono szansę (' + $('Assemble new opportunity').first().json.opportunity_type + ') dla: ' + $('Assemble new opportunity').first().json.person_name }}",
+        "type": "stage_changed", "flow": "W21", "triggered_by": "user",
+        "payload": "={{ JSON.stringify({ person_id: $('Assemble new opportunity').first().json.person_id, reason: $('Assemble new opportunity').first().json.type_reason }) }}"})
+    prep = code(f, "Prepare links", "const FIELD = " + FIELD + ";\n" + LINK_HELPER + """
+const a = $('Assemble new opportunity').first().json;
+const opp = $('Create sale opportunity').first().json.Id;
+return [
+  link('persons', 'bought_opportunities', a.person_id, opp),
+  link('leads', 'opportunities', a.source_lead_id, opp),
+  link('employees', 'opportunities', a.owner_id, opp),
+  link('companies', 'opportunities', a.company_id, opp),
+  link('sale_opportunities', 'history', opp, $('Create first stage history row').first().json.Id),
+  link('sale_opportunities', 'activities', opp, $('Log activity: opportunity created').first().json.Id),
+].filter(Boolean);
+""", 11, 1)
+    links = http_links_batch(f, "Link records to the new opportunity", 12, 1)
+    done = nc(f, "Set new_opportunity_status: done", "update", "persons", 13, 1,
+              id="={{ $('Assemble new opportunity').first().json.person_id }}",
+              fields={"new_opportunity_status": "done",
+                      "new_opportunity_note": "={{ 'Utworzono szansę typu: ' + $('Assemble new opportunity').first().json.opportunity_type + ' (' + $('Assemble new opportunity').first().json.type_reason + ').' }}"})
+    unexpected = code(f, "Prepare unexpected error", """
+const g = $('Guard').first().json;
+const e = $input.first().json;
+return [{ json: { error_message: 'Nie udało się utworzyć szansy: ' + ((e.error && (e.error.message || e.error)) || 'nieznany błąd') } }];
+""", 9, 3)
+    f.chain(wh, b, mark, guard, ok)
+    f.to(ok, typ, 0)
+    f.to(ok, err, 1)
+    f.chain(typ, owner, asm, create)
+    f.to(create, hist, 0)
+    f.to(create, unexpected, 1)
+    f.chain(unexpected, err)
+    f.chain(hist, act, prep, links, done)
+    return f
+
+
 FLOWS = {
     "W15_resolve_assignee.json": build_w15,
     "W3_task_notifications.json": build_w3,
@@ -1645,6 +1793,8 @@ FLOWS = {
     "W18_assessment_saved.json": build_w18,
     "W19_ai_draft_reminders.json": build_w19,
     "W8_assessment_needs_summary.json": build_w8,
+    "W20_opportunity_type.json": build_w20,
+    "W21_opportunity_for_person.json": build_w21,
 }
 
 if __name__ == "__main__":
