@@ -591,6 +591,11 @@ if (s === 'Umowa podpisana') {
                title: `Wystaw fakturę: ${row.name}`, due_in_days: 3 });
   tasks.push({ task_type: 'take_over_participants', role: 'metodyczka', use_methodologist: true,
                title: `Przejmij uczestników: ${row.name}`, due_in_days: 2 });
+  // Typ kolejnej szansy klienta (W20) liczy sie z konca uslugi - bez tej daty
+  // moze wyjsc zly. Wąski przypadek 4: brakuje danych, wiec zadanie dla handlowca.
+  if (!row.service_end_date)
+    tasks.push({ task_type: 'provide_input', role: 'handlowiec', use_owner: true,
+                 title: `Uzupełnij datę końca usługi: ${row.name}`, due_in_days: 3 });
 }
 // W B2C kupujacy jest sam uczestnikiem i sam jedyna osoba do audytu.
 if (s === 'Audyt' && row.segment === 'B2C')

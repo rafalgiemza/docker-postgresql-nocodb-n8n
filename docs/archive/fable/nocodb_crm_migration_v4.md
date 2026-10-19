@@ -222,7 +222,7 @@ Wygenerowane przez `scripts/gen-flows-v4.py` z ID pól relacji ze świeżego
 | `W20_opportunity_type.json` | podflow: `opportunity_type` z wygranych szans osoby i firmy (próg 6 miesięcy) |
 | `W21_opportunity_for_person.json` | przycisk „Utwórz szansę sprzedaży” na `persons`: szansa dla znanej osoby bez nowego leada, typ z W20, pierwotny lead jako `source_lead` |
 | `W14_convert_lead.json` | przycisk „Utwórz szansę sprzedaży”: walidacja (`primary_person`, tryb „Tylko spotkania”; wiele szans na lead jest dozwolone), szansa, pierwszy wiersz historii, linki, `convert_status` |
-| `W2_stage_change.json` | zmiana etapu szansy: kamienie milowe, `stage_changed_at`, historia, aktywność, mail do właściciela, zadania (`prepare_offer`, `invoice`) |
+| `W2_stage_change.json` | zmiana etapu szansy: kamienie milowe, `stage_changed_at`, historia, aktywność, mail do właściciela, zadania (`prepare_offer`, `invoice`; po podpisaniu bez `service_end_date` także `provide_input` „Uzupełnij datę końca usługi”) |
 | `W16_scheduled_tasks.json` | codziennie 07:00: `scheduled` → `todo` + przypomnienie (z zastępstwem) |
 | `W0_recurring_tasks.json` | zadania cykliczne z `task_templates`, odpowiedzialny jako link |
 

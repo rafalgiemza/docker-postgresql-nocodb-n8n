@@ -133,7 +133,7 @@ Przejścia etapów tworzące zadania (propozycja, A8):
 |---|---|---|---|
 | → `audit` | „Przygotowanie audytu: <osoba> (<firma>)" **po jednym na osobę z `to_be_audited`** | metodyczka wg `segment` (B2B / B2C) lub `persons.assigned_methodologist`, jeśli ustawiona | `sale_opportunity`, `person`, `meeting` (discovery call z transkrypcją i analizą AI). Zakres audytu wpisuje do `sale_opportunities.audit_scope` |
 | → `recommendation` | „Przygotuj ofertę: <szansa>" | `owner` szansy | `sale_opportunity` |
-| → `contract_signed` | „Wystaw fakturę: <szansa>" oraz „Przejmij uczestników: <szansa>" | finanse; metodyczka z `persons.assigned_methodologist` | `sale_opportunity` |
+| → `contract_signed` | „Wystaw fakturę: <szansa>", „Przejmij uczestników: <szansa>" oraz, gdy brak `service_end_date`, „Uzupełnij datę końca usługi: <szansa>" (`provide_input`) | finanse; metodyczka z `persons.assigned_methodologist`; `owner` szansy | `sale_opportunity` |
 
 W B2C przy przejściu na `audit` n8n dopisuje kupującego do `to_be_audited` i
 tworzy zadanie sam. W B2B handlowiec uzupełnia `to_be_audited` i klika przycisk
@@ -681,6 +681,7 @@ Widoków nie tworzy skrypt; to checklista do odtworzenia po `make init-schema`.
 | Oferty do wysłania | `offers` | `status` = approved |
 | Szkice AI do zatwierdzenia | `meetings`, `assessments`, `recommendations` | `ai_status` = ai_draft_ready |
 | Spotkania bez typu | `meetings` | `meeting_type` puste |
+| Wygrane bez końca usługi | `sale_opportunities` | `state` = won, `service_end_date` puste; kontrola danych, od których zależy `opportunity_type` kolejnych szans |
 | Osoby tylko do spotkań | `persons` | `sales_mode` = Tylko spotkania; kontrola, czy nie są w `leads.persons`, `to_be_audited` ani `participants` |
 
 Filtry względne po datach (dziś, „starsze niż N dni") do sprawdzenia w
@@ -729,8 +730,10 @@ instancji i dopiero wtedy utrwalamy decyzję:
 - **Typ szansy zależy od `service_end_date`.** Reguła A15 liczy koniec usługi z
   `service_end_date`, a gdy go brak, z `closed_at` (data podpisania). Jeśli nikt
   nie wpisze końca usługi, kolejna szansa klienta może dostać zły typ
-  (np. Kontynuacja zamiast Upsellu przy trwającej usłudze). Nic nie pilnuje
-  wypełnienia tego pola.
+  (np. Kontynuacja zamiast Upsellu przy trwającej usłudze). Pilnują tego
+  zadanie `provide_input` tworzone przez W2 przy przejściu na „Umowa podpisana”
+  bez tej daty oraz widok „Wygrane bez końca usługi”; zadanie nie blokuje
+  zmiany etapu.
 - **Import ze starego CRM.** Kolumna „Szansa sprzedaży Etykieta” (Nowy klient,
   Upsell, Odnowienie, Projekt jednorazowy, Abonament) mapuje się na
   `opportunity_type` tylko częściowo (brak odpowiedników dla „Projekt
