@@ -1,0 +1,933 @@
+{
+  "name": "W17 - Generate audit tasks (button on sale opportunity)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "w17-audit-tasks",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "button-generuj-zadania-audytowe",
+      "name": "Button: Generuj zadania audytowe",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        570
+      ],
+      "webhookId": "wh-w17-audit-tasks"
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "base",
+        "operation": "get",
+        "workspaceId": {
+          "__rl": true,
+          "value": "wpgg1mff",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "p6w78auzu6sjdoo",
+          "mode": "list",
+          "cachedResultName": "CRM Base"
+        }
+      },
+      "id": "get-one-base",
+      "name": "Get one base",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        260,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'sale_opportunities').id }}",
+        "operation": "update",
+        "id": "={{ $('Button: Generuj zadania audytowe').first().json.body.data.rows[0].Id }}",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "audit_tasks_status",
+              "fieldValue": "generating"
+            },
+            {
+              "fieldName": "audit_tasks_note",
+              "fieldValue": ""
+            }
+          ]
+        }
+      },
+      "id": "set-audit-tasks-status-generating",
+      "name": "Set audit_tasks_status: generating",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        520,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst body = $('Button: Generuj zadania audytowe').first().json.body || $('Button: Generuj zadania audytowe').first().json;\nconst row = (body.data && body.data.rows && body.data.rows[0]) || body;\nconst persons = (Array.isArray(row.to_be_audited) ? row.to_be_audited : [])\n  .map(p => ({ id: p.Id, name: p.full_name || p.title || ('osoba #' + p.Id) }));\nconst comp = row.company && (row.company.name || row.company.title);\nreturn [{ json: { opp_id: row.Id, opp_name: row.name || ('szansa #' + row.Id),\n                  company_name: comp || '', persons } }];\n"
+      },
+      "id": "guard",
+      "name": "Guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.persons.length > 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "anyone-waiting-for-an-audit",
+      "name": "Anyone waiting for an audit?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1040,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'sale_opportunities').id }}",
+        "operation": "update",
+        "id": "={{ $('Guard').first().json.opp_id }}",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "audit_tasks_status",
+              "fieldValue": "done"
+            },
+            {
+              "fieldName": "audit_tasks_note",
+              "fieldValue": "Lista „to_be_audited” jest pusta: nie ma dla kogo tworzyć zadań."
+            }
+          ]
+        }
+      },
+      "id": "set-audit-tasks-status-done-empty-list",
+      "name": "Set audit_tasks_status: done (empty list)",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        1300,
+        950
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'sale_opportunities').id }}/links/c19mj9hutepy4kx/records/{{ $('Guard').first().json.opp_id }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-meetings-of-the-opportunity",
+      "name": "Get meetings of the opportunity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1300,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst g = $('Guard').first().json;\nconst meetings = ($input.first().json.list || [])\n  .filter(m => m.meeting_type === 'discovery')\n  .sort((a, b) => String(b.starts_at).localeCompare(String(a.starts_at)));\nconst meeting_id = meetings[0] ? meetings[0].Id : null;\nreturn g.persons.map(p => ({ json: { person_id: p.id, person_name: p.name,\n  opp_id: g.opp_id, opp_name: g.opp_name, company_name: g.company_name, meeting_id } }));\n"
+      },
+      "id": "split-people-and-pick-the-discovery-call",
+      "name": "Split people and pick the discovery call",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'persons').id }}/links/cm5y2wj9wttl0gr/records/{{ $json.person_id }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-tasks-of-the-person",
+      "name": "Get tasks of the person",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1820,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst src = $('Split people and pick the discovery call').all();\nconst res = $input.all();\nconst out = [];\nsrc.forEach((s, i) => {\n  const list = (res[i] && res[i].json && res[i].json.list) || [];\n  const open = list.some(t => t.task_type === 'audit_prep' && t.status !== 'done' && t.status !== 'cancelled');\n  if (!open) out.push({ json: s.json });\n});\nreturn out;\n"
+      },
+      "id": "skip-people-who-already-have-an-open-audit-task",
+      "name": "Skip people who already have an open audit task",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        380
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ !!$json.person_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "anyone-left-to-create-a-task-for",
+      "name": "Anyone left to create a task for?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2340,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'sale_opportunities').id }}",
+        "operation": "update",
+        "id": "={{ $('Guard').first().json.opp_id }}",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "audit_tasks_status",
+              "fieldValue": "done"
+            },
+            {
+              "fieldName": "audit_tasks_note",
+              "fieldValue": "Każda osoba z listy ma już otwarte zadanie audytowe."
+            }
+          ]
+        }
+      },
+      "id": "set-audit-tasks-status-done-all-have-tasks",
+      "name": "Set audit_tasks_status: done (all have tasks)",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2600,
+        950
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'persons').id }}/links/ceb6hk5msj5v8e0/records/{{ $json.person_id }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-assigned-methodologist-of-the-person",
+      "name": "Get assigned methodologist of the person",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        2600,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst src = $('Skip people who already have an open audit task').all();\nconst res = $input.all();\nconst today = new Date();\nconst due = new Date(today.getTime() + 2 * 86400000).toISOString().slice(0, 10);\nreturn src.map((s, i) => {\n  const m = ((res[i] && res[i].json && res[i].json.list) || [])[0];\n  return { json: { ...s.json, preferred_employee_id: m ? m.Id : null,\n                   role: 'metodyczka', on_date: due, due_date: due } };\n});\n"
+      },
+      "id": "add-preferred-methodologist",
+      "name": "Add preferred methodologist",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "__W15_WORKFLOW_ID__",
+          "mode": "id"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "resolve-who-should-prepare-the-audit",
+      "name": "Resolve who should prepare the audit",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        3120,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst src = $('Add preferred methodologist').all();\nreturn $input.all().map((r, i) => ({ json: { ...src[i].json, ...r.json } }));\n"
+      },
+      "id": "attach-task-details-to-the-assignee",
+      "name": "Attach task details to the assignee",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3380,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'tasks').id }}",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "={{ 'Przygotowanie audytu: ' + $json.person_name + ($json.company_name ? ' (' + $json.company_name + ')' : '') }}"
+            },
+            {
+              "fieldName": "task_type",
+              "fieldValue": "audit_prep"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "todo"
+            },
+            {
+              "fieldName": "priority",
+              "fieldValue": "normal"
+            },
+            {
+              "fieldName": "due_date",
+              "fieldValue": "={{ $json.due_date }}"
+            },
+            {
+              "fieldName": "created_by_flow",
+              "fieldValue": "W17"
+            }
+          ]
+        }
+      },
+      "id": "create-audit-task",
+      "name": "Create audit task",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        3640,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const FIELD = {\n \"employees.tasks\": \"c4q9kb2obrt2cu4\",\n \"persons.tasks\": \"cm5y2wj9wttl0gr\",\n \"sale_opportunities.tasks\": \"cnagejk3hct2y2q\",\n \"meetings.tasks\": \"cuw961m8hslqpfl\"\n};\n\nconst TBL = t => $('Get one base').first().json.tables.find(x => x.title === t).id;\nconst link = (table, field, recordId, targetIds) => {\n  const ids = (Array.isArray(targetIds) ? targetIds : [targetIds]).filter(Boolean);\n  if (!recordId || !ids.length) return null;\n  return { json: { table_id: TBL(table), field_id: FIELD[table + '.' + field],\n                   record_id: recordId, body: JSON.stringify(ids.map(Id => ({ Id }))) } };\n};\n\nconst att = $('Attach task details to the assignee').all();\nconst out = [];\n$input.all().forEach((c, i) => {\n  const a = att[i].json, tid = c.json.Id;\n  out.push(link('employees', 'tasks', a.assignee_id, tid));\n  out.push(link('persons', 'tasks', a.person_id, tid));\n  out.push(link('sale_opportunities', 'tasks', a.opp_id, tid));\n  out.push(link('meetings', 'tasks', a.meeting_id, tid));\n});\nreturn out.filter(Boolean);\n"
+      },
+      "id": "prepare-task-links",
+      "name": "Prepare task links",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3900,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $json.table_id }}/links/{{ $json.field_id }}/records/{{ $json.record_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "link-tasks-to-assignee-person-opportunity-and-discovery-call",
+      "name": "Link tasks to assignee, person, opportunity and discovery call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        4160,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst n = $('Create audit task').all().length;\nreturn [{ json: { created: n } }];\n",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "count-created-tasks",
+      "name": "Count created tasks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4420,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'sale_opportunities').id }}",
+        "operation": "update",
+        "id": "={{ $('Guard').first().json.opp_id }}",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "audit_tasks_status",
+              "fieldValue": "done"
+            },
+            {
+              "fieldName": "audit_tasks_note",
+              "fieldValue": "={{ 'Utworzono zadań: ' + $json.created }}"
+            }
+          ]
+        }
+      },
+      "id": "set-audit-tasks-status-done",
+      "name": "Set audit_tasks_status: done",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        4680,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nreturn $('Create audit task').all().map(c => ({ json: { task_id: c.json.Id } }));\n",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "collect-created-task-ids",
+      "name": "Collect created task ids",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4420,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "__W3_WORKFLOW_ID__",
+          "mode": "id"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "notify-assignee-about-the-task",
+      "name": "Notify assignee about the task",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        4680,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst e = $input.first().json;\nconst msg = (e.error && (e.error.message || String(e.error))) || 'nieznany błąd';\nreturn [{ json: { message: 'Nie udało się utworzyć zadań audytowych (' + msg + '). Kliknij przycisk ponownie.' } }];\n"
+      },
+      "id": "prepare-audit-tasks-error",
+      "name": "Prepare audit tasks error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3900,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'sale_opportunities').id }}",
+        "operation": "update",
+        "id": "={{ $('Guard').first().json.opp_id }}",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "audit_tasks_status",
+              "fieldValue": "error"
+            },
+            {
+              "fieldName": "audit_tasks_note",
+              "fieldValue": "={{ $json.message }}"
+            }
+          ]
+        }
+      },
+      "id": "set-audit-tasks-status-error",
+      "name": "Set audit_tasks_status: error",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        4160,
+        760
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'activities').id }}",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "summary",
+              "fieldValue": "={{ 'Nie udało się utworzyć zadań audytowych: ' + $('Guard').first().json.opp_name }}"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "automation_error"
+            },
+            {
+              "fieldName": "flow",
+              "fieldValue": "W17"
+            },
+            {
+              "fieldName": "triggered_by",
+              "fieldValue": "user"
+            },
+            {
+              "fieldName": "payload",
+              "fieldValue": "={{ JSON.stringify({ opportunity_id: $('Guard').first().json.opp_id }) }}"
+            }
+          ]
+        }
+      },
+      "id": "log-activity-audit-tasks-failed",
+      "name": "Log activity: audit tasks failed",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        4420,
+        760
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Button: Generuj zadania audytowe": {
+      "main": [
+        [
+          {
+            "node": "Get one base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get one base": {
+      "main": [
+        [
+          {
+            "node": "Set audit_tasks_status: generating",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set audit_tasks_status: generating": {
+      "main": [
+        [
+          {
+            "node": "Guard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guard": {
+      "main": [
+        [
+          {
+            "node": "Anyone waiting for an audit?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anyone waiting for an audit?": {
+      "main": [
+        [
+          {
+            "node": "Get meetings of the opportunity",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set audit_tasks_status: done (empty list)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get meetings of the opportunity": {
+      "main": [
+        [
+          {
+            "node": "Split people and pick the discovery call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split people and pick the discovery call": {
+      "main": [
+        [
+          {
+            "node": "Get tasks of the person",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get tasks of the person": {
+      "main": [
+        [
+          {
+            "node": "Skip people who already have an open audit task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip people who already have an open audit task": {
+      "main": [
+        [
+          {
+            "node": "Anyone left to create a task for?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anyone left to create a task for?": {
+      "main": [
+        [
+          {
+            "node": "Get assigned methodologist of the person",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set audit_tasks_status: done (all have tasks)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get assigned methodologist of the person": {
+      "main": [
+        [
+          {
+            "node": "Add preferred methodologist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add preferred methodologist": {
+      "main": [
+        [
+          {
+            "node": "Resolve who should prepare the audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve who should prepare the audit": {
+      "main": [
+        [
+          {
+            "node": "Attach task details to the assignee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach task details to the assignee": {
+      "main": [
+        [
+          {
+            "node": "Create audit task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create audit task": {
+      "main": [
+        [
+          {
+            "node": "Prepare task links",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare audit tasks error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare audit tasks error": {
+      "main": [
+        [
+          {
+            "node": "Set audit_tasks_status: error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set audit_tasks_status: error": {
+      "main": [
+        [
+          {
+            "node": "Log activity: audit tasks failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare task links": {
+      "main": [
+        [
+          {
+            "node": "Link tasks to assignee, person, opportunity and discovery call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link tasks to assignee, person, opportunity and discovery call": {
+      "main": [
+        [
+          {
+            "node": "Count created tasks",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Collect created task ids",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count created tasks": {
+      "main": [
+        [
+          {
+            "node": "Set audit_tasks_status: done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect created task ids": {
+      "main": [
+        [
+          {
+            "node": "Notify assignee about the task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

@@ -1,0 +1,1205 @@
+{
+  "name": "W19 - Reminders for AI drafts waiting more than a day",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "id": "every-day-08-00",
+      "name": "Every day 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "base",
+        "operation": "get",
+        "workspaceId": {
+          "__rl": true,
+          "value": "wpgg1mff",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "p6w78auzu6sjdoo",
+          "mode": "list",
+          "cachedResultName": "CRM Base"
+        }
+      },
+      "id": "get-one-base",
+      "name": "Get one base",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        260,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'meetings').id }}",
+        "operation": "getAll",
+        "returnAll": true,
+        "options": {
+          "where": "=(ai_status,eq,ai_draft_ready)"
+        }
+      },
+      "id": "get-meeting-drafts",
+      "name": "Get meeting drafts",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        520,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst cutoff = Date.now() - 24 * 3600 * 1000;\nreturn $input.all().filter(i => i.json && i.json.Id && i.json.UpdatedAt\n  && new Date(i.json.UpdatedAt.replace(' ', 'T')).getTime() < cutoff)\n  .map(i => ({ json: { record_id: i.json.Id, title: i.json.title || ('#' + i.json.Id) } }));\n"
+      },
+      "id": "keep-meeting-drafts-waiting-more-than-a-day",
+      "name": "Keep meeting drafts waiting more than a day",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'meetings').id }}/links/cuw961m8hslqpfl/records/{{ $json.record_id }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-tasks-of-the-meeting",
+      "name": "Get tasks of the meeting",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1040,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst src = $('Keep meeting drafts waiting more than a day').all();\nconst res = $input.all();\nconst today = new Date().toISOString().slice(0, 10);\nconst out = [];\nsrc.forEach((s, i) => {\n  const list = (res[i] && res[i].json && res[i].json.list) || [];\n  const open = list.some(t => t.task_type === 'approve_ai_draft' && t.status !== 'done' && t.status !== 'cancelled');\n  if (!open) out.push({ json: { ...s.json, role: 'handlowiec', on_date: today, due_date: today,\n    task_title: 'Zatwierdź szkic AI (meeting): ' + s.json.title } });\n});\nreturn out;\n"
+      },
+      "id": "skip-meeting-drafts-that-already-have-a-reminder",
+      "name": "Skip meeting drafts that already have a reminder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'meetings').id }}/links/ch7xwp8qtj9x2q9/records/{{ $json.record_id }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-owner-of-the-meeting",
+      "name": "Get owner of the meeting",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1560,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst src = $('Skip meeting drafts that already have a reminder').all();\nconst res = $input.all();\nreturn src.map((s, i) => ({ json: { ...s.json,\n  preferred_employee_id: (((res[i] && res[i].json && res[i].json.list) || [])[0] || {}).Id || null } }));\n"
+      },
+      "id": "prefer-the-meeting-owner",
+      "name": "Prefer the meeting owner",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1820,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "__W15_WORKFLOW_ID__",
+          "mode": "id"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "resolve-who-should-approve-the-meeting-draft",
+      "name": "Resolve who should approve the meeting draft",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        2080,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst src = $('Prefer the meeting owner').all();\nreturn $input.all().map((r, i) => ({ json: { ...src[i].json, ...r.json } }));\n"
+      },
+      "id": "attach-meeting-draft-details-to-the-assignee",
+      "name": "Attach meeting draft details to the assignee",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2340,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'tasks').id }}",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "={{ $json.task_title }}"
+            },
+            {
+              "fieldName": "task_type",
+              "fieldValue": "approve_ai_draft"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "todo"
+            },
+            {
+              "fieldName": "priority",
+              "fieldValue": "normal"
+            },
+            {
+              "fieldName": "due_date",
+              "fieldValue": "={{ $json.due_date }}"
+            },
+            {
+              "fieldName": "created_by_flow",
+              "fieldValue": "W19"
+            }
+          ]
+        }
+      },
+      "id": "create-meeting-approval-task",
+      "name": "Create meeting approval task",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2600,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const FIELD = {\n \"employees.tasks\": \"c4q9kb2obrt2cu4\",\n \"meetings.tasks\": \"cuw961m8hslqpfl\",\n \"assessments.tasks\": \"crko2ykwj0zepb1\",\n \"recommendations.tasks\": \"c4bbww77minpf43\"\n};\n\nconst TBL = t => $('Get one base').first().json.tables.find(x => x.title === t).id;\nconst link = (table, field, recordId, targetIds) => {\n  const ids = (Array.isArray(targetIds) ? targetIds : [targetIds]).filter(Boolean);\n  if (!recordId || !ids.length) return null;\n  return { json: { table_id: TBL(table), field_id: FIELD[table + '.' + field],\n                   record_id: recordId, body: JSON.stringify(ids.map(Id => ({ Id }))) } };\n};\n\nconst att = $('Attach meeting draft details to the assignee').all();\nconst out = [];\n$input.all().forEach((c, i) => {\n  out.push(link('employees', 'tasks', att[i].json.assignee_id, c.json.Id));\n  out.push(link('meetings', 'tasks', att[i].json.record_id, c.json.Id));\n});\nreturn out.filter(Boolean);\n"
+      },
+      "id": "prepare-meeting-task-links",
+      "name": "Prepare meeting task links",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $json.table_id }}/links/{{ $json.field_id }}/records/{{ $json.record_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "link-the-meeting-approval-task",
+      "name": "Link the meeting approval task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        3120,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nreturn $('Create meeting approval task').all().map(c => ({ json: { task_id: c.json.Id } }));\n",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "collect-meeting-task-ids",
+      "name": "Collect meeting task ids",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3380,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "__W3_WORKFLOW_ID__",
+          "mode": "id"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "notify-assignee-about-the-meeting-approval-task",
+      "name": "Notify assignee about the meeting approval task",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        3640,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'assessments').id }}",
+        "operation": "getAll",
+        "returnAll": true,
+        "options": {
+          "where": "=(ai_status,eq,ai_draft_ready)"
+        }
+      },
+      "id": "get-assessment-drafts",
+      "name": "Get assessment drafts",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        520,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst cutoff = Date.now() - 24 * 3600 * 1000;\nreturn $input.all().filter(i => i.json && i.json.Id && i.json.UpdatedAt\n  && new Date(i.json.UpdatedAt.replace(' ', 'T')).getTime() < cutoff)\n  .map(i => ({ json: { record_id: i.json.Id, title: i.json.title || ('#' + i.json.Id) } }));\n"
+      },
+      "id": "keep-assessment-drafts-waiting-more-than-a-day",
+      "name": "Keep assessment drafts waiting more than a day",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'assessments').id }}/links/crko2ykwj0zepb1/records/{{ $json.record_id }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-tasks-of-the-assessment",
+      "name": "Get tasks of the assessment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1040,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst src = $('Keep assessment drafts waiting more than a day').all();\nconst res = $input.all();\nconst today = new Date().toISOString().slice(0, 10);\nconst out = [];\nsrc.forEach((s, i) => {\n  const list = (res[i] && res[i].json && res[i].json.list) || [];\n  const open = list.some(t => t.task_type === 'approve_ai_draft' && t.status !== 'done' && t.status !== 'cancelled');\n  if (!open) out.push({ json: { ...s.json, role: 'metodyczka', on_date: today, due_date: today,\n    task_title: 'Zatwierdź szkic AI (assessment): ' + s.json.title } });\n});\nreturn out;\n"
+      },
+      "id": "skip-assessment-drafts-that-already-have-a-reminder",
+      "name": "Skip assessment drafts that already have a reminder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "__W15_WORKFLOW_ID__",
+          "mode": "id"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "resolve-who-should-approve-the-assessment-draft",
+      "name": "Resolve who should approve the assessment draft",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        2080,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst src = $('Skip assessment drafts that already have a reminder').all();\nreturn $input.all().map((r, i) => ({ json: { ...src[i].json, ...r.json } }));\n"
+      },
+      "id": "attach-assessment-draft-details-to-the-assignee",
+      "name": "Attach assessment draft details to the assignee",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2340,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'tasks').id }}",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "={{ $json.task_title }}"
+            },
+            {
+              "fieldName": "task_type",
+              "fieldValue": "approve_ai_draft"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "todo"
+            },
+            {
+              "fieldName": "priority",
+              "fieldValue": "normal"
+            },
+            {
+              "fieldName": "due_date",
+              "fieldValue": "={{ $json.due_date }}"
+            },
+            {
+              "fieldName": "created_by_flow",
+              "fieldValue": "W19"
+            }
+          ]
+        }
+      },
+      "id": "create-assessment-approval-task",
+      "name": "Create assessment approval task",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2600,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const FIELD = {\n \"employees.tasks\": \"c4q9kb2obrt2cu4\",\n \"meetings.tasks\": \"cuw961m8hslqpfl\",\n \"assessments.tasks\": \"crko2ykwj0zepb1\",\n \"recommendations.tasks\": \"c4bbww77minpf43\"\n};\n\nconst TBL = t => $('Get one base').first().json.tables.find(x => x.title === t).id;\nconst link = (table, field, recordId, targetIds) => {\n  const ids = (Array.isArray(targetIds) ? targetIds : [targetIds]).filter(Boolean);\n  if (!recordId || !ids.length) return null;\n  return { json: { table_id: TBL(table), field_id: FIELD[table + '.' + field],\n                   record_id: recordId, body: JSON.stringify(ids.map(Id => ({ Id }))) } };\n};\n\nconst att = $('Attach assessment draft details to the assignee').all();\nconst out = [];\n$input.all().forEach((c, i) => {\n  out.push(link('employees', 'tasks', att[i].json.assignee_id, c.json.Id));\n  out.push(link('assessments', 'tasks', att[i].json.record_id, c.json.Id));\n});\nreturn out.filter(Boolean);\n"
+      },
+      "id": "prepare-assessment-task-links",
+      "name": "Prepare assessment task links",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $json.table_id }}/links/{{ $json.field_id }}/records/{{ $json.record_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "link-the-assessment-approval-task",
+      "name": "Link the assessment approval task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        3120,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nreturn $('Create assessment approval task').all().map(c => ({ json: { task_id: c.json.Id } }));\n",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "collect-assessment-task-ids",
+      "name": "Collect assessment task ids",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3380,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "__W3_WORKFLOW_ID__",
+          "mode": "id"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "notify-assignee-about-the-assessment-approval-task",
+      "name": "Notify assignee about the assessment approval task",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        3640,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'recommendations').id }}",
+        "operation": "getAll",
+        "returnAll": true,
+        "options": {
+          "where": "=(ai_status,eq,ai_draft_ready)"
+        }
+      },
+      "id": "get-recommendation-drafts",
+      "name": "Get recommendation drafts",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        520,
+        1140
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst cutoff = Date.now() - 24 * 3600 * 1000;\nreturn $input.all().filter(i => i.json && i.json.Id && i.json.UpdatedAt\n  && new Date(i.json.UpdatedAt.replace(' ', 'T')).getTime() < cutoff)\n  .map(i => ({ json: { record_id: i.json.Id, title: i.json.title || ('#' + i.json.Id) } }));\n"
+      },
+      "id": "keep-recommendation-drafts-waiting-more-than-a-day",
+      "name": "Keep recommendation drafts waiting more than a day",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        1140
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'recommendations').id }}/links/c4bbww77minpf43/records/{{ $json.record_id }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-tasks-of-the-recommendation",
+      "name": "Get tasks of the recommendation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1040,
+        1140
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst src = $('Keep recommendation drafts waiting more than a day').all();\nconst res = $input.all();\nconst today = new Date().toISOString().slice(0, 10);\nconst out = [];\nsrc.forEach((s, i) => {\n  const list = (res[i] && res[i].json && res[i].json.list) || [];\n  const open = list.some(t => t.task_type === 'approve_ai_draft' && t.status !== 'done' && t.status !== 'cancelled');\n  if (!open) out.push({ json: { ...s.json, role: 'handlowiec', on_date: today, due_date: today,\n    task_title: 'Zatwierdź szkic AI (recommendation): ' + s.json.title } });\n});\nreturn out;\n"
+      },
+      "id": "skip-recommendation-drafts-that-already-have-a-reminder",
+      "name": "Skip recommendation drafts that already have a reminder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        1140
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "__W15_WORKFLOW_ID__",
+          "mode": "id"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "resolve-who-should-approve-the-recommendation-draft",
+      "name": "Resolve who should approve the recommendation draft",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        2080,
+        1140
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst src = $('Skip recommendation drafts that already have a reminder').all();\nreturn $input.all().map((r, i) => ({ json: { ...src[i].json, ...r.json } }));\n"
+      },
+      "id": "attach-recommendation-draft-details-to-the-assignee",
+      "name": "Attach recommendation draft details to the assignee",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2340,
+        1140
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'tasks').id }}",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "={{ $json.task_title }}"
+            },
+            {
+              "fieldName": "task_type",
+              "fieldValue": "approve_ai_draft"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "todo"
+            },
+            {
+              "fieldName": "priority",
+              "fieldValue": "normal"
+            },
+            {
+              "fieldName": "due_date",
+              "fieldValue": "={{ $json.due_date }}"
+            },
+            {
+              "fieldName": "created_by_flow",
+              "fieldValue": "W19"
+            }
+          ]
+        }
+      },
+      "id": "create-recommendation-approval-task",
+      "name": "Create recommendation approval task",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2600,
+        1140
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const FIELD = {\n \"employees.tasks\": \"c4q9kb2obrt2cu4\",\n \"meetings.tasks\": \"cuw961m8hslqpfl\",\n \"assessments.tasks\": \"crko2ykwj0zepb1\",\n \"recommendations.tasks\": \"c4bbww77minpf43\"\n};\n\nconst TBL = t => $('Get one base').first().json.tables.find(x => x.title === t).id;\nconst link = (table, field, recordId, targetIds) => {\n  const ids = (Array.isArray(targetIds) ? targetIds : [targetIds]).filter(Boolean);\n  if (!recordId || !ids.length) return null;\n  return { json: { table_id: TBL(table), field_id: FIELD[table + '.' + field],\n                   record_id: recordId, body: JSON.stringify(ids.map(Id => ({ Id }))) } };\n};\n\nconst att = $('Attach recommendation draft details to the assignee').all();\nconst out = [];\n$input.all().forEach((c, i) => {\n  out.push(link('employees', 'tasks', att[i].json.assignee_id, c.json.Id));\n  out.push(link('recommendations', 'tasks', att[i].json.record_id, c.json.Id));\n});\nreturn out.filter(Boolean);\n"
+      },
+      "id": "prepare-recommendation-task-links",
+      "name": "Prepare recommendation task links",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        1140
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $json.table_id }}/links/{{ $json.field_id }}/records/{{ $json.record_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "link-the-recommendation-approval-task",
+      "name": "Link the recommendation approval task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        3120,
+        1140
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nreturn $('Create recommendation approval task').all().map(c => ({ json: { task_id: c.json.Id } }));\n",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "collect-recommendation-task-ids",
+      "name": "Collect recommendation task ids",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3380,
+        1140
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "__W3_WORKFLOW_ID__",
+          "mode": "id"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "notify-assignee-about-the-recommendation-approval-task",
+      "name": "Notify assignee about the recommendation approval task",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        3640,
+        1140
+      ]
+    }
+  ],
+  "connections": {
+    "Skip meeting drafts that already have a reminder": {
+      "main": [
+        [
+          {
+            "node": "Get owner of the meeting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get owner of the meeting": {
+      "main": [
+        [
+          {
+            "node": "Prefer the meeting owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get one base": {
+      "main": [
+        [
+          {
+            "node": "Get meeting drafts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get assessment drafts",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get recommendation drafts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get meeting drafts": {
+      "main": [
+        [
+          {
+            "node": "Keep meeting drafts waiting more than a day",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep meeting drafts waiting more than a day": {
+      "main": [
+        [
+          {
+            "node": "Get tasks of the meeting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get tasks of the meeting": {
+      "main": [
+        [
+          {
+            "node": "Skip meeting drafts that already have a reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prefer the meeting owner": {
+      "main": [
+        [
+          {
+            "node": "Resolve who should approve the meeting draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve who should approve the meeting draft": {
+      "main": [
+        [
+          {
+            "node": "Attach meeting draft details to the assignee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach meeting draft details to the assignee": {
+      "main": [
+        [
+          {
+            "node": "Create meeting approval task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create meeting approval task": {
+      "main": [
+        [
+          {
+            "node": "Prepare meeting task links",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare meeting task links": {
+      "main": [
+        [
+          {
+            "node": "Link the meeting approval task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link the meeting approval task": {
+      "main": [
+        [
+          {
+            "node": "Collect meeting task ids",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect meeting task ids": {
+      "main": [
+        [
+          {
+            "node": "Notify assignee about the meeting approval task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get assessment drafts": {
+      "main": [
+        [
+          {
+            "node": "Keep assessment drafts waiting more than a day",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep assessment drafts waiting more than a day": {
+      "main": [
+        [
+          {
+            "node": "Get tasks of the assessment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get tasks of the assessment": {
+      "main": [
+        [
+          {
+            "node": "Skip assessment drafts that already have a reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip assessment drafts that already have a reminder": {
+      "main": [
+        [
+          {
+            "node": "Resolve who should approve the assessment draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve who should approve the assessment draft": {
+      "main": [
+        [
+          {
+            "node": "Attach assessment draft details to the assignee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach assessment draft details to the assignee": {
+      "main": [
+        [
+          {
+            "node": "Create assessment approval task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create assessment approval task": {
+      "main": [
+        [
+          {
+            "node": "Prepare assessment task links",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare assessment task links": {
+      "main": [
+        [
+          {
+            "node": "Link the assessment approval task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link the assessment approval task": {
+      "main": [
+        [
+          {
+            "node": "Collect assessment task ids",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect assessment task ids": {
+      "main": [
+        [
+          {
+            "node": "Notify assignee about the assessment approval task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get recommendation drafts": {
+      "main": [
+        [
+          {
+            "node": "Keep recommendation drafts waiting more than a day",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep recommendation drafts waiting more than a day": {
+      "main": [
+        [
+          {
+            "node": "Get tasks of the recommendation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get tasks of the recommendation": {
+      "main": [
+        [
+          {
+            "node": "Skip recommendation drafts that already have a reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip recommendation drafts that already have a reminder": {
+      "main": [
+        [
+          {
+            "node": "Resolve who should approve the recommendation draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve who should approve the recommendation draft": {
+      "main": [
+        [
+          {
+            "node": "Attach recommendation draft details to the assignee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach recommendation draft details to the assignee": {
+      "main": [
+        [
+          {
+            "node": "Create recommendation approval task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create recommendation approval task": {
+      "main": [
+        [
+          {
+            "node": "Prepare recommendation task links",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare recommendation task links": {
+      "main": [
+        [
+          {
+            "node": "Link the recommendation approval task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link the recommendation approval task": {
+      "main": [
+        [
+          {
+            "node": "Collect recommendation task ids",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect recommendation task ids": {
+      "main": [
+        [
+          {
+            "node": "Notify assignee about the recommendation approval task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every day 08:00": {
+      "main": [
+        [
+          {
+            "node": "Get one base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

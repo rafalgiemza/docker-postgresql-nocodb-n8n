@@ -550,7 +550,8 @@ def build_w2():
     FIELD = field_map_js([("sale_opportunities", "history"),
                           ("sale_opportunities", "activities"),
                           ("sale_opportunities", "tasks"), ("employees", "tasks"),
-                          ("persons", "tasks")])
+                          ("persons", "tasks"), ("sale_opportunities", "to_be_audited"),
+                          ("sale_opportunities", "participants")])
     wh = webhook(f, "NocoDB: sale_opportunities updated", "w2-stage-change", 0, 2)
     b = base(f, 1, 2)
     guard = code(f, "Guard & prepare", """
@@ -576,16 +577,26 @@ const tasks = [];
 if (s === 'Rekomendacja / demo')
   tasks.push({ task_type: 'prepare_offer', role: 'handlowiec', use_owner: true,
                title: `Przygotuj ofertę: ${row.name}`, due_in_days: 1 });
-if (s === 'Umowa podpisana')
+if (s === 'Umowa podpisana') {
   tasks.push({ task_type: 'invoice', role: 'finanse', use_owner: false,
                title: `Wystaw fakturę: ${row.name}`, due_in_days: 3 });
+  tasks.push({ task_type: 'take_over_participants', role: 'metodyczka', use_methodologist: true,
+               title: `Przejmij uczestników: ${row.name}`, due_in_days: 2 });
+}
+// W B2C kupujacy jest sam uczestnikiem i sam jedyna osoba do audytu.
+if (s === 'Audyt' && row.segment === 'B2C')
+  tasks.push({ task_type: 'audit_prep', role: 'metodyczka', use_methodologist: true,
+               title: `Przygotowanie audytu: ${(row.person && row.person.full_name) || row.name}`,
+               due_in_days: 2 });
 
 const idOf = o => (o && (o.Id || (Array.isArray(o) && o[0] && o[0].Id))) || null;
 const owner_id = idOf(row.owner), buyer_id = idOf(row.person);
-tasks.forEach(t => { t.preferred_employee_id = t.use_owner ? owner_id : null; });
+const segment = row.segment || null;
+const participants_count = Array.isArray(row.participants) ? row.participants.length : 0;
 
 return [{ json: { opp_id: row.Id, opp_name: row.name || ('szansa #' + row.Id),
-  old_stage: p || '(brak)', new_stage: s, patch, tasks, owner_id, buyer_id } }];
+  old_stage: p || '(brak)', new_stage: s, patch, tasks, owner_id, buyer_id,
+  segment, participants_count } }];
 """, 2, 2)
     has_owner_id = if_(f, "Owner set on the opportunity?",
                        "={{ !!$('Guard & prepare').first().json.owner_id }}", 3, 2)
@@ -628,12 +639,23 @@ return [
                  "={{ 'Szansa ' + $('Assemble transition').first().json.opp_name + ' przeszła z etapu ' + $('Assemble transition').first().json.old_stage + ' na ' + $('Assemble transition').first().json.new_stage + '.' }}",
                  11, 2)
     # --- gałąź C: zadania
+    g_meth = http_links_get(f, "Get methodologist of the buyer", "persons",
+                            "assigned_methodologist",
+                            "$('Assemble transition').first().json.buyer_id || 0", 6, 5)
+    for n_ in f.nodes:
+        if n_["name"] == g_meth:
+            n_["onError"] = "continueRegularOutput"
+            n_["alwaysOutputData"] = True
     build = code(f, "Build transition tasks", """
 const a = $('Assemble transition').first().json;
+let meth = null;
+try { meth = ((($('Get methodologist of the buyer').first().json) || {}).list || [])[0] || null; }
+catch (e) { meth = null; }
 const today = new Date();
 const addDays = n => new Date(today.getTime() + n * 86400000).toISOString().slice(0, 10);
 return (a.tasks || []).map(t => ({ json: { ...t,
-  preferred_employee_id: t.preferred_employee_id || null,
+  preferred_employee_id: t.use_owner ? a.owner_id
+                       : (t.use_methodologist && meth ? meth.Id : null),
   due_date: addDays(t.due_in_days), on_date: addDays(t.due_in_days) } }));
 """, 6, 4)
     resolve = call(f, "Resolve who should do the task", "__W15_WORKFLOW_ID__", 7, 4)
@@ -657,6 +679,10 @@ created.forEach((c, i) => {
   out.push(link('sale_opportunities', 'tasks', a.opp_id, tid));
   out.push(link('persons', 'tasks', a.buyer_id, tid));
 });
+if (a.new_stage === 'Audyt' && a.segment === 'B2C')
+  out.push(link('sale_opportunities', 'to_be_audited', a.opp_id, a.buyer_id));
+if (a.new_stage === 'Umowa podpisana' && a.segment === 'B2C' && !a.participants_count)
+  out.push(link('sale_opportunities', 'participants', a.opp_id, a.buyer_id));
 return out.filter(Boolean);
 """, 10, 4)
     links_t = http_links_batch(f, "Link task to assignee, opportunity and buyer", 11, 4)
@@ -673,10 +699,10 @@ return created.map(c => ({ json: { task_id: c.json.Id } }));
     f.to(get_owner, asm)
     f.to(asm, upd)
     f.to(asm, hist)
-    f.to(asm, build)
+    f.to(asm, g_meth)
     f.chain(hist, act, prep, links, has_owner)
     f.to(has_owner, mail, 0)
-    f.chain(build, resolve, attach, create, prep_t, links_t, notify, send)
+    f.chain(g_meth, build, resolve, attach, create, prep_t, links_t, notify, send)
     return f
 
 
@@ -1149,6 +1175,461 @@ return m && m.Id ? [{ json: { meeting_id: m.Id } }] : [];
     return f
 
 
+# ================================================================== W17
+def http_links_dynamic(f, name, col, row):
+    """Jak http_links_batch, ale metoda (POST dodaje, DELETE odlacza) z elementu."""
+    url = ("=__NOCODB_BASE_URL__/api/v2/tables/{{ $json.table_id }}/links/"
+           "{{ $json.field_id }}/records/{{ $json.record_id }}")
+    return f.add(name, "n8n-nodes-base.httpRequest", 4,
+                 {"method": "={{ $json.method || 'POST' }}", "url": url,
+                  "authentication": "predefinedCredentialType",
+                  "nodeCredentialType": "nocoDbApiToken", "sendBody": True,
+                  "specifyBody": "json", "jsonBody": "={{ $json.body }}",
+                  "options": {}}, col, row, creds=CRED)
+
+
+def build_w17():
+    f = Flow("W17 - Generate audit tasks (button on sale opportunity)")
+    FIELD = field_map_js([("employees", "tasks"), ("persons", "tasks"),
+                          ("sale_opportunities", "tasks"), ("meetings", "tasks")])
+    BTN = "Button: Generuj zadania audytowe"
+    wh = webhook(f, BTN, "w17-audit-tasks", 0, 3)
+    b = base(f, 1, 3)
+    mark = nc(f, "Set audit_tasks_status: generating", "update", "sale_opportunities", 2, 3,
+              id="={{ $('%s').first().json.body.data.rows[0].Id }}" % BTN,
+              fields={"audit_tasks_status": "generating", "audit_tasks_note": ""})
+    guard = code(f, "Guard", """
+const body = $('%s').first().json.body || $('%s').first().json;
+const row = (body.data && body.data.rows && body.data.rows[0]) || body;
+const persons = (Array.isArray(row.to_be_audited) ? row.to_be_audited : [])
+  .map(p => ({ id: p.Id, name: p.full_name || p.title || ('osoba #' + p.Id) }));
+const comp = row.company && (row.company.name || row.company.title);
+return [{ json: { opp_id: row.Id, opp_name: row.name || ('szansa #' + row.Id),
+                  company_name: comp || '', persons } }];
+""" % (BTN, BTN), 3, 3)
+    any_ = if_(f, "Anyone waiting for an audit?", "={{ $json.persons.length > 0 }}", 4, 3)
+    empty1 = nc(f, "Set audit_tasks_status: done (empty list)", "update", "sale_opportunities", 5, 5,
+                id="={{ $('Guard').first().json.opp_id }}",
+                fields={"audit_tasks_status": "done",
+                        "audit_tasks_note": "Lista „to_be_audited” jest pusta: nie ma dla kogo tworzyć zadań."})
+    g_meet = http_links_get(f, "Get meetings of the opportunity", "sale_opportunities", "meetings",
+                            "$('Guard').first().json.opp_id", 5, 2)
+    split = code(f, "Split people and pick the discovery call", """
+const g = $('Guard').first().json;
+const meetings = ($input.first().json.list || [])
+  .filter(m => m.meeting_type === 'discovery')
+  .sort((a, b) => String(b.starts_at).localeCompare(String(a.starts_at)));
+const meeting_id = meetings[0] ? meetings[0].Id : null;
+return g.persons.map(p => ({ json: { person_id: p.id, person_name: p.name,
+  opp_id: g.opp_id, opp_name: g.opp_name, company_name: g.company_name, meeting_id } }));
+""", 6, 2)
+    g_tasks = http_links_get(f, "Get tasks of the person", "persons", "tasks", "$json.person_id", 7, 2)
+    skip = f.add("Skip people who already have an open audit task",
+                 "n8n-nodes-base.code", 2, {"jsCode": """
+const src = $('Split people and pick the discovery call').all();
+const res = $input.all();
+const out = [];
+src.forEach((s, i) => {
+  const list = (res[i] && res[i].json && res[i].json.list) || [];
+  const open = list.some(t => t.task_type === 'audit_prep' && t.status !== 'done' && t.status !== 'cancelled');
+  if (!open) out.push({ json: s.json });
+});
+return out;
+"""}, 8, 2, alwaysOutputData=True)
+    left = if_(f, "Anyone left to create a task for?", "={{ !!$json.person_id }}", 9, 2)
+    empty2 = nc(f, "Set audit_tasks_status: done (all have tasks)", "update", "sale_opportunities", 10, 5,
+                id="={{ $('Guard').first().json.opp_id }}",
+                fields={"audit_tasks_status": "done",
+                        "audit_tasks_note": "Każda osoba z listy ma już otwarte zadanie audytowe."})
+    g_meth = http_links_get(f, "Get assigned methodologist of the person", "persons",
+                            "assigned_methodologist", "$json.person_id", 10, 1)
+    prefer = code(f, "Add preferred methodologist", """
+const src = $('Skip people who already have an open audit task').all();
+const res = $input.all();
+const today = new Date();
+const due = new Date(today.getTime() + 2 * 86400000).toISOString().slice(0, 10);
+return src.map((s, i) => {
+  const m = ((res[i] && res[i].json && res[i].json.list) || [])[0];
+  return { json: { ...s.json, preferred_employee_id: m ? m.Id : null,
+                   role: 'metodyczka', on_date: due, due_date: due } };
+});
+""", 11, 1)
+    resolve = call(f, "Resolve who should prepare the audit", "__W15_WORKFLOW_ID__", 12, 1)
+    attach = code(f, "Attach task details to the assignee", """
+const src = $('Add preferred methodologist').all();
+return $input.all().map((r, i) => ({ json: { ...src[i].json, ...r.json } }));
+""", 13, 1)
+    create = nc(f, "Create audit task", "create", "tasks", 14, 1, fields={
+        "title": "={{ 'Przygotowanie audytu: ' + $json.person_name + ($json.company_name ? ' (' + $json.company_name + ')' : '') }}",
+        "task_type": "audit_prep", "status": "todo", "priority": "normal",
+        "due_date": "={{ $json.due_date }}", "created_by_flow": "W17"},
+        on_error="continueErrorOutput")
+    prep = code(f, "Prepare task links", "const FIELD = " + FIELD + ";\n" + LINK_HELPER + """
+const att = $('Attach task details to the assignee').all();
+const out = [];
+$input.all().forEach((c, i) => {
+  const a = att[i].json, tid = c.json.Id;
+  out.push(link('employees', 'tasks', a.assignee_id, tid));
+  out.push(link('persons', 'tasks', a.person_id, tid));
+  out.push(link('sale_opportunities', 'tasks', a.opp_id, tid));
+  out.push(link('meetings', 'tasks', a.meeting_id, tid));
+});
+return out.filter(Boolean);
+""", 15, 1)
+    links = http_links_batch(f, "Link tasks to assignee, person, opportunity and discovery call", 16, 1)
+    collapse = code(f, "Count created tasks", """
+const n = $('Create audit task').all().length;
+return [{ json: { created: n } }];
+""", 17, 0, mode="runOnceForAllItems")
+    done = nc(f, "Set audit_tasks_status: done", "update", "sale_opportunities", 18, 0,
+              id="={{ $('Guard').first().json.opp_id }}",
+              fields={"audit_tasks_status": "done",
+                      "audit_tasks_note": "={{ 'Utworzono zadań: ' + $json.created }}"})
+    ids = code(f, "Collect created task ids", """
+return $('Create audit task').all().map(c => ({ json: { task_id: c.json.Id } }));
+""", 17, 2, mode="runOnceForAllItems")
+    notify = call(f, "Notify assignee about the task", "__W3_WORKFLOW_ID__", 18, 2)
+    err_prep = code(f, "Prepare audit tasks error", """
+const e = $input.first().json;
+const msg = (e.error && (e.error.message || String(e.error))) || 'nieznany błąd';
+return [{ json: { message: 'Nie udało się utworzyć zadań audytowych (' + msg + '). Kliknij przycisk ponownie.' } }];
+""", 15, 4)
+    err_set = nc(f, "Set audit_tasks_status: error", "update", "sale_opportunities", 16, 4,
+                 id="={{ $('Guard').first().json.opp_id }}",
+                 fields={"audit_tasks_status": "error", "audit_tasks_note": "={{ $json.message }}"})
+    err_act = nc(f, "Log activity: audit tasks failed", "create", "activities", 17, 4, fields={
+        "summary": "={{ 'Nie udało się utworzyć zadań audytowych: ' + $('Guard').first().json.opp_name }}",
+        "type": "automation_error", "flow": "W17", "triggered_by": "user",
+        "payload": "={{ JSON.stringify({ opportunity_id: $('Guard').first().json.opp_id }) }}"})
+
+    f.chain(wh, b, mark, guard, any_)
+    f.to(any_, g_meet, 0)
+    f.to(any_, empty1, 1)
+    f.chain(g_meet, split, g_tasks, skip, left)
+    f.to(left, g_meth, 0)
+    f.to(left, empty2, 1)
+    f.chain(g_meth, prefer, resolve, attach, create)
+    f.to(create, prep, 0)
+    f.to(create, err_prep, 1)
+    f.chain(err_prep, err_set, err_act)
+    f.chain(prep, links)
+    f.to(links, collapse)
+    f.to(links, ids)
+    f.chain(collapse, done)
+    f.chain(ids, notify)
+    return f
+
+
+# ================================================================== W18
+def build_w18():
+    f = Flow("W18 - Assessment saved -> person moves from to_be_audited to audited")
+    FIELD = field_map_js([("sale_opportunities", "audited"),
+                          ("sale_opportunities", "to_be_audited")])
+    wh = webhook(f, "NocoDB: assessment saved", "w18-assessment-saved", 0, 2)
+    b = base(f, 1, 2)
+    guard = code(f, "Guard", """
+// Webhook tabeli assessments (after insert ORAZ after update, ten sam URL):
+// przy insercie linki moga jeszcze nie byc zapisane, wiec reagujemy tez na
+// aktualizacje. Flow jest idempotentny (brak zmian = brak dzialania).
+const body = $input.first().json.body || $input.first().json;
+const row = (body.data && body.data.rows && body.data.rows[0]) || {};
+const idOf = o => (o && (o.Id || (Array.isArray(o) && o[0] && o[0].Id))) || null;
+const person_id = idOf(row.person), meeting_id = idOf(row.meeting);
+if (!person_id || !meeting_id) return [];
+return [{ json: { person_id, meeting_id } }];
+""", 2, 2)
+    g_opp = http_links_get(f, "Get opportunity of the audit meeting", "meetings", "sale_opportunity",
+                           "$json.meeting_id", 3, 2)
+    opp = code(f, "Opportunity id", """
+const g = $('Guard').first().json;
+const o = ($input.first().json.list || [])[0];
+return o ? [{ json: { ...g, opp_id: o.Id } }] : [];
+""", 4, 2)
+    g_aud = http_links_get(f, "Get audited people", "sale_opportunities", "audited",
+                           "$json.opp_id", 5, 1)
+    g_tba = http_links_get(f, "Get people waiting for an audit", "sale_opportunities",
+                           "to_be_audited", "$json.opp_id", 5, 3)
+    mg = merge(f, "Wait for both lists", 2, 6, 2)
+    decide = code(f, "Decide link changes", "const FIELD = " + FIELD + ";\n" + """
+const TBL = t => $('Get one base').first().json.tables.find(x => x.title === t).id;
+const o = $('Opportunity id').first().json;
+const audited = ($('Get audited people').first().json.list || []).map(p => p.Id);
+const waiting = ($('Get people waiting for an audit').first().json.list || []).map(p => p.Id);
+const body = JSON.stringify([{ Id: o.person_id }]);
+const out = [];
+if (!audited.includes(o.person_id))
+  out.push({ json: { method: 'POST', table_id: TBL('sale_opportunities'),
+    field_id: FIELD['sale_opportunities.audited'], record_id: o.opp_id, body } });
+if (waiting.includes(o.person_id))
+  out.push({ json: { method: 'DELETE', table_id: TBL('sale_opportunities'),
+    field_id: FIELD['sale_opportunities.to_be_audited'], record_id: o.opp_id, body } });
+return out;
+""", 7, 2)
+    apply = http_links_dynamic(f, "Apply link change", 8, 2)
+    f.chain(wh, b, guard, g_opp, opp)
+    f.to(opp, g_aud)
+    f.to(opp, g_tba)
+    f.to(g_aud, mg, 0)
+    f.to(g_tba, mg, 1)
+    f.chain(mg, decide, apply)
+    return f
+
+
+# ================================================================== W19
+def build_w19():
+    f = Flow("W19 - Reminders for AI drafts waiting more than a day")
+    FIELD = field_map_js([("employees", "tasks"), ("meetings", "tasks"),
+                          ("assessments", "tasks"), ("recommendations", "tasks")])
+    cron = f.add("Every day 08:00", "n8n-nodes-base.scheduleTrigger", 1.2,
+                 {"rule": {"interval": [{"field": "cronExpression",
+                                         "expression": "0 8 * * *"}]}}, 0, 3)
+    b = base(f, 1, 3)
+    branches = [("meetings", "meeting", "handlowiec", True),
+                ("assessments", "assessment", "metodyczka", False),
+                ("recommendations", "recommendation", "handlowiec", False)]
+    for k, (table, label, role, owner_lookup) in enumerate(branches):
+        r = k * 3          # wiersz gałęzi
+        get = nc(f, f"Get {label} drafts", "getAll", table, 2, r,
+                 where="=(ai_status,eq,ai_draft_ready)", return_all=True, always_output=True)
+        stale = code(f, f"Keep {label} drafts waiting more than a day", """
+const cutoff = Date.now() - 24 * 3600 * 1000;
+return $input.all().filter(i => i.json && i.json.Id && i.json.UpdatedAt
+  && new Date(i.json.UpdatedAt.replace(' ', 'T')).getTime() < cutoff)
+  .map(i => ({ json: { record_id: i.json.Id, title: i.json.title || ('#' + i.json.Id) } }));
+""", 3, r)
+        g_t = http_links_get(f, f"Get tasks of the {label}", table, "tasks", "$json.record_id", 4, r)
+        nodup = code(f, f"Skip {label} drafts that already have a reminder", """
+const src = $('Keep %s drafts waiting more than a day').all();
+const res = $input.all();
+const today = new Date().toISOString().slice(0, 10);
+const out = [];
+src.forEach((s, i) => {
+  const list = (res[i] && res[i].json && res[i].json.list) || [];
+  const open = list.some(t => t.task_type === 'approve_ai_draft' && t.status !== 'done' && t.status !== 'cancelled');
+  if (!open) out.push({ json: { ...s.json, role: '%s', on_date: today, due_date: today,
+    task_title: 'Zatwierdź szkic AI (%s): ' + s.json.title } });
+});
+return out;
+""" % (label, role, label), 5, r)
+        prev_node = nodup
+        if owner_lookup:
+            g_o = http_links_get(f, f"Get owner of the {label}", table, "owner", "$json.record_id", 6, r)
+            addo = code(f, f"Prefer the {label} owner", """
+const src = $('Skip %s drafts that already have a reminder').all();
+const res = $input.all();
+return src.map((s, i) => ({ json: { ...s.json,
+  preferred_employee_id: (((res[i] && res[i].json && res[i].json.list) || [])[0] || {}).Id || null } }));
+""" % label, 7, r)
+            f.chain(nodup, g_o, addo)
+            prev_node = addo
+        resolve = call(f, f"Resolve who should approve the {label} draft", "__W15_WORKFLOW_ID__", 8, r)
+        attach = code(f, f"Attach {label} draft details to the assignee", """
+const src = $('%s').all();
+return $input.all().map((r, i) => ({ json: { ...src[i].json, ...r.json } }));
+""" % (prev_node), 9, r)
+        create = nc(f, f"Create {label} approval task", "create", "tasks", 10, r, fields={
+            "title": "={{ $json.task_title }}", "task_type": "approve_ai_draft",
+            "status": "todo", "priority": "normal", "due_date": "={{ $json.due_date }}",
+            "created_by_flow": "W19"})
+        prep = code(f, f"Prepare {label} task links", "const FIELD = " + FIELD + ";\n" + LINK_HELPER + """
+const att = $('Attach %s draft details to the assignee').all();
+const out = [];
+$input.all().forEach((c, i) => {
+  out.push(link('employees', 'tasks', att[i].json.assignee_id, c.json.Id));
+  out.push(link('%s', 'tasks', att[i].json.record_id, c.json.Id));
+});
+return out.filter(Boolean);
+""" % (label, table), 11, r)
+        links = http_links_batch(f, f"Link the {label} approval task", 12, r)
+        ids = code(f, f"Collect {label} task ids", """
+return $('Create %s approval task').all().map(c => ({ json: { task_id: c.json.Id } }));
+""" % label, 13, r, mode="runOnceForAllItems")
+        notify = call(f, f"Notify assignee about the {label} approval task", "__W3_WORKFLOW_ID__", 14, r)
+        f.to(b, get)
+        f.chain(get, stale, g_t, nodup)
+        f.chain(prev_node, resolve, attach, create, prep, links, ids, notify)
+    f.to(cron, b)
+    return f
+
+
+# ================================================================== W8
+def build_w8():
+    f = Flow("W8 - Assessment needs summary (button: Generuj needs summary)")
+    prompt = (ROOT / "scripts" / "flow-prompts" / "w8_needs_summary_system_message.txt").read_text()
+    FIELD = field_map_js([("employees", "tasks"), ("assessments", "tasks"),
+                          ("persons", "tasks"), ("sale_opportunities", "activities")])
+    BTN = "Button: Generuj needs summary"
+    wh = webhook(f, BTN, "w8-assessment-needs-summary", 0, 3)
+    b = base(f, 1, 3)
+    pending = nc(f, "Set ai_status: pending", "update", "assessments", 2, 3,
+                 id="={{ $('%s').first().json.body.data.rows[0].Id }}" % BTN,
+                 fields={"ai_status": "pending"})
+    guard = code(f, "Guard", """
+const body = $('%s').first().json.body || $('%s').first().json;
+const row = (body.data && body.data.rows && body.data.rows[0]) || body;
+const idOf = o => (o && (o.Id || (Array.isArray(o) && o[0] && o[0].Id))) || null;
+return [{ json: { assessment_id: row.Id, person_id: idOf(row.person), meeting_id: idOf(row.meeting),
+  title: row.title || ('ocena #' + row.Id),
+  cefr_overall: row.cefr_overall || '', cefr_range: row.cefr_range || '',
+  cefr_accuracy: row.cefr_accuracy || '', cefr_fluency: row.cefr_fluency || '',
+  cefr_communication: row.cefr_communication || '', strengths: row.strengths || '',
+  gaps: row.gaps || '', auditor_notes: row.auditor_notes || '',
+  self_assessment: row.self_assessment || '', manager_needs: row.manager_needs || '',
+  has_cefr: !!String(row.cefr_overall || '').trim() } }];
+""" % (BTN, BTN), 3, 3)
+    cefr = if_(f, "CEFR filled in?", "={{ $json.has_cefr }}", 4, 3)
+    # --- brak ocen CEFR: ai_rejected + jedno zadanie provide_input
+    rej = nc(f, "Reject: CEFR scores missing", "update", "assessments", 5, 6,
+             id="={{ $('Guard').first().json.assessment_id }}",
+             fields={"ai_status": "ai_rejected",
+                     "needs_summary": "Brak ocen CEFR. Uzupełnij pola cefr_* w audycie i kliknij „Generuj needs summary” ponownie."})
+    g_t = http_links_get(f, "Get tasks of the assessment", "assessments", "tasks",
+                         "$('Guard').first().json.assessment_id", 6, 6)
+    open_t = code(f, "Is the input task still missing?", """
+const list = $input.first().json.list || [];
+const open = list.some(t => t.task_type === 'provide_input' && t.status !== 'done' && t.status !== 'cancelled');
+const g = $('Guard').first().json;
+const due = new Date().toISOString().slice(0, 10);
+return open ? [] : [{ json: { title: `Uzupełnij oceny CEFR: ${g.title}`, role: 'metodyczka',
+  preferred_employee_id: null, on_date: due, due_date: due } }];
+""", 7, 6)
+    resolve_t = call(f, "Resolve who should fill in the scores", "__W15_WORKFLOW_ID__", 8, 6)
+    attach_t = code(f, "Attach task details to the assignee", """
+const src = $('Is the input task still missing?').all();
+return $input.all().map((r, i) => ({ json: { ...src[i].json, ...r.json } }));
+""", 9, 6)
+    task = nc(f, "Task: fill in the CEFR scores", "create", "tasks", 10, 6, fields={
+        "title": "={{ $json.title }}", "task_type": "provide_input", "status": "todo",
+        "priority": "normal", "due_date": "={{ $json.due_date }}", "created_by_flow": "W8"})
+    t_prep = code(f, "Prepare task links", "const FIELD = " + FIELD + ";\n" + LINK_HELPER + """
+const g = $('Guard').first().json;
+const a = $('Attach task details to the assignee').first().json;
+const tid = $input.first().json.Id;
+return [link('employees', 'tasks', a.assignee_id, tid), link('assessments', 'tasks', g.assessment_id, tid),
+        link('persons', 'tasks', g.person_id, tid)].filter(Boolean);
+""", 11, 6)
+    t_links = http_links_batch(f, "Link the task to assignee, assessment and person", 12, 6)
+    # --- odczyty kontekstu (równolegle)
+    person = nc(f, "Get person", "get", "persons", 5, 1,
+                id="={{ $('Guard').first().json.person_id }}", on_error="continueRegularOutput")
+    g_comp = http_links_get(f, "Get company of the person", "persons", "company",
+                            "$('Guard').first().json.person_id || 0", 5, 2)
+    g_opp = http_links_get(f, "Get opportunity of the audit meeting", "meetings",
+                           "sale_opportunity", "$('Guard').first().json.meeting_id || 0", 5, 3)
+    opp_code = code(f, "Opportunity of the audit", """
+const o = ($input.first().json.list || [])[0] || null;
+return [{ json: { opp_id: o ? o.Id : null, segment: o ? (o.segment || '') : '' } }];
+""", 6, 3)
+    g_meet = http_links_get(f, "Get meetings of the opportunity", "sale_opportunities", "meetings",
+                            "$json.opp_id || 0", 7, 3)
+    for n_ in f.nodes:
+        if n_["name"] in ("Get company of the person", "Get opportunity of the audit meeting",
+                          "Get meetings of the opportunity"):
+            n_["onError"] = "continueRegularOutput"
+            n_["alwaysOutputData"] = True
+    mg = merge(f, "Wait for person, company and discovery data", 3, 8, 2)
+    ctx = code(f, "Assemble context", """
+// Sklada dane z CRM w jeden tekst dla AI Agenta; prompt metodyczny siedzi w
+// System Message noda "AI Agent" (edytowalny bez znajomosci JS).
+const g = $('Guard').first().json;
+const person = $('Get person').first().json || {};
+let company = {};
+try { company = (($('Get company of the person').first().json.list) || [])[0] || {}; } catch (e) {}
+const opp = $('Opportunity of the audit').first().json;
+let meetings = [];
+try { meetings = ($('Get meetings of the opportunity').first().json.list) || []; } catch (e) {}
+const latest = meetings.filter(m => m.meeting_type === 'discovery')
+  .sort((a, b) => String(b.starts_at || '').localeCompare(String(a.starts_at || '')))[0] || {};
+const accepted = latest.ai_status === 'ai_accepted';
+const lines = [
+  '## Wyniki audytu (ocena CEFR)',
+  `Ogolny: ${g.cefr_overall || 'brak'}`,
+  `Zakres jezyka: ${g.cefr_range || 'brak'}`,
+  `Poprawnosc: ${g.cefr_accuracy || 'brak'}`,
+  `Plynnosc: ${g.cefr_fluency || 'brak'}`,
+  `Komunikatywnosc: ${g.cefr_communication || 'brak'}`,
+  `Mocne strony: ${g.strengths || 'brak danych'}`,
+  `Luki: ${g.gaps || 'brak danych'}`,
+  '',
+  '## Notatki metodyka po demo/audycie',
+  g.auditor_notes || 'brak notatek',
+  '',
+  '## Kontekst uczestnika',
+  `Imie i nazwisko: ${person.full_name || 'brak'}`,
+  `Stanowisko: ${person.position || 'brak'}`,
+  `Kontekst roli (z kim/o czym rozmawia po angielsku): ${person.role_context || 'brak'}`,
+  `Czestotliwosc uzywania angielskiego: ${person.frequency || 'brak'}`,
+  `Samoocena uczestnika: ${g.self_assessment || 'brak'}`,
+  `Potrzeby wg managera/HR: ${g.manager_needs || 'brak'}`,
+  '',
+  '## Kontekst biznesowy',
+  `Typ klienta: ${opp.segment || 'brak'}`,
+  `Branza: ${person.industry || company.industry || 'brak'}`,
+  company.name ? `Firma: ${company.name}` : null,
+  company.communication_processes ? `Procesy komunikacyjne w firmie: ${company.communication_processes}` : null,
+  company.business_impact ? `Wplyw jezyka na biznes: ${company.business_impact}` : null,
+  '',
+  '## Notatki z discovery call',
+  latest.notes || 'brak notatek z discovery call (lub brak spotkania typu discovery dla tej szansy)',
+  accepted && latest.goals ? `\\nCele klienta (zaakceptowana analiza): ${latest.goals}` : null,
+  accepted && latest.challenges ? `Wyzwania (zaakceptowana analiza): ${latest.challenges}` : null,
+  accepted && latest.communication_situations ? `Sytuacje komunikacyjne (zaakceptowana analiza): ${latest.communication_situations}` : null,
+];
+return [{ json: { user: lines.filter(l => l !== null).join('\\n'), opp_id: opp.opp_id } }];
+""", 9, 2)
+    agent = ai_agent(f, "AI Agent", prompt, "={{ $json.user }}", 10, 2)
+    parse = code(f, "Parse AI output", """
+const text = String(($input.first().json.output || '')).trim();
+if (!text) return [{ json: { ok: false, error_message: 'Model zwrócił pustą odpowiedź.' } }];
+return [{ json: { ok: true, text } }];
+""", 11, 1)
+    ok = if_(f, "AI output valid?", "={{ $json.ok }}", 12, 1)
+    save = nc(f, "Save needs summary (draft)", "update", "assessments", 13, 0,
+              id="={{ $('Guard').first().json.assessment_id }}",
+              fields={"needs_summary": "={{ $json.text }}", "ai_status": "ai_draft_ready"})
+    act = nc(f, "Log activity: AI needs summary ready", "create", "activities", 14, 0, fields={
+        "summary": "={{ 'Szkic needs summary gotowy do weryfikacji: ' + $('Guard').first().json.title }}",
+        "type": "ai_analysis_done", "flow": "W8", "triggered_by": "user",
+        "payload": "={{ JSON.stringify({ assessment_id: $('Guard').first().json.assessment_id }) }}"})
+    a_prep = code(f, "Prepare activity link", "const FIELD = " + FIELD + ";\n" + LINK_HELPER + """
+const opp = $('Assemble context').first().json.opp_id;
+return [link('sale_opportunities', 'activities', opp, $input.first().json.Id)].filter(Boolean);
+""", 15, 0)
+    a_links = http_links_batch(f, "Link the activity to the opportunity", 16, 0)
+    err_prep = code(f, "Prepare AI error", """
+const e = $input.first().json;
+const msg = e.error_message || (e.error && (e.error.message || String(e.error))) || 'nieznany błąd';
+return [{ json: { message: 'Generowanie needs summary nie powiodło się (' + msg + '). Kliknij „Generuj needs summary” ponownie.' } }];
+""", 12, 3)
+    err_save = nc(f, "Reset status and write the error", "update", "assessments", 13, 3,
+                  id="={{ $('Guard').first().json.assessment_id }}",
+                  fields={"ai_status": "none", "needs_summary": "={{ $json.message }}"})
+    err_act = nc(f, "Log activity: AI needs summary failed", "create", "activities", 14, 3, fields={
+        "summary": "={{ 'Generowanie needs summary nie powiodło się: ' + $('Guard').first().json.title }}",
+        "type": "automation_error", "flow": "W8", "triggered_by": "user",
+        "payload": "={{ JSON.stringify({ assessment_id: $('Guard').first().json.assessment_id, error: $('Prepare AI error').first().json.message }) }}"})
+
+    f.chain(wh, b, pending, guard, cefr)
+    f.to(cefr, person, 0)
+    f.to(cefr, g_comp, 0)
+    f.to(cefr, g_opp, 0)
+    f.to(cefr, rej, 1)
+    f.chain(g_opp, opp_code, g_meet)
+    f.to(person, mg, 0)
+    f.to(g_comp, mg, 1)
+    f.to(g_meet, mg, 2)
+    f.chain(mg, ctx, agent)
+    f.to(agent, parse, 0)
+    f.to(agent, err_prep, 1)
+    f.chain(parse, ok)
+    f.to(ok, save, 0)
+    f.to(ok, err_prep, 1)
+    f.chain(save, act, a_prep, a_links)
+    f.chain(err_prep, err_save, err_act)
+    f.chain(rej, g_t, open_t, resolve_t, attach_t, task, t_prep, t_links)
+    return f
+
+
 FLOWS = {
     "W15_resolve_assignee.json": build_w15,
     "W3_task_notifications.json": build_w3,
@@ -1158,6 +1639,10 @@ FLOWS = {
     "W0_recurring_tasks.json": build_w0,
     "W6a_meeting_ai_pipeline.json": build_w6a,
     "W7_bookings_meetings_sync.json": build_w7,
+    "W17_generate_audit_tasks.json": build_w17,
+    "W18_assessment_saved.json": build_w18,
+    "W19_ai_draft_reminders.json": build_w19,
+    "W8_assessment_needs_summary.json": build_w8,
 }
 
 if __name__ == "__main__":

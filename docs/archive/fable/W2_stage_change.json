@@ -53,7 +53,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\n// NocoDB odpala webhook przy KAZDEJ aktualizacji - dzialamy tylko, gdy realnie\n// zmienil sie etap. Wymaga \"send me previous record\" na webhooku tabeli.\nconst body = $input.first().json.body || $input.first().json;\nconst row = (body.data && body.data.rows && body.data.rows[0]) || {};\nconst prev = (body.data && body.data.previous_rows && body.data.previous_rows[0]) || {};\nconst s = row.stage, p = prev.stage;\nif (!s || s === p) return [];\n\nconst today = new Date().toISOString().slice(0, 10);\nconst patch = { Id: row.Id, stage_changed_at: new Date().toISOString() };\nif (s === 'Oferta wysłana')   patch.offer_sent_at = today;\nif (s === 'Umowa wysłana')    patch.contract_sent_at = today;\nif (s === 'Umowa podpisana')  { patch.state = 'won';      patch.closed_at = today; }\nif (s === 'Utracona')         { patch.state = 'lost';     patch.closed_at = today; }\nif (s === 'Zarchiwizowana')   { patch.state = 'archived'; patch.closed_at = today; }\n\n// Zadania przy przejsciach (docs/archive/fable/nocodb_crm_schema_v4.md, \"Zasady\n// tworzenia zadan\"). Przejscie na \"Audyt\" dojdzie w etapie 3.\nconst tasks = [];\nif (s === 'Rekomendacja / demo')\n  tasks.push({ task_type: 'prepare_offer', role: 'handlowiec', use_owner: true,\n               title: `Przygotuj ofertę: ${row.name}`, due_in_days: 1 });\nif (s === 'Umowa podpisana')\n  tasks.push({ task_type: 'invoice', role: 'finanse', use_owner: false,\n               title: `Wystaw fakturę: ${row.name}`, due_in_days: 3 });\n\nconst idOf = o => (o && (o.Id || (Array.isArray(o) && o[0] && o[0].Id))) || null;\nconst owner_id = idOf(row.owner), buyer_id = idOf(row.person);\ntasks.forEach(t => { t.preferred_employee_id = t.use_owner ? owner_id : null; });\n\nreturn [{ json: { opp_id: row.Id, opp_name: row.name || ('szansa #' + row.Id),\n  old_stage: p || '(brak)', new_stage: s, patch, tasks, owner_id, buyer_id } }];\n"
+        "jsCode": "\n// NocoDB odpala webhook przy KAZDEJ aktualizacji - dzialamy tylko, gdy realnie\n// zmienil sie etap. Wymaga \"send me previous record\" na webhooku tabeli.\nconst body = $input.first().json.body || $input.first().json;\nconst row = (body.data && body.data.rows && body.data.rows[0]) || {};\nconst prev = (body.data && body.data.previous_rows && body.data.previous_rows[0]) || {};\nconst s = row.stage, p = prev.stage;\nif (!s || s === p) return [];\n\nconst today = new Date().toISOString().slice(0, 10);\nconst patch = { Id: row.Id, stage_changed_at: new Date().toISOString() };\nif (s === 'Oferta wysłana')   patch.offer_sent_at = today;\nif (s === 'Umowa wysłana')    patch.contract_sent_at = today;\nif (s === 'Umowa podpisana')  { patch.state = 'won';      patch.closed_at = today; }\nif (s === 'Utracona')         { patch.state = 'lost';     patch.closed_at = today; }\nif (s === 'Zarchiwizowana')   { patch.state = 'archived'; patch.closed_at = today; }\n\n// Zadania przy przejsciach (docs/archive/fable/nocodb_crm_schema_v4.md, \"Zasady\n// tworzenia zadan\"). Przejscie na \"Audyt\" dojdzie w etapie 3.\nconst tasks = [];\nif (s === 'Rekomendacja / demo')\n  tasks.push({ task_type: 'prepare_offer', role: 'handlowiec', use_owner: true,\n               title: `Przygotuj ofertę: ${row.name}`, due_in_days: 1 });\nif (s === 'Umowa podpisana') {\n  tasks.push({ task_type: 'invoice', role: 'finanse', use_owner: false,\n               title: `Wystaw fakturę: ${row.name}`, due_in_days: 3 });\n  tasks.push({ task_type: 'take_over_participants', role: 'metodyczka', use_methodologist: true,\n               title: `Przejmij uczestników: ${row.name}`, due_in_days: 2 });\n}\n// W B2C kupujacy jest sam uczestnikiem i sam jedyna osoba do audytu.\nif (s === 'Audyt' && row.segment === 'B2C')\n  tasks.push({ task_type: 'audit_prep', role: 'metodyczka', use_methodologist: true,\n               title: `Przygotowanie audytu: ${(row.person && row.person.full_name) || row.name}`,\n               due_in_days: 2 });\n\nconst idOf = o => (o && (o.Id || (Array.isArray(o) && o[0] && o[0].Id))) || null;\nconst owner_id = idOf(row.owner), buyer_id = idOf(row.person);\nconst segment = row.segment || null;\nconst participants_count = Array.isArray(row.participants) ? row.participants.length : 0;\n\nreturn [{ json: { opp_id: row.Id, opp_name: row.name || ('szansa #' + row.Id),\n  old_stage: p || '(brak)', new_stage: s, patch, tasks, owner_id, buyer_id,\n  segment, participants_count } }];\n"
       },
       "id": "guard-prepare",
       "name": "Guard & prepare",
@@ -258,7 +258,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const FIELD = {\n \"sale_opportunities.history\": \"cxxcfkznvd4gh83\",\n \"sale_opportunities.activities\": \"co11vdft4h2hp2h\",\n \"sale_opportunities.tasks\": \"cnagejk3hct2y2q\",\n \"employees.tasks\": \"c4q9kb2obrt2cu4\",\n \"persons.tasks\": \"cm5y2wj9wttl0gr\"\n};\n\nconst TBL = t => $('Get one base').first().json.tables.find(x => x.title === t).id;\nconst link = (table, field, recordId, targetIds) => {\n  const ids = (Array.isArray(targetIds) ? targetIds : [targetIds]).filter(Boolean);\n  if (!recordId || !ids.length) return null;\n  return { json: { table_id: TBL(table), field_id: FIELD[table + '.' + field],\n                   record_id: recordId, body: JSON.stringify(ids.map(Id => ({ Id }))) } };\n};\n\nconst a = $('Assemble transition').first().json;\nreturn [\n  link('sale_opportunities', 'history', a.opp_id, $('Create stage history row').first().json.Id),\n  link('sale_opportunities', 'activities', a.opp_id, $('Log activity: stage changed').first().json.Id),\n].filter(Boolean);\n"
+        "jsCode": "const FIELD = {\n \"sale_opportunities.history\": \"cxxcfkznvd4gh83\",\n \"sale_opportunities.activities\": \"co11vdft4h2hp2h\",\n \"sale_opportunities.tasks\": \"cnagejk3hct2y2q\",\n \"employees.tasks\": \"c4q9kb2obrt2cu4\",\n \"persons.tasks\": \"cm5y2wj9wttl0gr\",\n \"sale_opportunities.to_be_audited\": \"c8znfdni0ht0xe7\",\n \"sale_opportunities.participants\": \"cn4ucrtpvapmwt4\"\n};\n\nconst TBL = t => $('Get one base').first().json.tables.find(x => x.title === t).id;\nconst link = (table, field, recordId, targetIds) => {\n  const ids = (Array.isArray(targetIds) ? targetIds : [targetIds]).filter(Boolean);\n  if (!recordId || !ids.length) return null;\n  return { json: { table_id: TBL(table), field_id: FIELD[table + '.' + field],\n                   record_id: recordId, body: JSON.stringify(ids.map(Id => ({ Id }))) } };\n};\n\nconst a = $('Assemble transition').first().json;\nreturn [\n  link('sale_opportunities', 'history', a.opp_id, $('Create stage history row').first().json.Id),\n  link('sale_opportunities', 'activities', a.opp_id, $('Log activity: stage changed').first().json.Id),\n].filter(Boolean);\n"
       },
       "id": "prepare-links-for-history-and-activity",
       "name": "Prepare links for history and activity",
@@ -353,7 +353,32 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst a = $('Assemble transition').first().json;\nconst today = new Date();\nconst addDays = n => new Date(today.getTime() + n * 86400000).toISOString().slice(0, 10);\nreturn (a.tasks || []).map(t => ({ json: { ...t,\n  preferred_employee_id: t.preferred_employee_id || null,\n  due_date: addDays(t.due_in_days), on_date: addDays(t.due_in_days) } }));\n"
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'persons').id }}/links/ceb6hk5msj5v8e0/records/{{ $('Assemble transition').first().json.buyer_id || 0 }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-methodologist-of-the-buyer",
+      "name": "Get methodologist of the buyer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1560,
+        950
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst a = $('Assemble transition').first().json;\nlet meth = null;\ntry { meth = ((($('Get methodologist of the buyer').first().json) || {}).list || [])[0] || null; }\ncatch (e) { meth = null; }\nconst today = new Date();\nconst addDays = n => new Date(today.getTime() + n * 86400000).toISOString().slice(0, 10);\nreturn (a.tasks || []).map(t => ({ json: { ...t,\n  preferred_employee_id: t.use_owner ? a.owner_id\n                       : (t.use_methodologist && meth ? meth.Id : null),\n  due_date: addDays(t.due_in_days), on_date: addDays(t.due_in_days) } }));\n"
       },
       "id": "build-transition-tasks",
       "name": "Build transition tasks",
@@ -453,7 +478,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const FIELD = {\n \"sale_opportunities.history\": \"cxxcfkznvd4gh83\",\n \"sale_opportunities.activities\": \"co11vdft4h2hp2h\",\n \"sale_opportunities.tasks\": \"cnagejk3hct2y2q\",\n \"employees.tasks\": \"c4q9kb2obrt2cu4\",\n \"persons.tasks\": \"cm5y2wj9wttl0gr\"\n};\n\nconst TBL = t => $('Get one base').first().json.tables.find(x => x.title === t).id;\nconst link = (table, field, recordId, targetIds) => {\n  const ids = (Array.isArray(targetIds) ? targetIds : [targetIds]).filter(Boolean);\n  if (!recordId || !ids.length) return null;\n  return { json: { table_id: TBL(table), field_id: FIELD[table + '.' + field],\n                   record_id: recordId, body: JSON.stringify(ids.map(Id => ({ Id }))) } };\n};\n\nconst a = $('Assemble transition').first().json;\nconst att = $('Attach task details to the assignee').all();\nconst created = $input.all();\nconst out = [];\ncreated.forEach((c, i) => {\n  const tid = c.json.Id, asg = att[i].json.assignee_id;\n  out.push(link('employees', 'tasks', asg, tid));\n  out.push(link('sale_opportunities', 'tasks', a.opp_id, tid));\n  out.push(link('persons', 'tasks', a.buyer_id, tid));\n});\nreturn out.filter(Boolean);\n"
+        "jsCode": "const FIELD = {\n \"sale_opportunities.history\": \"cxxcfkznvd4gh83\",\n \"sale_opportunities.activities\": \"co11vdft4h2hp2h\",\n \"sale_opportunities.tasks\": \"cnagejk3hct2y2q\",\n \"employees.tasks\": \"c4q9kb2obrt2cu4\",\n \"persons.tasks\": \"cm5y2wj9wttl0gr\",\n \"sale_opportunities.to_be_audited\": \"c8znfdni0ht0xe7\",\n \"sale_opportunities.participants\": \"cn4ucrtpvapmwt4\"\n};\n\nconst TBL = t => $('Get one base').first().json.tables.find(x => x.title === t).id;\nconst link = (table, field, recordId, targetIds) => {\n  const ids = (Array.isArray(targetIds) ? targetIds : [targetIds]).filter(Boolean);\n  if (!recordId || !ids.length) return null;\n  return { json: { table_id: TBL(table), field_id: FIELD[table + '.' + field],\n                   record_id: recordId, body: JSON.stringify(ids.map(Id => ({ Id }))) } };\n};\n\nconst a = $('Assemble transition').first().json;\nconst att = $('Attach task details to the assignee').all();\nconst created = $input.all();\nconst out = [];\ncreated.forEach((c, i) => {\n  const tid = c.json.Id, asg = att[i].json.assignee_id;\n  out.push(link('employees', 'tasks', asg, tid));\n  out.push(link('sale_opportunities', 'tasks', a.opp_id, tid));\n  out.push(link('persons', 'tasks', a.buyer_id, tid));\n});\nif (a.new_stage === 'Audyt' && a.segment === 'B2C')\n  out.push(link('sale_opportunities', 'to_be_audited', a.opp_id, a.buyer_id));\nif (a.new_stage === 'Umowa podpisana' && a.segment === 'B2C' && !a.participants_count)\n  out.push(link('sale_opportunities', 'participants', a.opp_id, a.buyer_id));\nreturn out.filter(Boolean);\n"
       },
       "id": "prepare-task-links",
       "name": "Prepare task links",
@@ -604,7 +629,7 @@
             "index": 0
           },
           {
-            "node": "Build transition tasks",
+            "node": "Get methodologist of the buyer",
             "type": "main",
             "index": 0
           }
@@ -660,6 +685,17 @@
         [
           {
             "node": "Notify owner about the stage change",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get methodologist of the buyer": {
+      "main": [
+        [
+          {
+            "node": "Build transition tasks",
             "type": "main",
             "index": 0
           }

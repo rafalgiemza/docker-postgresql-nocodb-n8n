@@ -296,6 +296,20 @@ link do rezerwacji audytu z identyfikatorem szansy i e-mailem w parametrach
 
 **Wyjście:** każde spotkanie z cal.com ląduje w CRM z uczestnikami i typem.
 
+### Flow etapu 2: stan i wdrożenie
+
+| Plik | Co robi | Wejście |
+|---|---|---|
+| `W7_bookings_meetings_sync.json` | rezerwacje cal.com: nowe spotkanie, zmiana terminu, anulowanie; osoby po e-mailu, właściciel z organizatora, `meeting_type` z mapowania slugów, link do jedynej otwartej szansy | webhook cal.com → `…/webhook/w7-calcom-booking` |
+| `W6a_meeting_ai_pipeline.json` | przycisk „Generuj analizę”: 5 pól analizy spotkania przez AI Agent, `ai_status`, `provide_input` przy braku transkrypcji | przycisk na `meetings` → `…/webhook/w6a-meeting-analysis` |
+
+Dotychczasowe pliki o tych nazwach (MS Bookings i stary W6a) są nadpisane.
+Konfiguracja cal.com: osobne typy wydarzeń o slugach `discovery`, `audyt`, `demo`
+(albo własne: edytujesz `MEETING_TYPE_BY_SLUG` w `scripts/gen-flows-v4.py` i
+generujesz ponownie); webhook na zdarzenia *created / rescheduled / cancelled*.
+Struktura payloadu cal.com jest w W7 zgadnięta (pole poprzedniej rezerwacji przy
+zmianie terminu: `rescheduleUid`), do potwierdzenia testową rezerwacją.
+
 ---
 
 ## Etap 3 — audyty i oceny
@@ -330,6 +344,21 @@ od etapu 1).
    `approve_ai_draft`; po zatwierdzeniu nie powstaje drugie.
 
 **Wyjście:** pełny proces audytowy B2C i B2B bez ręcznego linkowania uczestników.
+
+### Flow etapu 3: stan i wdrożenie
+
+| Plik | Co robi | Wejście |
+|---|---|---|
+| `W17_generate_audit_tasks.json` | przycisk „Generuj zadania audytowe” na szansie: zadanie `audit_prep` na osobę z `to_be_audited` (bez duplikatów), odpowiedzialny z `assigned_methodologist` albo roli, link do discovery call | przycisk → `…/webhook/w17-audit-tasks` |
+| `W18_assessment_saved.json` | zapis oceny: osoba przechodzi z `to_be_audited` do `audited` (idempotentnie) | webhook `assessments` *after insert* **i** *after update* → `…/webhook/w18-assessment-saved` |
+| `W19_ai_draft_reminders.json` | codziennie 08:00: szkice AI (`meetings`, `assessments`, `recommendations`) niezatwierdzone ponad dobę → jedno zadanie `approve_ai_draft` na rekord | harmonogram |
+| `W8_assessment_needs_summary.json` | przycisk „Generuj needs summary”: kontekst osoby, firmy i discovery, AI Agent (prompt w `scripts/flow-prompts/`), `ai_status`, `provide_input` przy braku CEFR | przycisk na `assessments` → `…/webhook/w8-assessment-needs-summary` |
+| `W2_stage_change.json` (zmieniony) | dochodzi: przejście na „Audyt” w B2C (kupujący → `to_be_audited` + zadanie `audit_prep`), „Umowa podpisana” (zadanie `take_over_participants`; w B2C kupujący → `participants`) | bez zmian |
+
+Po zmianach zaimportuj ponownie W2 i W7 (W7 po dumpie etapu 3 szuka szansy także
+przez `to_be_audited_in` i `participant_in`). Stary W8 jest nadpisany; prompt
+metodyczny wyciągnąłem do `scripts/flow-prompts/w8_needs_summary_system_message.txt`
+(generator wstawia go do System Message, a potem możesz go zmieniać w n8n).
 
 ---
 
