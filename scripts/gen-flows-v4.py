@@ -455,11 +455,12 @@ const row = (body.data && body.data.rows && body.data.rows[0]) || body;
 const idOf = o => (o && (o.Id || (Array.isArray(o) && o[0] && o[0].Id))) || null;
 const existing = Array.isArray(row.opportunities) ? row.opportunities.length
                : (Number(row.opportunities) || 0);
+// Jeden lead moze miec wiele szans (kolejne zakupy, rownolegle dzialy), wiec
+// istniejace szanse nie blokuja konwersji - tylko je liczymy do notatki.
 let error = null;
 if (!idOf(row.primary_person)) error = 'Brak głównego kontaktu (primary_person) na leadzie.';
-else if (existing) error = 'Szansa dla tego leada już istnieje (nie tworzę drugiej).';
 return [{ json: {
-  ok: !error, error_message: error, lead_id: row.Id,
+  ok: !error, error_message: error, lead_id: row.Id, existing_count: existing,
   lead_name: row.lead_name || ('lead #' + row.Id),
   segment: row.lead_type === 'B2B' ? 'B2B' : 'B2C',
   primary_person_id: idOf(row.primary_person), owner_id: idOf(row.owner),
@@ -523,7 +524,8 @@ return [
     links = http_links_batch(f, "Link records to the new opportunity", 12, 0)
     done = nc(f, "Set convert status: done", "update", "leads", 13, 0,
               id="={{ $('Validate conversion').first().json.lead_id }}",
-              fields={"convert_status": "done", "convert_note": ""})
+              fields={"convert_status": "done",
+                      "convert_note": "={{ 'Utworzono szansę. Liczba szans tego leada: ' + (Number($('Validate conversion').first().json.existing_count) + 1) + '.' }}"})
     unexpected = code(f, "Prepare unexpected error", """
 const v = $('Validate conversion').first().json;
 const e = $input.first().json;

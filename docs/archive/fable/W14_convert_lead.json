@@ -53,7 +53,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\n// Przycisk NocoDB (payload v3) wysyla caly wiersz leada razem z polami relacji:\n// primary_person / owner / company jako {Id, ...} albo null, opportunities jako tablica.\nconst body = $input.first().json.body || $input.first().json;\nconst row = (body.data && body.data.rows && body.data.rows[0]) || body;\nconst idOf = o => (o && (o.Id || (Array.isArray(o) && o[0] && o[0].Id))) || null;\nconst existing = Array.isArray(row.opportunities) ? row.opportunities.length\n               : (Number(row.opportunities) || 0);\nlet error = null;\nif (!idOf(row.primary_person)) error = 'Brak głównego kontaktu (primary_person) na leadzie.';\nelse if (existing) error = 'Szansa dla tego leada już istnieje (nie tworzę drugiej).';\nreturn [{ json: {\n  ok: !error, error_message: error, lead_id: row.Id,\n  lead_name: row.lead_name || ('lead #' + row.Id),\n  segment: row.lead_type === 'B2B' ? 'B2B' : 'B2C',\n  primary_person_id: idOf(row.primary_person), owner_id: idOf(row.owner),\n  company_id: idOf(row.company),\n} }];\n"
+        "jsCode": "\n// Przycisk NocoDB (payload v3) wysyla caly wiersz leada razem z polami relacji:\n// primary_person / owner / company jako {Id, ...} albo null, opportunities jako tablica.\nconst body = $input.first().json.body || $input.first().json;\nconst row = (body.data && body.data.rows && body.data.rows[0]) || body;\nconst idOf = o => (o && (o.Id || (Array.isArray(o) && o[0] && o[0].Id))) || null;\nconst existing = Array.isArray(row.opportunities) ? row.opportunities.length\n               : (Number(row.opportunities) || 0);\n// Jeden lead moze miec wiele szans (kolejne zakupy, rownolegle dzialy), wiec\n// istniejace szanse nie blokuja konwersji - tylko je liczymy do notatki.\nlet error = null;\nif (!idOf(row.primary_person)) error = 'Brak głównego kontaktu (primary_person) na leadzie.';\nreturn [{ json: {\n  ok: !error, error_message: error, lead_id: row.Id, existing_count: existing,\n  lead_name: row.lead_name || ('lead #' + row.Id),\n  segment: row.lead_type === 'B2B' ? 'B2B' : 'B2C',\n  primary_person_id: idOf(row.primary_person), owner_id: idOf(row.owner),\n  company_id: idOf(row.company),\n} }];\n"
       },
       "id": "guard",
       "name": "Guard",
@@ -486,7 +486,7 @@
             },
             {
               "fieldName": "convert_note",
-              "fieldValue": ""
+              "fieldValue": "={{ 'Utworzono szansę. Liczba szans tego leada: ' + (Number($('Validate conversion').first().json.existing_count) + 1) + '.' }}"
             }
           ]
         }

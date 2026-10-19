@@ -70,8 +70,10 @@ dało się planować; każda jest tania do zmiany, dopóki nie ruszy implementac
   (czeka), `audited` (po audycie), `participants` (zapisani na szkolenie).
   „Nie zapisany" = osoba w `audited`, której nie ma w `participants`. Osobny
   status nie istnieje.
-- Lead to osoba **lub grupa osób**. Szansa bez `source_lead` (kontynuacja,
-  upsell) nie dziedziczy osób z procesu decyzyjnego.
+- Lead to osoba **lub grupa osób** i może przynieść **wiele szans** (np. dwa
+  działy jednej firmy naraz albo kolejne zakupy po latach). Szansa ma
+  najwyżej jeden `source_lead`; kolejne szanse znanego klienta mogą wskazywać
+  ten sam lead i wtedy dziedziczą osoby z procesu decyzyjnego i źródło.
 - `participants` to **pole relacji w `sale_opportunities`**, nie tabela.
 - Pracownicy CoAction to `employees`; klienci i kontakty to `persons`.
 
@@ -170,7 +172,7 @@ persons >──< sale_opportunities          participants, audited
 persons >──< meetings                    attendees
 persons ──< assessments, recommendations, tasks
 
-leads ──< sale_opportunities             source_lead (0..1)
+leads ──< sale_opportunities             source_lead (lead: wiele szans; szansa: 0..1 lead)
 leads ──< tasks, activities
 
 sale_opportunities ──< sale_opportunity_stage_history
@@ -273,7 +275,7 @@ Zgłoszenie i jego kwalifikacja. Brak etapów sprzedaży i wartości.
 | `disqualify_reason`, `disqualify_note` | SingleSelect, LongText | bez zmian |
 | `company_match_status` | SingleSelect | bez zmian (W4v2 / W5) |
 | `primary_person` | zwrotne od `persons.primary_in_leads` | **nowe**, 0..1; główny kontakt leada (domyślnie osoba, która wypełniła formularz; ustawia W4). Musi być jedną z `persons` leada. Z niej konwersja bierze `sale_opportunities.person` |
-| `convert_status`, `convert_note` | SingleSelect `generating` / `done` / `error`, LongText | **nowe**, feedback przycisku konwersji (`gen_status_field("convert", …)`); błąd, gdy brak `primary_person` albo szansa już istnieje |
+| `convert_status`, `convert_note` | SingleSelect `generating` / `done` / `error`, LongText | **nowe**, feedback przycisku konwersji (`gen_status_field("convert", …)`); błąd, gdy brak `primary_person` albo główny kontakt ma tryb „Tylko spotkania”; po sukcesie notatka z liczbą szans leada |
 | `notes`, `legacy_id` | LongText, Number | bez zmian; `notes` = trwałe notatki o leadzie (akcja z terminem to zadanie) |
 | przycisk **„Utwórz szansę sprzedaży"** | Button | **nowy**, placeholder jak pozostałe, webhook do flow konwersji; flow czyta `primary_person` |
 
@@ -294,7 +296,7 @@ Szansa sprzedaży. Należy do osoby i firmy, nie do leada. Pole tytułowe: `name
 | `name` | SingleLineText | np. „Acme – audyty i kurs" |
 | `person` | zwrotne od `persons.bought_opportunities` | **wymagane**: kupujący B2C albo główny kontakt B2B |
 | `company` | zwrotne od `companies.opportunities` | 0..1, dla B2B |
-| `source_lead` | zwrotne od `leads.opportunities` | 0..1; tylko dla szansy powstałej z leada |
+| `source_lead` | zwrotne od `leads.opportunities` | 0..1; lead, z którego szansa powstała. Jeden lead może mieć wiele szans (kolejne zakupy, równoległe działy) |
 | `segment` | SingleSelect `B2C` / `B2B` | było `leads.lead_type` |
 | `owner` | link → `employees` | było `User` |
 | `stage` | SingleSelect | lista z A1 |
@@ -329,8 +331,9 @@ Relacje (pola właściciela): `participants`, `to_be_audited`, `audited`
   `audit_prep` i linkami do tej szansy i osoby, tworzy zadanie (adresat i linki: sekcja
   „Zasady tworzenia zadań"). Ponowne kliknięcie po dopisaniu kolejnych osób
   tworzy tylko brakujące. Stan pokazuje `audit_tasks_status`.
-- NocoDB nie wymusi unikalności `source_lead`; pilnuje jej flow konwersji
-  (szukaj szansy po `source_lead` przed utworzeniem).
+- Jeden lead może mieć wiele szans, więc `source_lead` nie jest unikalne. Dubla
+  (np. dwukrotne kliknięcie przycisku) NocoDB nie wykryje; W14 zapisuje w
+  `convert_note` liczbę szans leada, żeby było to widać.
 
 ## 4. `sale_opportunity_stage_history` — NOWA
 
@@ -620,7 +623,7 @@ przygotowanie, które trwa do audytu, więc zamyka je metodyczka.
 
 **Konwersja lead → szansa** (nowy flow, idempotentny):
 
-- sprawdź, czy istnieje szansa z tym `source_lead`; jeśli tak, nic nie rób,
+- nie blokuj, gdy lead ma już szanse (wiele szans na lead jest dozwolone); policz je do notatki,
 - odmów (błąd w `convert_status` / `convert_note`), gdy `primary_person` ma
   `sales_mode` = `Tylko spotkania`,
 - utwórz `sale_opportunities`: `person` = `leads.primary_person` (bez
@@ -704,8 +707,9 @@ instancji i dopiero wtedy utrwalamy decyzję:
   polu `User`. Z linkiem do `employees` potrzeba jednego widoku na osobę
   (A6). Alternatywa: zostawić `User` obok linku wyłącznie do filtrów UI, ale to
   dwa pola do pilnowania.
-- **Kontynuacje i upselle** (szansa bez `source_lead`) nie dziedziczą osób z
-  procesu decyzyjnego leada.
+- **Szansa bez leada** (np. wpisana ręcznie dla klienta powracającego) nie
+  dziedziczy osób z procesu decyzyjnego ani źródła; kolejne szanse klienta
+  powinny wskazywać jego pierwotny lead.
 - **Rola osoby w leadzie.** `leads.persons` nie rozróżnia decydenta, HR i
   finansów. Jeśli to będzie potrzebne, dojdzie tabela łącząca; na UAT
   wystarcza `persons.position`.

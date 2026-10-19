@@ -219,7 +219,7 @@ Wygenerowane przez `scripts/gen-flows-v4.py` z ID pól relacji ze świeżego
 |---|---|
 | `W15_resolve_assignee.json` | podflow: rola lub pracownik → odpowiedzialny z regułą zastępstw (`employees`, `absences`, zastępcy, admin) |
 | `W3_task_notifications.json` | e-mail do odpowiedzialnego; webhook tabeli `tasks` oraz podflow |
-| `W14_convert_lead.json` | przycisk „Utwórz szansę sprzedaży”: walidacja (`primary_person`, tryb „Tylko spotkania”, duplikat), szansa, pierwszy wiersz historii, linki, `convert_status` |
+| `W14_convert_lead.json` | przycisk „Utwórz szansę sprzedaży”: walidacja (`primary_person`, tryb „Tylko spotkania”; wiele szans na lead jest dozwolone), szansa, pierwszy wiersz historii, linki, `convert_status` |
 | `W2_stage_change.json` | zmiana etapu szansy: kamienie milowe, `stage_changed_at`, historia, aktywność, mail do właściciela, zadania (`prepare_offer`, `invoice`) |
 | `W16_scheduled_tasks.json` | codziennie 07:00: `scheduled` → `todo` + przypomnienie (z zastępstwem) |
 | `W0_recurring_tasks.json` | zadania cykliczne z `task_templates`, odpowiedzialny jako link |
