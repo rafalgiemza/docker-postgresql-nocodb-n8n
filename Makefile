@@ -8,7 +8,7 @@ DC_CMD = docker compose -f docker-compose.yml
 LATEST_TS := $(shell ls -1t ./backups/appdata_*.sql 2>/dev/null | head -n 1 | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}')
 RESTORE_TS ?= $(LATEST_TS)
 
-.PHONY: help init init-env config up down restart pull ps versions logs dump-appdata-schema seed-extra backup backup-prune restore init-schema seed-test-data demo-schema-init demo-seed upgrade-links dump-crm-schema init-data init-appdata-db add-rag-db
+.PHONY: help init init-env config up down restart pull ps versions logs dump-appdata-schema seed-extra backup backup-prune restore init-schema seed-test-data demo-schema-init demo-seed upgrade-links dump-crm-schema fill-workflows init-data init-appdata-db add-rag-db
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -92,6 +92,9 @@ upgrade-links: ## Re-run the Links v1 -> LinkToAnotherRecord v3 upgrade standalo
 # scripts/dump-crm-schema.py.
 dump-crm-schema: ## Dump live CRM table/field ids + relation targets to docs/archive/fable/schema_map.json
 	./scripts/dump-crm-schema.sh
+
+fill-workflows: ## Replace __PLACEHOLDERS__ in workflow JSONs with live NocoDB ids (IN=docs/archive/fable OUT=n8n/generated)
+	python3 scripts/fill-workflow-placeholders.py $(or $(IN),docs/archive/fable) --out $(or $(OUT),n8n/generated)
 
 # Kroki 1-3: leady/firmy z init-data/source/leads.xlsx przez seed-service.
 # Kroki 4-5: referencje klienta z init-data/source/testimonials.{xlsx,pptx} -

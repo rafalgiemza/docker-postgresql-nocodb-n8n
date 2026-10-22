@@ -8,7 +8,7 @@
         "responseMode": "onReceived",
         "options": {}
       },
-      "id": "button-generuj-needs-summary",
+      "id": "w8-01",
       "name": "Button: Generuj needs summary",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -21,79 +21,89 @@
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "resource": "base",
-        "operation": "get",
-        "workspaceId": {
-          "__rl": true,
-          "value": "wpgg1mff",
-          "mode": "list",
-          "cachedResultName": "CoAction Workspace"
-        },
-        "projectId": {
-          "__rl": true,
-          "value": "p6w78auzu6sjdoo",
-          "mode": "list",
-          "cachedResultName": "CRM Base"
-        }
-      },
-      "id": "get-one-base",
-      "name": "Get one base",
-      "type": "n8n-nodes-base.nocoDb",
-      "typeVersion": 4,
-      "position": [
-        260,
-        570
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "authentication": "nocoDbApiToken",
-        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
-        "projectId": "={{ $('Get one base').first().json.id }}",
-        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'assessments').id }}",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ASSESSMENTS__",
         "operation": "update",
         "id": "={{ $('Button: Generuj needs summary').first().json.body.data.rows[0].Id }}",
         "dataToSend": "defineBelow",
         "fieldsUi": {
           "fieldValues": [
             {
-              "fieldName": "ai_status",
-              "fieldValue": "pending"
+              "fieldName": "completion_status",
+              "fieldValue": "collecting data"
             }
           ]
         }
       },
-      "id": "set-ai-status-pending",
-      "name": "Set ai_status: pending",
+      "id": "w8-02",
+      "name": "Set status: collecting data",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        520,
+        260,
         570
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "\nconst body = $('Button: Generuj needs summary').first().json.body || $('Button: Generuj needs summary').first().json;\nconst row = (body.data && body.data.rows && body.data.rows[0]) || body;\nconst idOf = o => (o && (o.Id || (Array.isArray(o) && o[0] && o[0].Id))) || null;\nreturn [{ json: { assessment_id: row.Id, person_id: idOf(row.person), meeting_id: idOf(row.meeting),\n  title: row.title || ('ocena #' + row.Id),\n  cefr_overall: row.cefr_overall || '', cefr_range: row.cefr_range || '',\n  cefr_accuracy: row.cefr_accuracy || '', cefr_fluency: row.cefr_fluency || '',\n  cefr_communication: row.cefr_communication || '', strengths: row.strengths || '',\n  gaps: row.gaps || '', auditor_notes: row.auditor_notes || '',\n  self_assessment: row.self_assessment || '', manager_needs: row.manager_needs || '',\n  has_cefr: !!String(row.cefr_overall || '').trim() } }];\n"
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assessment-from-button-assessment",
+              "name": "assessment",
+              "type": "object",
+              "value": "={{ $('Button: Generuj needs summary').first().json.body.data.rows[0] }}"
+            },
+            {
+              "id": "assessment-from-button-assessment_id",
+              "name": "assessment_id",
+              "type": "number",
+              "value": "={{ $('Button: Generuj needs summary').first().json.body.data.rows[0].Id }}"
+            },
+            {
+              "id": "assessment-from-button-person_id",
+              "name": "person_id",
+              "type": "number",
+              "value": "={{ $('Button: Generuj needs summary').first().json.body.data.rows[0].person?.Id ?? $('Button: Generuj needs summary').first().json.body.data.rows[0].person?.[0]?.Id ?? 0 }}"
+            },
+            {
+              "id": "assessment-from-button-meeting_id",
+              "name": "meeting_id",
+              "type": "number",
+              "value": "={{ $('Button: Generuj needs summary').first().json.body.data.rows[0].meeting?.Id ?? $('Button: Generuj needs summary').first().json.body.data.rows[0].meeting?.[0]?.Id ?? 0 }}"
+            },
+            {
+              "id": "assessment-from-button-title",
+              "name": "title",
+              "type": "string",
+              "value": "={{ $('Button: Generuj needs summary').first().json.body.data.rows[0].title || ('ocena #' + $('Button: Generuj needs summary').first().json.body.data.rows[0].Id) }}"
+            },
+            {
+              "id": "assessment-from-button-has_cefr",
+              "name": "has_cefr",
+              "type": "boolean",
+              "value": "={{ String($('Button: Generuj needs summary').first().json.body.data.rows[0].cefr_overall ?? '').trim().length > 0 }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
       },
-      "id": "guard",
-      "name": "Guard",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "w8-03",
+      "name": "Assessment from button",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
-        780,
+        520,
         570
       ]
     },
@@ -121,29 +131,729 @@
         },
         "options": {}
       },
-      "id": "cefr-filled-in",
+      "id": "w8-04",
       "name": "CEFR filled in?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1040,
+        780,
         570
       ]
     },
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
-        "projectId": "={{ $('Get one base').first().json.id }}",
-        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'assessments').id }}",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_PERSONS__",
+        "operation": "get",
+        "id": "={{ $('Assessment from button').first().json.person_id }}"
+      },
+      "id": "w8-05",
+      "name": "Get person",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        1040,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_PERSONS__",
+          "mode": "id"
+        },
+        "id": "={{ $('Assessment from button').first().json.person_id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_PERSONS__COMPANY__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_COMPANIES__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_COMPANIES__NAME__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_COMPANIES__INDUSTRY__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_COMPANIES__COMMUNICATION_PROCESSES__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_COMPANIES__BUSINESS_IMPACT__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "id": "w8-06",
+      "name": "Get company of the person",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        1040,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_MEETINGS__",
+          "mode": "id"
+        },
+        "id": "={{ $('Assessment from button').first().json.meeting_id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_MEETINGS__SALE_OPPORTUNITY__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_SALE_OPPORTUNITIES__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_SALE_OPPORTUNITIES__SEGMENT__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "id": "w8-07",
+      "name": "Get opportunity of the audit meeting",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        1040,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "opportunity-of-the-audit-opp_id",
+              "name": "opp_id",
+              "type": "number",
+              "value": "={{ $json.id_fields?.Id ?? 0 }}"
+            },
+            {
+              "id": "opportunity-of-the-audit-segment",
+              "name": "segment",
+              "type": "string",
+              "value": "={{ $json.fields?.segment ?? '' }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w8-08",
+      "name": "Opportunity of the audit",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1300,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_SALE_OPPORTUNITIES__",
+          "mode": "id"
+        },
+        "id": "={{ $json.opp_id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_SALE_OPPORTUNITIES__MEETINGS__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_MEETINGS__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_MEETINGS__MEETING_TYPE__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_MEETINGS__STARTS_AT__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_MEETINGS__NOTES__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_MEETINGS__AI_STATUS__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_MEETINGS__GOALS__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_MEETINGS__CHALLENGES__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_MEETINGS__COMMUNICATION_SITUATIONS__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "id": "w8-09",
+      "name": "Get meetings of the opportunity",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        1560,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "id": "w8-10",
+      "name": "Wait for person, company and discovery data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1820,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Sklada dane z CRM w jeden tekst dla AI Agenta; prompt metodyczny siedzi w\n// System Message noda \"AI Agent\" (edytowalny bez znajomosci JS).\nconst g = $('Assessment from button').first().json;\nconst a = g.assessment;\nconst person = $('Get person').first().json || {};\nconst company = ($('Get company of the person').first().json || {}).fields || {};\nconst opp = $('Opportunity of the audit').first().json;\nconst meetings = $('Get meetings of the opportunity').all().map(i => i.json.fields).filter(Boolean);\nconst latest = meetings.filter(m => m.meeting_type === 'discovery')\n  .sort((x, y) => String(y.starts_at || '').localeCompare(String(x.starts_at || '')))[0] || {};\nconst accepted = latest.ai_status === 'ai_accepted';\nconst lines = [\n  '## Wyniki audytu (ocena CEFR)',\n  `Ogolny: ${a.cefr_overall || 'brak'}`,\n  `Zakres jezyka: ${a.cefr_range || 'brak'}`,\n  `Poprawnosc: ${a.cefr_accuracy || 'brak'}`,\n  `Plynnosc: ${a.cefr_fluency || 'brak'}`,\n  `Komunikatywnosc: ${a.cefr_communication || 'brak'}`,\n  `Mocne strony: ${a.strengths || 'brak danych'}`,\n  `Luki: ${a.gaps || 'brak danych'}`,\n  '',\n  '## Notatki metodyka po demo/audycie',\n  a.auditor_notes || 'brak notatek',\n  '',\n  '## Kontekst uczestnika',\n  `Imie i nazwisko: ${person.full_name || 'brak'}`,\n  `Stanowisko: ${person.position || 'brak'}`,\n  `Kontekst roli (z kim/o czym rozmawia po angielsku): ${person.role_context || 'brak'}`,\n  `Czestotliwosc uzywania angielskiego: ${person.frequency || 'brak'}`,\n  `Samoocena uczestnika: ${a.self_assessment || 'brak'}`,\n  `Potrzeby wg managera/HR: ${a.manager_needs || 'brak'}`,\n  '',\n  '## Kontekst biznesowy',\n  `Typ klienta: ${opp.segment || 'brak'}`,\n  `Branza: ${person.industry || company.industry || 'brak'}`,\n  company.name ? `Firma: ${company.name}` : null,\n  company.communication_processes ? `Procesy komunikacyjne w firmie: ${company.communication_processes}` : null,\n  company.business_impact ? `Wplyw jezyka na biznes: ${company.business_impact}` : null,\n  '',\n  '## Notatki z discovery call',\n  latest.notes || 'brak notatek z discovery call (lub brak spotkania typu discovery dla tej szansy)',\n  accepted && latest.goals ? `\\nCele klienta (zaakceptowana analiza): ${latest.goals}` : null,\n  accepted && latest.challenges ? `Wyzwania (zaakceptowana analiza): ${latest.challenges}` : null,\n  accepted && latest.communication_situations ? `Sytuacje komunikacyjne (zaakceptowana analiza): ${latest.communication_situations}` : null,\n];\nreturn [{ json: { user: lines.filter(l => l !== null).join('\\n') } }];\n"
+      },
+      "id": "w8-11",
+      "name": "Assemble context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ASSESSMENTS__",
         "operation": "update",
-        "id": "={{ $('Guard').first().json.assessment_id }}",
+        "id": "={{ $('Assessment from button').first().json.assessment_id }}",
         "dataToSend": "defineBelow",
         "fieldsUi": {
           "fieldValues": [
             {
+              "fieldName": "completion_status",
+              "fieldValue": "generating"
+            }
+          ]
+        }
+      },
+      "id": "w8-12",
+      "name": "Set status: generating",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2340,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Assemble context').first().json.user }}",
+        "options": {
+          "systemMessage": "Jestes metodykiem CoAction piszacym rekomendacje szkoleniowa (opis potrzeby\ntreningowej) dla jednego uczestnika, na podstawie audytu jezykowego i wywiadu\ndiscovery. Tekst, ktory tworzysz, trafia wprost na slajd 3 oferty (\"Potrzeba\nszkoleniowa - opis Twojej sytuacji\").\n\nFILOZOFIA COACTION: najpierw opisujemy czlowieka i jego sytuacje biznesowa,\npotem wyjasniamy, dlaczego jezyk jest dzis ograniczeniem, a dopiero na koncu\npokazujemy jakie konkretne umiejetnosci szkolenie rozwinie. Rekomendacja ma\nsprawiac wrazenie napisanego specjalnie dla tej jednej osoby dokumentu, a nie\nszablonu z podmienionym imieniem. W kazdym fragmencie odpowiadaj na pytanie:\n\"dlaczego wlasnie to jest teraz najwazniejsze dla tego klienta?\"\n\nSTRUKTURA REKOMENDACJI\n\n1. Wynik audytu\nNa poczatku podaj poziomy: ogolny, zakres jezyka, poprawnosc, plynnosc,\nkomunikatywnosc. Zawsze: odwolaj sie do wszystkich kompetencji z audytu, pokaz\nzaleznosci miedzy nimi, wskaz ktora kompetencja ogranicza klienta najbardziej,\nnie opisuj tylko liczb, pokaz praktyczny wplyw na prace. Opisz konkretne\nzachowania (np. spadek plynnosci, brak struktury, niepewnosc, brak jezyka\nperswazji, brak jezyka do parafrazy, trudnosci z asking for clarification,\nblokowanie sie, zbyt szybkie przechodzenie do sedna, problemy z wymowa,\nniewykorzystywanie znanego slownictwa, brak signposting, brak small talku\nitp.) - tylko te, ktore faktycznie wynikaja z danych ponizej.\n\n2. Kontekst biznesowy\nW 2-4 zdaniach opisz: kim jest klient, w jakim srodowisku pracuje, dlaczego\nwlasnie teraz angielski stal sie kluczowy, jaki jest jego glowny cel\nbiznesowy. Skup sie na rzeczywistym problemie biznesowym, nie na ogolnej\npotrzebie nauki jezyka.\n\n3. Dotychczasowa nauka i jej ograniczenia\nKrotko (1-2 zdania) opisz historie nauki TYLKO wtedy, gdy dane ponizej na to\npozwalaja i gdy to pomaga zrozumiec obecna sytuacje (wczesniejsze kursy, dluga\nprzerwa, praca w innym jezyku, samodzielna nauka, brak kontekstu biznesowego\nlub branzowego). Zakoncz wskazaniem, czego zabraklo dotychczasowej nauce (np.\npracy na realnych sytuacjach zawodowych, personalizacji, praktyki mowienia,\nregularnego feedbacku, kontekstu branzowego, cwiczenia konkretnych scenariuszy\nbiznesowych) - tak, by naturalnie uzasadnic, dlaczego poprzednie metody nie\nprzynioly oczekiwanego efektu. Jesli danych o historii nauki brak, pomin ta\nczesc zamiast zmyslac.\n\n4. Wnioski z audytu\nOpisz wylacznie obserwacje z audytu/demo: mocne strony, spadki plynnosci lub\nkomunikatywnosci, najtrudniejsze scenariusze, zauwazalne braki jezykowe,\nelementy wymagajace rozwoju. Odnos sie do konkretnych sytuacji zawodowych z\nrole play, jesli sa opisane w notatkach ponizej (nie tylko \"poziom B2\", ale\nnp. zabraklo signposting, zabraklo jezyka argumentacji, pojawil sie stres,\nklient zaczal od \"How can I help you?\" zamiast small talku, nie potrafil\nrozwinac wypowiedzi, zabraklo jezyka parafrazy, zatrzymywal sie na\nniezrozumianym fragmencie rozmowy - o ile takie obserwacje faktycznie\nwystepuja w danych).\n\n5. Rekomendacja\nRozpocznij od: \"Potrzebujesz szkolenia, ktore...\". Opisz, w jaki sposob\nszkolenie pomoze rozwiazac najwazniejsze problemy biznesowe klienta. Nie\nopisuj programu zajec ani konkretnych modulow/godzin. Pokaz efekt, jaki\nklient osiagnie dzieki pracy na autentycznych scenariuszach z jego\ncodziennej pracy.\n\nSTYL I JEZYK\nMa brzmiec jak konsultacja - nie marketing, nie raport, nie opis poziomu, nie\ncoaching. Profesjonalny, naturalny jezyk polski, bez pustych slow (\"kompleksowy\",\n\"holistyczny\", \"synergia\", \"efektywne wykorzystanie potencjalu\", \"rozwoj\nkompetencji komunikacyjnych\" - chyba ze da sie napisac konkretniej). Klient\njest wyczulony na maslo maslane: nie powtarzaj \"plynnosc\"/\"swoboda\"/\"pewnosc\nsiebie\" w kilku roznych miejscach - kazda mysl wystepuje tylko raz.\n\nFORMAT WYJSCIA\nZwroc gotowy tekst na slajd (bez naglowkow \"1./2./3.\" i bez nazw sekcji jako\nosobnych linii) - ciagly, spojny tekst po polsku, w kolejnosci: wynik audytu,\nkontekst biznesowy, dotychczasowa nauka (jesli sa dane), wnioski z audytu,\nrekomendacja. Opieraj sie WYLACZNIE na danych podanych w wiadomosci\nuzytkownika - nie zmyslaj faktow, ktorych tam nie ma."
+        }
+      },
+      "id": "w8-13",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.9,
+      "position": [
+        2600,
+        380
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": "anthropic/claude-sonnet-4.5",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "w8-14",
+      "name": "OpenRouter Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        2600,
+        570
+      ],
+      "credentials": {
+        "openRouterApi": {
+          "id": "__OPENROUTER_CRED_ID__",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "w8-15",
+      "name": "AI output valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2860,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ASSESSMENTS__",
+        "operation": "update",
+        "id": "={{ $('Assessment from button').first().json.assessment_id }}",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "needs_summary",
+              "fieldValue": "={{ String($json.output).trim() }}"
+            },
+            {
               "fieldName": "ai_status",
-              "fieldValue": "ai_rejected"
+              "fieldValue": "ai_draft_ready"
+            },
+            {
+              "fieldName": "completion_status",
+              "fieldValue": "done"
+            }
+          ]
+        }
+      },
+      "id": "w8-16",
+      "name": "Save needs summary and set status: done",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        3120,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ACTIVITIES__",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "summary",
+              "fieldValue": "={{ 'Szkic needs summary gotowy do weryfikacji: ' + $('Assessment from button').first().json.title }}"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "ai_analysis_done"
+            },
+            {
+              "fieldName": "flow",
+              "fieldValue": "W8"
+            },
+            {
+              "fieldName": "triggered_by",
+              "fieldValue": "user"
+            },
+            {
+              "fieldName": "payload",
+              "fieldValue": "={{ JSON.stringify({ assessment_id: $('Assessment from button').first().json.assessment_id }) }}"
+            }
+          ]
+        }
+      },
+      "id": "w8-17",
+      "name": "Log activity: AI needs summary ready",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        3380,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Opportunity of the audit').first().json.opp_id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "w8-18",
+      "name": "Is the audit tied to an opportunity?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3640,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/__TBL_SALE_OPPORTUNITIES__/links/__COL_SALE_OPPORTUNITIES__ACTIVITIES__/records/{{ $('Opportunity of the audit').first().json.opp_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $json.Id }]) }}",
+        "options": {}
+      },
+      "id": "w8-19",
+      "name": "Link the activity to the opportunity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        3900,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "prepare-ai-error-message",
+              "name": "message",
+              "type": "string",
+              "value": "={{ 'Generowanie needs summary nie powiodło się (' + ($json.error?.message ?? (typeof $json.error === 'string' ? $json.error : null) ?? 'model zwrócił pustą odpowiedź') + '). Kliknij „Generuj needs summary” ponownie.' }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w8-20",
+      "name": "Prepare AI error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3120,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ASSESSMENTS__",
+        "operation": "update",
+        "id": "={{ $('Assessment from button').first().json.assessment_id }}",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "completion_status",
+              "fieldValue": "error"
+            },
+            {
+              "fieldName": "needs_summary",
+              "fieldValue": "={{ $json.message }}"
+            }
+          ]
+        }
+      },
+      "id": "w8-21",
+      "name": "Write error and set status: error",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        3380,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ACTIVITIES__",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "summary",
+              "fieldValue": "={{ 'Generowanie needs summary nie powiodło się: ' + $('Assessment from button').first().json.title }}"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "automation_error"
+            },
+            {
+              "fieldName": "flow",
+              "fieldValue": "W8"
+            },
+            {
+              "fieldName": "triggered_by",
+              "fieldValue": "user"
+            },
+            {
+              "fieldName": "payload",
+              "fieldValue": "={{ JSON.stringify({ assessment_id: $('Assessment from button').first().json.assessment_id, error: $('Prepare AI error').first().json.message }) }}"
+            }
+          ]
+        }
+      },
+      "id": "w8-22",
+      "name": "Log activity: AI needs summary failed",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        3640,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ASSESSMENTS__",
+        "operation": "update",
+        "id": "={{ $('Assessment from button').first().json.assessment_id }}",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "completion_status",
+              "fieldValue": "error"
             },
             {
               "fieldName": "needs_summary",
@@ -152,54 +862,197 @@
           ]
         }
       },
-      "id": "reject-cefr-scores-missing",
-      "name": "Reject: CEFR scores missing",
+      "id": "w8-23",
+      "name": "Reject: CEFR scores missing and set status: error",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
+      "position": [
+        1040,
+        1140
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_ASSESSMENTS__",
+          "mode": "id"
+        },
+        "id": "={{ $('Assessment from button').first().json.assessment_id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_ASSESSMENTS__TASKS__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_TASKS__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_TASKS__TASK_TYPE__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_TASKS__STATUS__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "id": "w8-24",
+      "name": "Get tasks of the assessment",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
       "position": [
         1300,
         1140
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
-      }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'assessments').id }}/links/crko2ykwj0zepb1/records/{{ $('Guard').first().json.assessment_id }}?limit=200",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "nocoDbApiToken",
-        "options": {}
+        "assignments": {
+          "assignments": [
+            {
+              "id": "check-for-open-input-task-has_open_task",
+              "name": "has_open_task",
+              "type": "boolean",
+              "value": "={{ $('Get tasks of the assessment').all().some(i => i.json.fields?.task_type === 'provide_input' && !['done', 'cancelled'].includes(i.json.fields?.status)) }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
       },
-      "id": "get-tasks-of-the-assessment",
-      "name": "Get tasks of the assessment",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "w8-25",
+      "name": "Check for open input task",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
         1560,
         1140
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      }
+      ]
     },
     {
       "parameters": {
-        "jsCode": "\nconst list = $input.first().json.list || [];\nconst open = list.some(t => t.task_type === 'provide_input' && t.status !== 'done' && t.status !== 'cancelled');\nconst g = $('Guard').first().json;\nconst due = new Date().toISOString().slice(0, 10);\nreturn open ? [] : [{ json: { title: `Uzupełnij oceny CEFR: ${g.title}`, role: 'metodyczka',\n  preferred_employee_id: null, on_date: due, due_date: due } }];\n"
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.has_open_task }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
       },
-      "id": "is-the-input-task-still-missing",
+      "id": "w8-26",
       "name": "Is the input task still missing?",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
       "position": [
         1820,
+        1140
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "task-details-to-assign-title",
+              "name": "title",
+              "type": "string",
+              "value": "={{ 'Uzupełnij oceny CEFR: ' + $('Assessment from button').first().json.title }}"
+            },
+            {
+              "id": "task-details-to-assign-role",
+              "name": "role",
+              "type": "string",
+              "value": "metodyczka"
+            },
+            {
+              "id": "task-details-to-assign-preferred_employee_id",
+              "name": "preferred_employee_id",
+              "type": "number",
+              "value": "={{ null }}"
+            },
+            {
+              "id": "task-details-to-assign-on_date",
+              "name": "on_date",
+              "type": "string",
+              "value": "={{ $now.toFormat('yyyy-MM-dd') }}"
+            },
+            {
+              "id": "task-details-to-assign-due_date",
+              "name": "due_date",
+              "type": "string",
+              "value": "={{ $now.toFormat('yyyy-MM-dd') }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w8-27",
+      "name": "Task details to assign",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2080,
         1140
       ]
     },
@@ -216,23 +1069,10 @@
           "waitForSubWorkflow": true
         }
       },
-      "id": "resolve-who-should-fill-in-the-scores",
+      "id": "w8-28",
       "name": "Resolve who should fill in the scores",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [
-        2080,
-        1140
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "\nconst src = $('Is the input task still missing?').all();\nreturn $input.all().map((r, i) => ({ json: { ...src[i].json, ...r.json } }));\n"
-      },
-      "id": "attach-task-details-to-the-assignee",
-      "name": "Attach task details to the assignee",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
       "position": [
         2340,
         1140
@@ -240,10 +1080,42 @@
     },
     {
       "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "attach-task-details-to-the-assignee-title",
+              "name": "title",
+              "type": "string",
+              "value": "={{ $('Task details to assign').first().json.title }}"
+            },
+            {
+              "id": "attach-task-details-to-the-assignee-due_date",
+              "name": "due_date",
+              "type": "string",
+              "value": "={{ $('Task details to assign').first().json.due_date }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w8-29",
+      "name": "Attach task details to the assignee",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2600,
+        1140
+      ]
+    },
+    {
+      "parameters": {
         "authentication": "nocoDbApiToken",
-        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
-        "projectId": "={{ $('Get one base').first().json.id }}",
-        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'tasks').id }}",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_TASKS__",
         "operation": "create",
         "dataToSend": "defineBelow",
         "fieldsUi": {
@@ -275,31 +1147,31 @@
           ]
         }
       },
-      "id": "task-fill-in-the-cefr-scores",
+      "id": "w8-30",
       "name": "Task: fill in the CEFR scores",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        2600,
+        2860,
         1140
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "const FIELD = {\n \"employees.tasks\": \"c4q9kb2obrt2cu4\",\n \"assessments.tasks\": \"crko2ykwj0zepb1\",\n \"persons.tasks\": \"cm5y2wj9wttl0gr\",\n \"sale_opportunities.activities\": \"co11vdft4h2hp2h\"\n};\n\nconst TBL = t => $('Get one base').first().json.tables.find(x => x.title === t).id;\nconst link = (table, field, recordId, targetIds) => {\n  const ids = (Array.isArray(targetIds) ? targetIds : [targetIds]).filter(Boolean);\n  if (!recordId || !ids.length) return null;\n  return { json: { table_id: TBL(table), field_id: FIELD[table + '.' + field],\n                   record_id: recordId, body: JSON.stringify(ids.map(Id => ({ Id }))) } };\n};\n\nconst g = $('Guard').first().json;\nconst a = $('Attach task details to the assignee').first().json;\nconst tid = $input.first().json.Id;\nreturn [link('employees', 'tasks', a.assignee_id, tid), link('assessments', 'tasks', g.assessment_id, tid),\n        link('persons', 'tasks', g.person_id, tid)].filter(Boolean);\n"
+        "jsCode": "\n// Jeden nowy task -> trzy linki (przypisany, ocena, osoba); wyjątek od \"Set zamiast Code\":\n// rozwija jeden item na kilka.\nconst FIELD = {\n  'employees': '__COL_EMPLOYEES__TASKS__',\n  'assessments': '__COL_ASSESSMENTS__TASKS__',\n  'persons': '__COL_PERSONS__TASKS__',\n};\nconst TBL = {\n  'employees': '__TBL_EMPLOYEES__',\n  'assessments': '__TBL_ASSESSMENTS__',\n  'persons': '__TBL_PERSONS__',\n};\nconst g = $('Assessment from button').first().json;\nconst a = $('Attach task details to the assignee').first().json;\nconst tid = $input.first().json.Id;\nconst link = (table, recordId) => (recordId && tid)\n  ? { json: { table_id: TBL[table], field_id: FIELD[table], record_id: recordId, body: JSON.stringify([{ Id: tid }]) } }\n  : null;\nreturn [link('employees', a.assignee_id), link('assessments', g.assessment_id), link('persons', g.person_id)].filter(Boolean);\n"
       },
-      "id": "prepare-task-links",
+      "id": "w8-31",
       "name": "Prepare task links",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2860,
+        3120,
         1140
       ]
     },
@@ -314,515 +1186,46 @@
         "jsonBody": "={{ $json.body }}",
         "options": {}
       },
-      "id": "link-the-task-to-assignee-assessment-and-person",
+      "id": "w8-32",
       "name": "Link the task to assignee, assessment and person",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
-        3120,
+        3380,
         1140
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "authentication": "nocoDbApiToken",
-        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
-        "projectId": "={{ $('Get one base').first().json.id }}",
-        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'persons').id }}",
-        "operation": "get",
-        "id": "={{ $('Guard').first().json.person_id }}"
-      },
-      "id": "get-person",
-      "name": "Get person",
-      "type": "n8n-nodes-base.nocoDb",
-      "typeVersion": 3,
-      "position": [
-        1300,
-        190
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      },
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'persons').id }}/links/cavn9h33z8va87m/records/{{ $('Guard').first().json.person_id || 0 }}?limit=200",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "nocoDbApiToken",
-        "options": {}
-      },
-      "id": "get-company-of-the-person",
-      "name": "Get company of the person",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        1300,
-        380
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      },
-      "onError": "continueRegularOutput",
-      "alwaysOutputData": true
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'meetings').id }}/links/cyo4kq3xkhyqgez/records/{{ $('Guard').first().json.meeting_id || 0 }}?limit=200",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "nocoDbApiToken",
-        "options": {}
-      },
-      "id": "get-opportunity-of-the-audit-meeting",
-      "name": "Get opportunity of the audit meeting",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        1300,
-        570
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      },
-      "onError": "continueRegularOutput",
-      "alwaysOutputData": true
-    },
-    {
-      "parameters": {
-        "jsCode": "\nconst o = ($input.first().json.list || [])[0] || null;\nreturn [{ json: { opp_id: o ? o.Id : null, segment: o ? (o.segment || '') : '' } }];\n"
-      },
-      "id": "opportunity-of-the-audit",
-      "name": "Opportunity of the audit",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1560,
-        570
-      ]
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'sale_opportunities').id }}/links/c19mj9hutepy4kx/records/{{ $json.opp_id || 0 }}?limit=200",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "nocoDbApiToken",
-        "options": {}
-      },
-      "id": "get-meetings-of-the-opportunity",
-      "name": "Get meetings of the opportunity",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        1820,
-        570
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      },
-      "onError": "continueRegularOutput",
-      "alwaysOutputData": true
-    },
-    {
-      "parameters": {
-        "numberInputs": 3
-      },
-      "id": "wait-for-person-company-and-discovery-data",
-      "name": "Wait for person, company and discovery data",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3,
-      "position": [
-        2080,
-        380
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "\n// Sklada dane z CRM w jeden tekst dla AI Agenta; prompt metodyczny siedzi w\n// System Message noda \"AI Agent\" (edytowalny bez znajomosci JS).\nconst g = $('Guard').first().json;\nconst person = $('Get person').first().json || {};\nlet company = {};\ntry { company = (($('Get company of the person').first().json.list) || [])[0] || {}; } catch (e) {}\nconst opp = $('Opportunity of the audit').first().json;\nlet meetings = [];\ntry { meetings = ($('Get meetings of the opportunity').first().json.list) || []; } catch (e) {}\nconst latest = meetings.filter(m => m.meeting_type === 'discovery')\n  .sort((a, b) => String(b.starts_at || '').localeCompare(String(a.starts_at || '')))[0] || {};\nconst accepted = latest.ai_status === 'ai_accepted';\nconst lines = [\n  '## Wyniki audytu (ocena CEFR)',\n  `Ogolny: ${g.cefr_overall || 'brak'}`,\n  `Zakres jezyka: ${g.cefr_range || 'brak'}`,\n  `Poprawnosc: ${g.cefr_accuracy || 'brak'}`,\n  `Plynnosc: ${g.cefr_fluency || 'brak'}`,\n  `Komunikatywnosc: ${g.cefr_communication || 'brak'}`,\n  `Mocne strony: ${g.strengths || 'brak danych'}`,\n  `Luki: ${g.gaps || 'brak danych'}`,\n  '',\n  '## Notatki metodyka po demo/audycie',\n  g.auditor_notes || 'brak notatek',\n  '',\n  '## Kontekst uczestnika',\n  `Imie i nazwisko: ${person.full_name || 'brak'}`,\n  `Stanowisko: ${person.position || 'brak'}`,\n  `Kontekst roli (z kim/o czym rozmawia po angielsku): ${person.role_context || 'brak'}`,\n  `Czestotliwosc uzywania angielskiego: ${person.frequency || 'brak'}`,\n  `Samoocena uczestnika: ${g.self_assessment || 'brak'}`,\n  `Potrzeby wg managera/HR: ${g.manager_needs || 'brak'}`,\n  '',\n  '## Kontekst biznesowy',\n  `Typ klienta: ${opp.segment || 'brak'}`,\n  `Branza: ${person.industry || company.industry || 'brak'}`,\n  company.name ? `Firma: ${company.name}` : null,\n  company.communication_processes ? `Procesy komunikacyjne w firmie: ${company.communication_processes}` : null,\n  company.business_impact ? `Wplyw jezyka na biznes: ${company.business_impact}` : null,\n  '',\n  '## Notatki z discovery call',\n  latest.notes || 'brak notatek z discovery call (lub brak spotkania typu discovery dla tej szansy)',\n  accepted && latest.goals ? `\\nCele klienta (zaakceptowana analiza): ${latest.goals}` : null,\n  accepted && latest.challenges ? `Wyzwania (zaakceptowana analiza): ${latest.challenges}` : null,\n  accepted && latest.communication_situations ? `Sytuacje komunikacyjne (zaakceptowana analiza): ${latest.communication_situations}` : null,\n];\nreturn [{ json: { user: lines.filter(l => l !== null).join('\\n'), opp_id: opp.opp_id } }];\n"
-      },
-      "id": "assemble-context",
-      "name": "Assemble context",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        2340,
-        380
-      ]
-    },
-    {
-      "parameters": {
-        "promptType": "define",
-        "text": "={{ $json.user }}",
-        "options": {
-          "systemMessage": "Jestes metodykiem CoAction piszacym rekomendacje szkoleniowa (opis potrzeby\ntreningowej) dla jednego uczestnika, na podstawie audytu jezykowego i wywiadu\ndiscovery. Tekst, ktory tworzysz, trafia wprost na slajd 3 oferty (\"Potrzeba\nszkoleniowa - opis Twojej sytuacji\").\n\nFILOZOFIA COACTION: najpierw opisujemy czlowieka i jego sytuacje biznesowa,\npotem wyjasniamy, dlaczego jezyk jest dzis ograniczeniem, a dopiero na koncu\npokazujemy jakie konkretne umiejetnosci szkolenie rozwinie. Rekomendacja ma\nsprawiac wrazenie napisanego specjalnie dla tej jednej osoby dokumentu, a nie\nszablonu z podmienionym imieniem. W kazdym fragmencie odpowiadaj na pytanie:\n\"dlaczego wlasnie to jest teraz najwazniejsze dla tego klienta?\"\n\nSTRUKTURA REKOMENDACJI\n\n1. Wynik audytu\nNa poczatku podaj poziomy: ogolny, zakres jezyka, poprawnosc, plynnosc,\nkomunikatywnosc. Zawsze: odwolaj sie do wszystkich kompetencji z audytu, pokaz\nzaleznosci miedzy nimi, wskaz ktora kompetencja ogranicza klienta najbardziej,\nnie opisuj tylko liczb, pokaz praktyczny wplyw na prace. Opisz konkretne\nzachowania (np. spadek plynnosci, brak struktury, niepewnosc, brak jezyka\nperswazji, brak jezyka do parafrazy, trudnosci z asking for clarification,\nblokowanie sie, zbyt szybkie przechodzenie do sedna, problemy z wymowa,\nniewykorzystywanie znanego slownictwa, brak signposting, brak small talku\nitp.) - tylko te, ktore faktycznie wynikaja z danych ponizej.\n\n2. Kontekst biznesowy\nW 2-4 zdaniach opisz: kim jest klient, w jakim srodowisku pracuje, dlaczego\nwlasnie teraz angielski stal sie kluczowy, jaki jest jego glowny cel\nbiznesowy. Skup sie na rzeczywistym problemie biznesowym, nie na ogolnej\npotrzebie nauki jezyka.\n\n3. Dotychczasowa nauka i jej ograniczenia\nKrotko (1-2 zdania) opisz historie nauki TYLKO wtedy, gdy dane ponizej na to\npozwalaja i gdy to pomaga zrozumiec obecna sytuacje (wczesniejsze kursy, dluga\nprzerwa, praca w innym jezyku, samodzielna nauka, brak kontekstu biznesowego\nlub branzowego). Zakoncz wskazaniem, czego zabraklo dotychczasowej nauce (np.\npracy na realnych sytuacjach zawodowych, personalizacji, praktyki mowienia,\nregularnego feedbacku, kontekstu branzowego, cwiczenia konkretnych scenariuszy\nbiznesowych) - tak, by naturalnie uzasadnic, dlaczego poprzednie metody nie\nprzynioly oczekiwanego efektu. Jesli danych o historii nauki brak, pomin ta\nczesc zamiast zmyslac.\n\n4. Wnioski z audytu\nOpisz wylacznie obserwacje z audytu/demo: mocne strony, spadki plynnosci lub\nkomunikatywnosci, najtrudniejsze scenariusze, zauwazalne braki jezykowe,\nelementy wymagajace rozwoju. Odnos sie do konkretnych sytuacji zawodowych z\nrole play, jesli sa opisane w notatkach ponizej (nie tylko \"poziom B2\", ale\nnp. zabraklo signposting, zabraklo jezyka argumentacji, pojawil sie stres,\nklient zaczal od \"How can I help you?\" zamiast small talku, nie potrafil\nrozwinac wypowiedzi, zabraklo jezyka parafrazy, zatrzymywal sie na\nniezrozumianym fragmencie rozmowy - o ile takie obserwacje faktycznie\nwystepuja w danych).\n\n5. Rekomendacja\nRozpocznij od: \"Potrzebujesz szkolenia, ktore...\". Opisz, w jaki sposob\nszkolenie pomoze rozwiazac najwazniejsze problemy biznesowe klienta. Nie\nopisuj programu zajec ani konkretnych modulow/godzin. Pokaz efekt, jaki\nklient osiagnie dzieki pracy na autentycznych scenariuszach z jego\ncodziennej pracy.\n\nSTYL I JEZYK\nMa brzmiec jak konsultacja - nie marketing, nie raport, nie opis poziomu, nie\ncoaching. Profesjonalny, naturalny jezyk polski, bez pustych slow (\"kompleksowy\",\n\"holistyczny\", \"synergia\", \"efektywne wykorzystanie potencjalu\", \"rozwoj\nkompetencji komunikacyjnych\" - chyba ze da sie napisac konkretniej). Klient\njest wyczulony na maslo maslane: nie powtarzaj \"plynnosc\"/\"swoboda\"/\"pewnosc\nsiebie\" w kilku roznych miejscach - kazda mysl wystepuje tylko raz.\n\nFORMAT WYJSCIA\nZwroc gotowy tekst na slajd (bez naglowkow \"1./2./3.\" i bez nazw sekcji jako\nosobnych linii) - ciagly, spojny tekst po polsku, w kolejnosci: wynik audytu,\nkontekst biznesowy, dotychczasowa nauka (jesli sa dane), wnioski z audytu,\nrekomendacja. Opieraj sie WYLACZNIE na danych podanych w wiadomosci\nuzytkownika - nie zmyslaj faktow, ktorych tam nie ma."
-        }
-      },
-      "id": "ai-agent",
-      "name": "AI Agent",
-      "type": "@n8n/n8n-nodes-langchain.agent",
-      "typeVersion": 1.9,
-      "position": [
-        2600,
-        380
-      ],
-      "onError": "continueErrorOutput"
-    },
-    {
-      "parameters": {
-        "model": "anthropic/claude-sonnet-4.5",
-        "options": {
-          "timeout": 60000
-        }
-      },
-      "id": "openrouter-chat-model",
-      "name": "OpenRouter Chat Model",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
-      "typeVersion": 1,
-      "position": [
-        2600,
-        570
-      ],
-      "credentials": {
-        "openRouterApi": {
-          "id": "sd2Yv1RgXeRJ2gk9",
-          "name": "OpenRouter account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "\nconst text = String(($input.first().json.output || '')).trim();\nif (!text) return [{ json: { ok: false, error_message: 'Model zwrócił pustą odpowiedź.' } }];\nreturn [{ json: { ok: true, text } }];\n"
-      },
-      "id": "parse-ai-output",
-      "name": "Parse AI output",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        2860,
-        190
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose"
-          },
-          "combinator": "and",
-          "conditions": [
-            {
-              "id": "c1",
-              "leftValue": "={{ $json.ok }}",
-              "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "ai-output-valid",
-      "name": "AI output valid?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        3120,
-        190
-      ]
-    },
-    {
-      "parameters": {
-        "authentication": "nocoDbApiToken",
-        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
-        "projectId": "={{ $('Get one base').first().json.id }}",
-        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'assessments').id }}",
-        "operation": "update",
-        "id": "={{ $('Guard').first().json.assessment_id }}",
-        "dataToSend": "defineBelow",
-        "fieldsUi": {
-          "fieldValues": [
-            {
-              "fieldName": "needs_summary",
-              "fieldValue": "={{ $json.text }}"
-            },
-            {
-              "fieldName": "ai_status",
-              "fieldValue": "ai_draft_ready"
-            }
-          ]
-        }
-      },
-      "id": "save-needs-summary-draft",
-      "name": "Save needs summary (draft)",
-      "type": "n8n-nodes-base.nocoDb",
-      "typeVersion": 3,
-      "position": [
-        3380,
-        0
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "authentication": "nocoDbApiToken",
-        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
-        "projectId": "={{ $('Get one base').first().json.id }}",
-        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'activities').id }}",
-        "operation": "create",
-        "dataToSend": "defineBelow",
-        "fieldsUi": {
-          "fieldValues": [
-            {
-              "fieldName": "summary",
-              "fieldValue": "={{ 'Szkic needs summary gotowy do weryfikacji: ' + $('Guard').first().json.title }}"
-            },
-            {
-              "fieldName": "type",
-              "fieldValue": "ai_analysis_done"
-            },
-            {
-              "fieldName": "flow",
-              "fieldValue": "W8"
-            },
-            {
-              "fieldName": "triggered_by",
-              "fieldValue": "user"
-            },
-            {
-              "fieldName": "payload",
-              "fieldValue": "={{ JSON.stringify({ assessment_id: $('Guard').first().json.assessment_id }) }}"
-            }
-          ]
-        }
-      },
-      "id": "log-activity-ai-needs-summary-ready",
-      "name": "Log activity: AI needs summary ready",
-      "type": "n8n-nodes-base.nocoDb",
-      "typeVersion": 3,
-      "position": [
-        3640,
-        0
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "const FIELD = {\n \"employees.tasks\": \"c4q9kb2obrt2cu4\",\n \"assessments.tasks\": \"crko2ykwj0zepb1\",\n \"persons.tasks\": \"cm5y2wj9wttl0gr\",\n \"sale_opportunities.activities\": \"co11vdft4h2hp2h\"\n};\n\nconst TBL = t => $('Get one base').first().json.tables.find(x => x.title === t).id;\nconst link = (table, field, recordId, targetIds) => {\n  const ids = (Array.isArray(targetIds) ? targetIds : [targetIds]).filter(Boolean);\n  if (!recordId || !ids.length) return null;\n  return { json: { table_id: TBL(table), field_id: FIELD[table + '.' + field],\n                   record_id: recordId, body: JSON.stringify(ids.map(Id => ({ Id }))) } };\n};\n\nconst opp = $('Assemble context').first().json.opp_id;\nreturn [link('sale_opportunities', 'activities', opp, $input.first().json.Id)].filter(Boolean);\n"
-      },
-      "id": "prepare-activity-link",
-      "name": "Prepare activity link",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        3900,
-        0
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $json.table_id }}/links/{{ $json.field_id }}/records/{{ $json.record_id }}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "nocoDbApiToken",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ $json.body }}",
-        "options": {}
-      },
-      "id": "link-the-activity-to-the-opportunity",
-      "name": "Link the activity to the opportunity",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        4160,
-        0
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "\nconst e = $input.first().json;\nconst msg = e.error_message || (e.error && (e.error.message || String(e.error))) || 'nieznany błąd';\nreturn [{ json: { message: 'Generowanie needs summary nie powiodło się (' + msg + '). Kliknij „Generuj needs summary” ponownie.' } }];\n"
-      },
-      "id": "prepare-ai-error",
-      "name": "Prepare AI error",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        3120,
-        570
-      ]
-    },
-    {
-      "parameters": {
-        "authentication": "nocoDbApiToken",
-        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
-        "projectId": "={{ $('Get one base').first().json.id }}",
-        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'assessments').id }}",
-        "operation": "update",
-        "id": "={{ $('Guard').first().json.assessment_id }}",
-        "dataToSend": "defineBelow",
-        "fieldsUi": {
-          "fieldValues": [
-            {
-              "fieldName": "ai_status",
-              "fieldValue": "none"
-            },
-            {
-              "fieldName": "needs_summary",
-              "fieldValue": "={{ $json.message }}"
-            }
-          ]
-        }
-      },
-      "id": "reset-status-and-write-the-error",
-      "name": "Reset status and write the error",
-      "type": "n8n-nodes-base.nocoDb",
-      "typeVersion": 3,
-      "position": [
-        3380,
-        570
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "authentication": "nocoDbApiToken",
-        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
-        "projectId": "={{ $('Get one base').first().json.id }}",
-        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'activities').id }}",
-        "operation": "create",
-        "dataToSend": "defineBelow",
-        "fieldsUi": {
-          "fieldValues": [
-            {
-              "fieldName": "summary",
-              "fieldValue": "={{ 'Generowanie needs summary nie powiodło się: ' + $('Guard').first().json.title }}"
-            },
-            {
-              "fieldName": "type",
-              "fieldValue": "automation_error"
-            },
-            {
-              "fieldName": "flow",
-              "fieldValue": "W8"
-            },
-            {
-              "fieldName": "triggered_by",
-              "fieldValue": "user"
-            },
-            {
-              "fieldName": "payload",
-              "fieldValue": "={{ JSON.stringify({ assessment_id: $('Guard').first().json.assessment_id, error: $('Prepare AI error').first().json.message }) }}"
-            }
-          ]
-        }
-      },
-      "id": "log-activity-ai-needs-summary-failed",
-      "name": "Log activity: AI needs summary failed",
-      "type": "n8n-nodes-base.nocoDb",
-      "typeVersion": 3,
-      "position": [
-        3640,
-        570
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
       }
     }
   ],
   "connections": {
-    "OpenRouter Chat Model": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "AI Agent",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Button: Generuj needs summary": {
       "main": [
         [
           {
-            "node": "Get one base",
+            "node": "Set status: collecting data",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get one base": {
+    "Set status: collecting data": {
       "main": [
         [
           {
-            "node": "Set ai_status: pending",
+            "node": "Assessment from button",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Set ai_status: pending": {
-      "main": [
-        [
-          {
-            "node": "Guard",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Guard": {
+    "Assessment from button": {
       "main": [
         [
           {
@@ -854,7 +1257,7 @@
         ],
         [
           {
-            "node": "Reject: CEFR scores missing",
+            "node": "Reject: CEFR scores missing and set status: error",
             "type": "main",
             "index": 0
           }
@@ -896,25 +1299,22 @@
     },
     "Get company of the person": {
       "main": [
-        [],
         [
           {
             "node": "Wait for person, company and discovery data",
             "type": "main",
-            "index": 0
+            "index": 1
           }
         ]
       ]
     },
     "Get meetings of the opportunity": {
       "main": [
-        [],
-        [],
         [
           {
             "node": "Wait for person, company and discovery data",
             "type": "main",
-            "index": 0
+            "index": 2
           }
         ]
       ]
@@ -934,8 +1334,30 @@
       "main": [
         [
           {
+            "node": "Set status: generating",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set status: generating": {
+      "main": [
+        [
+          {
             "node": "AI Agent",
             "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
             "index": 0
           }
         ]
@@ -945,7 +1367,7 @@
       "main": [
         [
           {
-            "node": "Parse AI output",
+            "node": "AI output valid?",
             "type": "main",
             "index": 0
           }
@@ -953,17 +1375,6 @@
         [
           {
             "node": "Prepare AI error",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Parse AI output": {
-      "main": [
-        [
-          {
-            "node": "AI output valid?",
             "type": "main",
             "index": 0
           }
@@ -974,7 +1385,7 @@
       "main": [
         [
           {
-            "node": "Save needs summary (draft)",
+            "node": "Save needs summary and set status: done",
             "type": "main",
             "index": 0
           }
@@ -988,7 +1399,7 @@
         ]
       ]
     },
-    "Save needs summary (draft)": {
+    "Save needs summary and set status: done": {
       "main": [
         [
           {
@@ -1003,14 +1414,14 @@
       "main": [
         [
           {
-            "node": "Prepare activity link",
+            "node": "Is the audit tied to an opportunity?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Prepare activity link": {
+    "Is the audit tied to an opportunity?": {
       "main": [
         [
           {
@@ -1025,14 +1436,14 @@
       "main": [
         [
           {
-            "node": "Reset status and write the error",
+            "node": "Write error and set status: error",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Reset status and write the error": {
+    "Write error and set status: error": {
       "main": [
         [
           {
@@ -1043,7 +1454,7 @@
         ]
       ]
     },
-    "Reject: CEFR scores missing": {
+    "Reject: CEFR scores missing and set status: error": {
       "main": [
         [
           {
@@ -1058,6 +1469,17 @@
       "main": [
         [
           {
+            "node": "Check for open input task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check for open input task": {
+      "main": [
+        [
+          {
             "node": "Is the input task still missing?",
             "type": "main",
             "index": 0
@@ -1066,6 +1488,17 @@
       ]
     },
     "Is the input task still missing?": {
+      "main": [
+        [
+          {
+            "node": "Task details to assign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Task details to assign": {
       "main": [
         [
           {
