@@ -1797,7 +1797,9 @@ FLOWS = {
     "W17_generate_audit_tasks.json": build_w17,
     "W18_assessment_saved.json": build_w18,
     "W19_ai_draft_reminders.json": build_w19,
-    "W8_assessment_needs_summary.json": build_w8,
+    # W8 przebudowal recznie uzytkownik (commit ec45d47, nowe zasady n8n-flow);
+    # generator by go nadpisal, wiec build_w8 zostaje tylko jako legacy.
+    # "W8_assessment_needs_summary.json": build_w8,
     "W20_opportunity_type.json": build_w20,
     "W21_opportunity_for_person.json": build_w21,
 }

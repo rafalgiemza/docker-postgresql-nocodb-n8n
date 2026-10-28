@@ -370,6 +370,10 @@ metodyczny wyciągnąłem do `scripts/flow-prompts/w8_needs_summary_system_messa
 
 ## Etap 4 — rekomendacje i oferty
 
+> Porównanie kontraktu danych oferty (test v3, W1 dziś, prawdziwy szablon, baza
+> v4), lista rozjazdów schematu i plan przepisania W1: patrz
+> [nocodb_crm_offers_v4.md](nocodb_crm_offers_v4.md).
+
 **Tabele:** `recommendations`, `offers`, `pricing`, `document_templates`,
 `testimonials`, `training_descriptions`, `recommendation_packages`,
 `package_variants_*`, `package_core_slides`, `selected_package_variants_*`,
