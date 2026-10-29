@@ -136,12 +136,12 @@ CZEGO TEN SKRYPT NIE ROBI (do wyklikania ręcznie po uruchomieniu):
      Zmiana z 2026-09-16: `package_variants` rozbite na DWA katalogi -
      `package_variants_cores` (glowne pakiety, dynamiczna liczba slajdow
      uzasadnienia, pola name/description + link `slides` - patrz poprawka
-     z 2026-09-17 nizej) i `package_variants_adons` (dodatki/skille o
+     z 2026-09-17 nizej) i `package_variants_others` (dodatki/skille o
      STALYCH slajdach w szablonie, pola name/default_hours/key) - patrz
      .ai/slajdy.md. Personalizowany wybor
      per recommendation przenosi sie z `offer_packages` na dwie nowe
      tabele-laczace: `selected_package_variants_cores` i
-     `selected_package_variants_adons` (kazda: pole `hours` + link do
+     `selected_package_variants_others` (kazda: pole `hours` + link do
      wlasciwego katalogu). `offer_packages` i `package_variants` ZNIKAJA z
      TABLES/RELATIONS/BUTTONS ponizej - ale skrypt TYLKO TWORZY, nigdy nie
      usuwa: na juz wdrozonej produkcji (prod od 2026-08-10) te dwie tabele
@@ -160,17 +160,17 @@ CZEGO TEN SKRYPT NIE ROBI (do wyklikania ręcznie po uruchomieniu):
      Zmiana z 2026-09-17: `offers.total_price` przestaje byc zwyklym,
      recznie wpisywanym Currency - liczy sie automatycznie z wybranych
      pakietow/dodatkow (hours x price kazdego wiersza
-     selected_package_variants_cores/adons). NocoDB Rollup agreguje TYLKO
+     selected_package_variants_cores/others). NocoDB Rollup agreguje TYLKO
      jedna kolumne z jednej relacji (jeden "hop"), a total_price potrzebuje
      danych dwa hopy nizej (offers -> recommendations -> selected_*), wiec
      COMPUTED_FIELDS nizej buduje lancuch Formula/Rollup: `line_total`
-     (Formula na kazdej z selected_*) -> `cores_subtotal`/`adons_subtotal`
+     (Formula na kazdej z selected_*) -> `cores_subtotal`/`others_subtotal`
      (Rollup na recommendations) -> `package_total` (Formula na
      recommendations) -> `offers.total_price` (Rollup, uidt zmienione z
      Currency na Rollup - stad total_price ZNIKA z listy zwyklych pol
      `offers` w TABLES i jest tworzone osobno w create_computed_fields()).
      Dodano tez pole `price` (Currency, stawka za godzine) na
-     selected_package_variants_cores/adons - wczesniej mialy tylko `hours`.
+     selected_package_variants_cores/others - wczesniej mialy tylko `hours`.
      Kontrakt Rollup (fk_relation_column_id/fk_rollup_column_id/
      rollup_function) NIE jest zgadywany - to dokladny ksztalt zaobserwowany
      w prawdziwym dumpie docs/archive/fable/schema_map.json na polu
@@ -189,7 +189,7 @@ CZEGO TEN SKRYPT NIE ROBI (do wyklikania ręcznie po uruchomieniu):
      Kazdy pakiet core dostaje 0-3 wiersze tej tabeli, po jednym na kazdy
      slajd uzasadnienia - dokladnie tyle samo elastycznosci ("dopisz slajd"),
      ile dawalo bezposrednie edytowanie szablonu PRZED przemodelowaniem na
-     cores/adons, tylko teraz jako dane w NocoDB zamiast recznej edycji pptx.
+     cores/others, tylko teraz jako dane w NocoDB zamiast recznej edycji pptx.
      NA JUZ WDROZONEJ BAZIE `package_variants_cores.slides` istnieje jako
      zwykle pole Number (utworzone przy pierwszym, blednym przebiegu tej
      samej zmiany) - dokladnie ten sam problem co z `offers.total_price`
@@ -197,13 +197,13 @@ CZEGO TEN SKRYPT NIE ROBI (do wyklikania ręcznie po uruchomieniu):
      init-schema` NIE zamieni go samo na Links; usun je RECZNIE w UI NocoDB
      przed ponownym uruchomieniem skryptu.
      Sync z 2026-09-17 (docs/archive/fable/schema_map.json, dump po recznych
-     poprawkach na zywej bazie): dopisano `package_variants_adons.description`
+     poprawkach na zywej bazie): dopisano `package_variants_others.description`
      (LongText, analogicznie do package_variants_cores.description - brakowalo
      go w TABLES) oraz `title` (SingleLineText, pierwsze pole) na obu
-     `selected_package_variants_cores`/`adons` - wczesniej mialy tylko
+     `selected_package_variants_cores`/`others` - wczesniej mialy tylko
      hours/price, co robilo z Number (`hours`) display value; `title`
      to rozwiazuje. NIEZASTOSOWANE swiadomie: na zywej bazie
-     `package_variants_adons.key` zostalo recznie przekonwertowane na
+     `package_variants_others.key` zostalo recznie przekonwertowane na
      SingleSelect (dump nie zapisuje listy opcji dla SingleSelect - patrz
      sync_select_options() nizej), ale realna lista opcji nie jest znana
      temu skryptowi, wiec TABLES nizej zostawia `key` jako SingleLineText -
@@ -903,6 +903,19 @@ TABLES = [
                             "zmienia sie rekomendacje."},
             gen_status_field("version", "Utwórz nową wersję"),
             gen_note_field("version", "Utwórz nową wersję"),
+            # --- dane do szablonu oferty (W1 v13) ---
+            {"title": "cover_style", "type": "SingleSelect",
+             "options": select("boy", "girl", "man", "woman"),
+             "description": "Wariant okladki oferty (klucz `key` w szablonie)."},
+            {"title": "logo_wall_style", "type": "SingleSelect",
+             "options": select("b2b", "it"),
+             "description": "Wariant slajdu z logotypami klientow."},
+            {"title": "completion_status", "type": "SingleSelect",
+             "options": select("none", "collecting data", "creating file",
+                               "generating", "done", "error"),
+             "description": "Postep generowania oferty przez n8n po kliknieciu "
+                            '"generuj ofertę". Ustawiany AUTOMATYCZNIE; przy '
+                            "error szczegoly sa w polu `warnings`."},
         ],
     },
     {
@@ -919,7 +932,7 @@ TABLES = [
         # pozwala dopiac 0-3 takich wierszy do jednego WYBORU pakietu -
         # dokladnie tyle, ile slajdow uzasadnienia ten wybor ma dostac w
         # ofercie (.ai/slajdy.md: "moze zajac 1-3 slajdow"), tak jak dalo sie
-        # to robic PRZED przemodelowaniem na cores/adons (dowolna liczba
+        # to robic PRZED przemodelowaniem na cores/others (dowolna liczba
         # dopisywanych slajdow, nie sztywny licznik).
         "title": "package_core_slides",
         "icon": "🖼️",
@@ -944,10 +957,10 @@ TABLES = [
     {
         # NOWA 2026-09-16: zastepuje `package_variants` (usuniete - patrz
         # naglowek skryptu, "Zmiana z 2026-09-16") - katalog GLOWNYCH
-        # pakietow ("cores"), rozdzielony od `package_variants_adons`
+        # pakietow ("cores"), rozdzielony od `package_variants_others`
         # (dodatki/skille) ponizej. .ai/slajdy.md: pakiety maja personalnie
         # dobierane godziny i uzasadnienie z assessmentu, ktore moze zajac
-        # 1-3 slajdy - DYNAMICZNA liczba, w odroznieniu od adons, ktore maja
+        # 1-3 slajdy - DYNAMICZNA liczba, w odroznieniu od others, ktore maja
         # STALE sloty w szablonie. POPRAWKA 2026-09-17: same slajdy
         # uzasadnienia (package_core_slides) NIE wisza pod tym katalogiem -
         # sa spersonalizowane per wybor, wiec link jest pod
@@ -972,7 +985,7 @@ TABLES = [
         # NOWA 2026-09-16: patrz komentarz przy package_variants_cores wyzej.
         # Odpowiednik "skilli" z .ai/slajdy.md - STALE sloty w szablonie
         # pptx, wlaczane/wylaczane przez render_if:key (stad pole `key`).
-        "title": "package_variants_adons",
+        "title": "package_variants_others",
         "icon": "🧩",
         "description": "Katalog dodatkow/skilli o STALYCH slajdach w "
                        "szablonie (w odroznieniu od package_variants_cores, "
@@ -991,7 +1004,7 @@ TABLES = [
             {"title": "default_hours", "type": "Number",
              "description": "Domyslna/typowa liczba godzin tego dodatku - "
                             "nadpisywana per rekomendacja w "
-                            "selected_package_variants_adons.hours."},
+                            "selected_package_variants_others.hours."},
             # NA JUZ WDROZONEJ BAZIE to pole zostalo recznie zmienione w UI
             # na SingleSelect (docs/archive/fable/schema_map.json,
             # 2026-09-17) - lista opcji NIE jest znana temu skryptowi (dump
@@ -1188,20 +1201,20 @@ TABLES = [
     },
     {
         # NOWA 2026-09-16: analogicznie do selected_package_variants_cores
-        # wyzej, dla dodatkow/skilli (`package_variants_adons`, stale sloty
+        # wyzej, dla dodatkow/skilli (`package_variants_others`, stale sloty
         # w szablonie). `title` - patrz komentarz przy
         # selected_package_variants_cores wyzej.
-        "title": "selected_package_variants_adons",
+        "title": "selected_package_variants_others",
         "icon": "🔌",
-        "description": "Wybrany dodatek/skill (package_variants_adons) w "
+        "description": "Wybrany dodatek/skill (package_variants_others) w "
                        "ramach jednej recommendation, z personalizowanymi "
-                       "godzinami. Link do package_variants_adons wskazuje "
+                       "godzinami. Link do package_variants_others wskazuje "
                        "dokladnie jeden katalogowy dodatek (RELATIONS).",
         "fields": [
             {"title": "title", "type": "SingleLineText"},
             {"title": "hours", "type": "Number",
              "description": "Godziny tego dodatku personalizowane dla TEJ "
-                            "rekomendacji - package_variants_adons."
+                            "rekomendacji - package_variants_others."
                             "default_hours to tylko katalogowa podpowiedz, "
                             "NIE jest tu automatycznie kopiowana."},
             # NOWA 2026-09-17: analogicznie do selected_package_variants_cores.price.
@@ -1418,8 +1431,8 @@ RELATIONS = [
     ("recommendations", "selected_cores", "hm", "selected_package_variants_cores", None),
     ("package_variants_cores", "selected_package_variants_cores", "hm", "selected_package_variants_cores", None),
     ("selected_package_variants_cores", "slides", "hm", "package_core_slides", None),
-    ("recommendations", "selected_adons", "hm", "selected_package_variants_adons", None),
-    ("package_variants_adons", "selected_package_variants_adons", "hm", "selected_package_variants_adons", None),
+    ("recommendations", "selected_others", "hm", "selected_package_variants_others", None),
+    ("package_variants_others", "selected_package_variants_others", "hm", "selected_package_variants_others", None),
     # --- taski
     ("tasks", "activities", "hm", "activities", None),
     ("projects", "tasks", "hm", "tasks", None),
@@ -1445,9 +1458,9 @@ BUILD_STAGE_OF = {
     # etap 4: rekomendacje, oferty i katalogi
     "recommendations": 4, "offers": 4, "pricing": 4, "document_templates": 4,
     "testimonials": 4, "training_descriptions": 4, "recommendation_packages": 4,
-    "package_variants_cores": 4, "package_variants_adons": 4,
+    "package_variants_cores": 4, "package_variants_others": 4,
     "package_core_slides": 4, "selected_package_variants_cores": 4,
-    "selected_package_variants_adons": 4, "materials": 4, "newsletter_stats": 4,
+    "selected_package_variants_others": 4, "materials": 4, "newsletter_stats": 4,
 }
 # Relacja trafia do etapu max(etap wlasciciela, etap celu); wyjatki ponizej,
 # zeby karta szansy w etapie 1 nie miala jeszcze pol audytowych.
@@ -1508,18 +1521,18 @@ BUTTON_PLACEHOLDER_NOTE = (
 
 # ------------------------------------------------- pola liczone (Formula/Rollup)
 # NOWA 2026-09-17: offers.total_price ma byc wyliczana automatycznie z
-# selected_package_variants_cores/adons (hours x price), patrz naglowek
+# selected_package_variants_cores/others (hours x price), patrz naglowek
 # skryptu "Zmiana z 2026-09-17". NocoDB Rollup agreguje TYLKO jedna kolumne
 # z JEDNEJ relacji (jeden "hop") - a total_price potrzebuje danych DWA hopy
 # nizej (offers -> recommendations -> selected_*), wiec lancuch musi isc
 # przez pola posrednie, W TEJ KOLEJNOSCI (kazdy kolejny wpis moze sie
 # odwolywac do poprzedniego):
 #   1. line_total (Formula, na KAZDEJ z selected_package_variants_cores/
-#      adons) = hours * price
-#   2. cores_subtotal / adons_subtotal (Rollup na recommendations) =
-#      SUM(line_total) po wlasciwym linku (selected_cores / selected_adons)
+#      others) = hours * price
+#   2. cores_subtotal / others_subtotal (Rollup na recommendations) =
+#      SUM(line_total) po wlasciwym linku (selected_cores / selected_others)
 #   3. package_total (Formula na recommendations) = cores_subtotal +
-#      adons_subtotal
+#      others_subtotal
 #   4. offers.total_price (Rollup) = SUM(package_total) po linku
 #      "recommendations"
 # Kontrakt Rollup (fk_relation_column_id/fk_rollup_column_id/
@@ -1535,25 +1548,25 @@ COMPUTED_FIELDS = [
      "description": "Kwota za ten wybrany pakiet core w tej rekomendacji "
                     "(hours x price) - liczone automatycznie, baza dla "
                     "recommendations.cores_subtotal. Nie edytowac recznie."},
-    {"table": "selected_package_variants_adons", "title": "line_total",
+    {"table": "selected_package_variants_others", "title": "line_total",
      "kind": "formula", "formula": "{hours}*{price}",
      "description": "Kwota za ten wybrany dodatek w tej rekomendacji "
                     "(hours x price) - liczone automatycznie, baza dla "
-                    "recommendations.adons_subtotal. Nie edytowac recznie."},
+                    "recommendations.others_subtotal. Nie edytowac recznie."},
     {"table": "recommendations", "title": "cores_subtotal",
      "kind": "rollup", "relation_field": "selected_cores",
      "rollup_table": "selected_package_variants_cores",
      "rollup_field": "line_total", "function": "sum",
      "description": "Suma line_total wszystkich wybranych pakietow core w "
                     "tej rekomendacji - liczone automatycznie."},
-    {"table": "recommendations", "title": "adons_subtotal",
-     "kind": "rollup", "relation_field": "selected_adons",
-     "rollup_table": "selected_package_variants_adons",
+    {"table": "recommendations", "title": "others_subtotal",
+     "kind": "rollup", "relation_field": "selected_others",
+     "rollup_table": "selected_package_variants_others",
      "rollup_field": "line_total", "function": "sum",
      "description": "Suma line_total wszystkich wybranych dodatkow w tej "
                     "rekomendacji - liczone automatycznie."},
     {"table": "recommendations", "title": "package_total",
-     "kind": "formula", "formula": "{cores_subtotal}+{adons_subtotal}",
+     "kind": "formula", "formula": "{cores_subtotal}+{others_subtotal}",
      "description": "Laczna kwota (core + dodatki) tej rekomendacji - "
                     "liczone automatycznie, baza dla offers.total_price."},
     {"table": "offers", "title": "total_price",
@@ -1562,7 +1575,7 @@ COMPUTED_FIELDS = [
      "function": "sum",
      "description": "Finalna cena oferty: suma package_total wszystkich "
                     "powiazanych recommendations (kazda: suma wybranych "
-                    "cores + adons, hours x price). Liczone automatycznie -"
+                    "cores + others, hours x price). Liczone automatycznie -"
                     " Rollup jest read-only w NocoDB, nie da sie tu wpisac "
                     "recznie. NA JUZ WDROZONEJ BAZIE to pole istnieje jako "
                     "zwykle Currency (recznie wpisywane) - trzeba je "

@@ -1,0 +1,2271 @@
+{
+  "name": "W1v13 - Generate offer (button: generuj ofertę)",
+  "nodes": [
+    {
+      "id": "w1-01",
+      "name": "Button: Generate offer",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        560
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "w1-generate-offer-v13",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "webhookId": "wh-w1-generate-offer-v13"
+    },
+    {
+      "id": "w1-02",
+      "name": "Offer from button",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        260,
+        560
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "offer-from-button-offer",
+              "name": "offer",
+              "type": "object",
+              "value": "={{ $('Button: Generate offer').first().json.body.data.rows[0] }}"
+            },
+            {
+              "id": "offer-from-button-template_id",
+              "name": "template_id",
+              "type": "number",
+              "value": "={{ $('Button: Generate offer').first().json.body.data.rows[0].document_templates?.Id ?? $('Button: Generate offer').first().json.body.data.rows[0].document_templates?.[0]?.Id ?? 0 }}"
+            },
+            {
+              "id": "offer-from-button-opportunity_id",
+              "name": "opportunity_id",
+              "type": "number",
+              "value": "={{ $('Button: Generate offer').first().json.body.data.rows[0].sale_opportunity?.Id ?? $('Button: Generate offer').first().json.body.data.rows[0].sale_opportunity?.[0]?.Id ?? 0 }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      }
+    },
+    {
+      "id": "w1-03",
+      "name": "Set status: collecting data",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        520,
+        560
+      ],
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "version": 2,
+        "operation": "update",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_OFFERS__",
+        "id": "={{ $('Offer from button').first().json.offer.Id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "completion_status",
+              "fieldValue": "collecting data"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "id": "w1-04",
+      "name": "Template chosen?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        780,
+        560
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Offer from button').first().json.template_id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "w1-05",
+      "name": "Error message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1560,
+        1000
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "error-message-message",
+              "name": "message",
+              "type": "string",
+              "value": "={{ 'Generowanie oferty nie powiodło się (' + $json.what + '): ' + ($json.error?.message ?? $json.error ?? 'nieznany błąd') + '. Popraw dane i kliknij „generuj ofertę” ponownie.' }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      }
+    },
+    {
+      "id": "w1-06",
+      "name": "Write error and set status: error",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        1820,
+        1000
+      ],
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "version": 2,
+        "operation": "update",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_OFFERS__",
+        "id": "={{ $('Offer from button').first().json.offer.Id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "completion_status",
+              "fieldValue": "error"
+            },
+            {
+              "fieldName": "warnings",
+              "fieldValue": "={{ $json.message }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "id": "w1-07",
+      "name": "Log activity: offer generation failed",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2080,
+        1000
+      ],
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ACTIVITIES__",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "summary",
+              "fieldValue": "={{ 'Generowanie oferty nie powiodło się: ' + $('Offer from button').first().json.offer.title }}"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "automation_error"
+            },
+            {
+              "fieldName": "flow",
+              "fieldValue": "W1"
+            },
+            {
+              "fieldName": "triggered_by",
+              "fieldValue": "user"
+            },
+            {
+              "fieldName": "payload",
+              "fieldValue": "={{ JSON.stringify({ offer_id: $('Offer from button').first().json.offer.Id, error: $('Error message').first().json.message }) }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "id": "w1-08",
+      "name": "Is the offer tied to an opportunity? (Log activity: offer generation failed)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2340,
+        1000
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Offer from button').first().json.opportunity_id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "w1-09",
+      "name": "Link the activity to the opportunity (Log activity: offer generation failed)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        2600,
+        940
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/__TBL_SALE_OPPORTUNITIES__/links/__COL_SALE_OPPORTUNITIES__ACTIVITIES__/records/{{ $('Offer from button').first().json.opportunity_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $json.Id }]) }}",
+        "options": {}
+      },
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "id": "w1-10",
+      "name": "Step failed: no template chosen",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        780,
+        900
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "step-failed-no-template-chosen-what",
+              "name": "what",
+              "type": "string",
+              "value": "='walidacja'"
+            },
+            {
+              "id": "step-failed-no-template-chosen-error",
+              "name": "error",
+              "type": "string",
+              "value": "='Wybierz szablon oferty (pole document_templates).'"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      }
+    },
+    {
+      "id": "w1-11",
+      "name": "Get linked recommendations",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        1040,
+        560
+      ],
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_OFFERS__",
+          "mode": "id"
+        },
+        "id": "={{ $('Offer from button').first().json.offer.Id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_OFFERS__RECOMMENDATIONS__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_RECOMMENDATIONS__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_RECOMMENDATIONS__TITLE__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_RECOMMENDATIONS__HEADLINE__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_RECOMMENDATIONS__RATIONALE__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_RECOMMENDATIONS__AI_STATUS__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "w1-12",
+      "name": "Any recommendations?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1300,
+        560
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Get linked recommendations').all().filter(i => i.json.id_fields?.Id).length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "w1-13",
+      "name": "Step failed: no recommendations",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1300,
+        900
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "step-failed-no-recommendations-what",
+              "name": "what",
+              "type": "string",
+              "value": "='walidacja'"
+            },
+            {
+              "id": "step-failed-no-recommendations-error",
+              "name": "error",
+              "type": "string",
+              "value": "='Oferta nie ma rekomendacji (pole recommendations).'"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      }
+    },
+    {
+      "id": "w1-14",
+      "name": "Get offer template",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        1580,
+        0
+      ],
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "version": 2,
+        "operation": "get",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_DOCUMENT_TEMPLATES__",
+        "id": "={{ $('Offer from button').first().json.template_id }}"
+      },
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "w1-15",
+      "name": "Get linked testimonials",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        1580,
+        130
+      ],
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_OFFERS__",
+          "mode": "id"
+        },
+        "id": "={{ $('Offer from button').first().json.offer.Id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_OFFERS__SELECTED_TESTIMONIALS__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_TESTIMONIALS__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_TESTIMONIALS__CONTENT__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_TESTIMONIALS__CLIENT_NAME__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_TESTIMONIALS__POSITION__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "id": "w1-16",
+      "name": "Get linked source lead",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        1580,
+        260
+      ],
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_SALE_OPPORTUNITIES__",
+          "mode": "id"
+        },
+        "id": "={{ $('Offer from button').first().json.opportunity_id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_SALE_OPPORTUNITIES__SOURCE_LEAD__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_LEADS__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_LEADS__LEAD_NAME__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "id": "w1-17",
+      "name": "Get linked buyer",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        1580,
+        390
+      ],
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_SALE_OPPORTUNITIES__",
+          "mode": "id"
+        },
+        "id": "={{ $('Offer from button').first().json.opportunity_id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_SALE_OPPORTUNITIES__PERSON__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_PERSONS__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_PERSONS__FULL_NAME__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true,
+      "executeOnce": true
+    },
+    {
+      "id": "w1-18",
+      "name": "Get linked participant",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        1580,
+        520
+      ],
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_RECOMMENDATIONS__",
+          "mode": "id"
+        },
+        "id": "={{ $json.id_fields.Id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_RECOMMENDATIONS__PERSON__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_PERSONS__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_PERSONS__FULL_NAME__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_PERSONS__POSITION__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "w1-19",
+      "name": "Participant with recommendation",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1840,
+        520
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "participant-with-recommendation-_rec_id",
+              "name": "_rec_id",
+              "type": "number",
+              "value": "={{ $('Get linked recommendations').item?.json?.id_fields?.Id ?? 0 }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      }
+    },
+    {
+      "id": "w1-20",
+      "name": "Get linked assessments of participant",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        2100,
+        520
+      ],
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_PERSONS__",
+          "mode": "id"
+        },
+        "id": "={{ $json.id_fields.Id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_PERSONS__ASSESSMENTS__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_ASSESSMENTS__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_ASSESSMENTS__NEEDS_SUMMARY__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_ASSESSMENTS__AI_STATUS__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_ASSESSMENTS__POSITION__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_ASSESSMENTS__CEFR_OVERALL__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_ASSESSMENTS__CEFR_RANGE__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_ASSESSMENTS__CEFR_ACCURACY__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_ASSESSMENTS__CEFR_FLUENCY__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_ASSESSMENTS__CEFR_COMMUNICATION__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "w1-21",
+      "name": "Assessment with participant",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2360,
+        520
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assessment-with-participant-_person_id",
+              "name": "_person_id",
+              "type": "number",
+              "value": "={{ $('Participant with recommendation').item?.json?.id_fields?.Id ?? 0 }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      }
+    },
+    {
+      "id": "w1-22",
+      "name": "Get linked selected cores",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        1580,
+        650
+      ],
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_RECOMMENDATIONS__",
+          "mode": "id"
+        },
+        "id": "={{ $json.id_fields.Id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_RECOMMENDATIONS__SELECTED_CORES__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_SELECTED_PACKAGE_VARIANTS_CORES__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_SELECTED_PACKAGE_VARIANTS_CORES__TITLE__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_SELECTED_PACKAGE_VARIANTS_CORES__HOURS__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "w1-23",
+      "name": "Core with recommendation",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1840,
+        650
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "core-with-recommendation-_rec_id",
+              "name": "_rec_id",
+              "type": "number",
+              "value": "={{ $('Get linked recommendations').item?.json?.id_fields?.Id ?? 0 }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      }
+    },
+    {
+      "id": "w1-24",
+      "name": "Get linked core slides",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        2100,
+        650
+      ],
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_SELECTED_PACKAGE_VARIANTS_CORES__",
+          "mode": "id"
+        },
+        "id": "={{ $json.id_fields.Id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_SELECTED_PACKAGE_VARIANTS_CORES__SLIDES__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_PACKAGE_CORE_SLIDES__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_PACKAGE_CORE_SLIDES__NAME__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_PACKAGE_CORE_SLIDES__TITLE__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_PACKAGE_CORE_SLIDES__DESCRIPTION__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "w1-25",
+      "name": "Slide with core",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2360,
+        650
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "slide-with-core-_core_id",
+              "name": "_core_id",
+              "type": "number",
+              "value": "={{ $('Core with recommendation').item?.json?.id_fields?.Id ?? 0 }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      }
+    },
+    {
+      "id": "w1-26",
+      "name": "Get linked selected others",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        1580,
+        780
+      ],
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_RECOMMENDATIONS__",
+          "mode": "id"
+        },
+        "id": "={{ $json.id_fields.Id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_RECOMMENDATIONS__SELECTED_OTHERS__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_SELECTED_PACKAGE_VARIANTS_OTHERS__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_SELECTED_PACKAGE_VARIANTS_OTHERS__HOURS__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "w1-27",
+      "name": "Get linked package variant other",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        1840,
+        780
+      ],
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_SELECTED_PACKAGE_VARIANTS_OTHERS__",
+          "mode": "id"
+        },
+        "id": "={{ $json.id_fields.Id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_SELECTED_PACKAGE_VARIANTS_OTHERS__PACKAGE_VARIANTS_OTHERS__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_PACKAGE_VARIANTS_OTHERS__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_PACKAGE_VARIANTS_OTHERS__KEY__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_PACKAGE_VARIANTS_OTHERS__NAME__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_PACKAGE_VARIANTS_OTHERS__DESCRIPTION__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "w1-28",
+      "name": "Variant with selection",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2100,
+        780
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "variant-with-selection-_selected_id",
+              "name": "_selected_id",
+              "type": "number",
+              "value": "={{ $('Get linked selected others').item?.json?.id_fields?.Id ?? 0 }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      }
+    },
+    {
+      "id": "w1-29",
+      "name": "Combine fetched data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2620,
+        330
+      ],
+      "parameters": {
+        "numberInputs": 7
+      }
+    },
+    {
+      "id": "w1-30",
+      "name": "Assemble offer data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        330
+      ],
+      "parameters": {
+        "jsCode": "// Sklada `data` dla file-renderer-service (kontrakt: file-renderer-service/test_schema_v4_contract.py).\n// Wyjatek od \"Set zamiast Code\": grupowanie powiazanych rekordow po id rodzica.\nconst offer = $('Offer from button').first().json.offer;\nconst rows = (name) => $(name).all().map(i => i.json).filter(j => j && j.id_fields && j.id_fields.Id);\nconst accepted = (f) => f && f.ai_status === 'ai_accepted';\nconst warnings = [];\n\nconst recs = rows('Get linked recommendations').sort((a, b) => a.id_fields.Id - b.id_fields.Id);\nconst people = rows('Participant with recommendation');\nconst asses = rows('Assessment with participant');\nconst cores = rows('Core with recommendation');\nconst slides = rows('Slide with core').sort((a, b) => a.id_fields.Id - b.id_fields.Id);\nconst selOthers = rows('Get linked selected others');\nconst variants = rows('Variant with selection');\nconst testimonialRows = rows('Get linked testimonials').sort((a, b) => a.id_fields.Id - b.id_fields.Id);\n\n// uczestnicy: osoby z rekomendacji, bez duplikatow\nconst seen = new Set();\nconst participants = [];\nfor (const rec of recs) {\n  const p = people.find(x => x._rec_id === rec.id_fields.Id);\n  if (!p || seen.has(p.id_fields.Id)) continue;\n  seen.add(p.id_fields.Id);\n  participants.push({ person: p, rec });\n}\nif (!participants.length) warnings.push('Brak uczestnikow: rekomendacje nie maja podlinkowanej osoby.');\n\n// pierwsza osoba: ocena + rekomendacja (tylko tekst AI ze statusem ai_accepted)\nconst first = participants[0];\nlet assessment = {}, a = {}, recommendation = {};\nif (first) {\n  const mine = asses.filter(x => x._person_id === first.person.id_fields.Id)\n    .sort((x, y) => y.id_fields.Id - x.id_fields.Id)[0];\n  const af = mine ? mine.fields : {};\n  if (!mine) warnings.push(`Brak oceny (assessment) dla ${first.person.fields.full_name}.`);\n  else if (!accepted(af)) warnings.push(`needs_summary dla ${first.person.fields.full_name} nie jest zaakceptowane (ai_status=${af.ai_status}) - pominiete.`);\n  assessment = { needs_summary: accepted(af) ? af.needs_summary : '', position: af.position || first.person.fields.position || '' };\n  a = { o: af.cefr_overall, r: af.cefr_range, a: af.cefr_accuracy, f: af.cefr_fluency, c: af.cefr_communication };\n  const rf = first.rec.fields;\n  if (!accepted(rf)) warnings.push(`Rekomendacja \"${rf.title}\" nie jest zaakceptowana (ai_status=${rf.ai_status}) - tekst pominiety.`);\n  recommendation = accepted(rf) ? { headline: rf.headline, rationale: rf.rationale } : { headline: '', rationale: '' };\n}\n\n// pakiety: jeden wpis na slajd uzasadnienia; core bez slajdow = jeden wpis\nconst packages = [];\nfor (const rec of recs) {\n  for (const core of cores.filter(c => c._rec_id === rec.id_fields.Id)) {\n    const own = slides.filter(s => s._core_id === core.id_fields.Id);\n    const base = { name: core.fields.title, hours: core.fields.hours };\n    if (!own.length) packages.push({ ...base, title: core.fields.title, description: '' });\n    for (const s of own) packages.push({ ...base, title: s.fields.title || s.fields.name, description: s.fields.description || '' });\n  }\n}\nif (!packages.length) warnings.push('Brak wybranych pakietow core w rekomendacjach.');\n\n// dodatki: ta sama pozycja u kilku osob = jedna linia, godziny sumowane\nconst others = [];\nfor (const sel of selOthers) {\n  const v = variants.find(x => x._selected_id === sel.id_fields.Id);\n  if (!v) continue;\n  const hours = Number(sel.fields.hours) || 0;\n  const hit = others.find(o => o.key === v.fields.key && o.name === v.fields.name);\n  if (hit) hit.hours += hours;\n  else others.push({ key: v.fields.key, name: v.fields.name, description: v.fields.description || '', hours });\n}\n\nconst testimonials = testimonialRows.map(t => ({ content: t.fields.content, name: t.fields.client_name, position: t.fields.position }));\nif (!testimonials.length) warnings.push('Brak wybranych referencji (testimonials).');\n\nconst lead = rows('Get linked source lead')[0];\nconst buyer = rows('Get linked buyer')[0];\nconst contactName = (lead && lead.fields.lead_name) || (buyer && buyer.fields.full_name) || '';\n\nconst data = {\n  key: offer.cover_style || '',\n  lead: { contact_name: contactName },\n  offer: { date: $now.toFormat('dd.MM.yyyy'), hours: offer.hours, price: offer.total_price },\n  assessment, a, recommendation,\n  participants: participants.map(p => ({ full_name: p.person.fields.full_name, position: p.person.fields.position })),\n  packages, others,\n  testimonials,\n  logo_wall: offer.logo_wall_style ? [{ key: offer.logo_wall_style }] : [],\n};\nif (testimonials.length) data.testimonial = testimonials[0];\n\nreturn [{ json: { offer_id: offer.Id, data, flow_warnings: warnings } }];\n"
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "w1-31",
+      "name": "Set status: creating file",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        3140,
+        330
+      ],
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "version": 2,
+        "operation": "update",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_OFFERS__",
+        "id": "={{ $('Offer from button').first().json.offer.Id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "completion_status",
+              "fieldValue": "creating file"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "id": "w1-32",
+      "name": "Download template file",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3400,
+        330
+      ],
+      "parameters": {
+        "url": "={{ $('Get offer template').first().json.file?.[0]?.signedUrl ?? $('Get offer template').first().json.file?.[0]?.url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "template"
+            }
+          }
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "w1-33",
+      "name": "Render offer file",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3660,
+        330
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://file-renderer-service:8000/render",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "template",
+              "inputDataFieldName": "template"
+            },
+            {
+              "name": "data",
+              "value": "={{ JSON.stringify($('Assemble offer data').first().json.data) }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "file",
+              "outputPropertyName": "offer"
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "w1-34",
+      "name": "Set offer filename",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3920,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Render nie ustawia nazwy pliku; bierzemy tytul oferty i rozszerzenie szablonu.\nconst offer = $('Offer from button').first().json.offer;\nconst tpl = ($('Get offer template').first().json.file || [])[0];\nconst ext = ((tpl?.title || tpl?.url || '').split('.').pop() || 'pptx').toLowerCase();\nconst name = `${(offer.title || `offer-${offer.Id}`).replace(/[^\\w\\-. ]+/g, '_')}.${ext}`;\nreturn $input.all().map(item => { if (item.binary?.offer) item.binary.offer.fileName = name; return item; });"
+      }
+    },
+    {
+      "id": "w1-35",
+      "name": "Upload offer file",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4180,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/storage/upload",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "offer"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "w1-36",
+      "name": "Save offer file and set status: done",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4440,
+        300
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/__TBL_OFFERS__/records",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Assemble offer data').first().json.offer_id, file: $json.body, data_json: JSON.stringify($('Assemble offer data').first().json.data), warnings: JSON.stringify([...$('Assemble offer data').first().json.flow_warnings, ...JSON.parse($('Render offer file').first().json.headers['x-warnings'] ?? '[]')]), completion_status: 'done' }]) }}",
+        "options": {}
+      },
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "w1-37",
+      "name": "Log activity: offer file ready",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        4700,
+        300
+      ],
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ACTIVITIES__",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "summary",
+              "fieldValue": "={{ 'Plik oferty gotowy do przeglądu: ' + $('Offer from button').first().json.offer.title }}"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "offer_draft_ready"
+            },
+            {
+              "fieldName": "flow",
+              "fieldValue": "W1"
+            },
+            {
+              "fieldName": "triggered_by",
+              "fieldValue": "user"
+            },
+            {
+              "fieldName": "payload",
+              "fieldValue": "={{ JSON.stringify({ offer_id: $('Offer from button').first().json.offer.Id, warnings: $('Assemble offer data').first().json.flow_warnings }) }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "id": "w1-38",
+      "name": "Is the offer tied to an opportunity? (Log activity: offer file ready)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4960,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Offer from button').first().json.opportunity_id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "w1-39",
+      "name": "Link the activity to the opportunity (Log activity: offer file ready)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        5220,
+        240
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/__TBL_SALE_OPPORTUNITIES__/links/__COL_SALE_OPPORTUNITIES__ACTIVITIES__/records/{{ $('Offer from button').first().json.opportunity_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $json.Id }]) }}",
+        "options": {}
+      },
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "id": "w1-40",
+      "name": "Step failed: pobranie szablonu",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3400,
+        700
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "step-failed-pobranie-szablonu-what",
+              "name": "what",
+              "type": "string",
+              "value": "='pobranie szablonu'"
+            },
+            {
+              "id": "step-failed-pobranie-szablonu-error",
+              "name": "error",
+              "type": "object",
+              "value": "=$json.error"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      }
+    },
+    {
+      "id": "w1-41",
+      "name": "Step failed: renderowanie pliku",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3660,
+        700
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "step-failed-renderowanie-pliku-what",
+              "name": "what",
+              "type": "string",
+              "value": "='renderowanie pliku'"
+            },
+            {
+              "id": "step-failed-renderowanie-pliku-error",
+              "name": "error",
+              "type": "object",
+              "value": "=$json.error"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      }
+    },
+    {
+      "id": "w1-42",
+      "name": "Step failed: wgranie pliku do NocoDB",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3920,
+        700
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "step-failed-wgranie-pliku-do-nocodb-what",
+              "name": "what",
+              "type": "string",
+              "value": "='wgranie pliku do NocoDB'"
+            },
+            {
+              "id": "step-failed-wgranie-pliku-do-nocodb-error",
+              "name": "error",
+              "type": "object",
+              "value": "=$json.error"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      }
+    },
+    {
+      "id": "w1-43",
+      "name": "Step failed: zapis pliku w ofercie",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4180,
+        700
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "step-failed-zapis-pliku-w-ofercie-what",
+              "name": "what",
+              "type": "string",
+              "value": "='zapis pliku w ofercie'"
+            },
+            {
+              "id": "step-failed-zapis-pliku-w-ofercie-error",
+              "name": "error",
+              "type": "object",
+              "value": "=$json.error"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Button: Generate offer": {
+      "main": [
+        [
+          {
+            "node": "Offer from button",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Offer from button": {
+      "main": [
+        [
+          {
+            "node": "Set status: collecting data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set status: collecting data": {
+      "main": [
+        [
+          {
+            "node": "Template chosen?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error message": {
+      "main": [
+        [
+          {
+            "node": "Write error and set status: error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log activity: offer generation failed": {
+      "main": [
+        [
+          {
+            "node": "Is the offer tied to an opportunity? (Log activity: offer generation failed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is the offer tied to an opportunity? (Log activity: offer generation failed)": {
+      "main": [
+        [
+          {
+            "node": "Link the activity to the opportunity (Log activity: offer generation failed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write error and set status: error": {
+      "main": [
+        [
+          {
+            "node": "Log activity: offer generation failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Template chosen?": {
+      "main": [
+        [
+          {
+            "node": "Get linked recommendations",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Step failed: no template chosen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Step failed: no template chosen": {
+      "main": [
+        [
+          {
+            "node": "Error message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get linked recommendations": {
+      "main": [
+        [
+          {
+            "node": "Any recommendations?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any recommendations?": {
+      "main": [
+        [
+          {
+            "node": "Get offer template",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get linked testimonials",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get linked source lead",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get linked buyer",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get linked participant",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get linked selected cores",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get linked selected others",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Step failed: no recommendations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Step failed: no recommendations": {
+      "main": [
+        [
+          {
+            "node": "Error message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get linked participant": {
+      "main": [
+        [
+          {
+            "node": "Participant with recommendation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Participant with recommendation": {
+      "main": [
+        [
+          {
+            "node": "Get linked assessments of participant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get linked assessments of participant": {
+      "main": [
+        [
+          {
+            "node": "Assessment with participant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get linked selected cores": {
+      "main": [
+        [
+          {
+            "node": "Core with recommendation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Core with recommendation": {
+      "main": [
+        [
+          {
+            "node": "Get linked core slides",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get linked core slides": {
+      "main": [
+        [
+          {
+            "node": "Slide with core",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get linked selected others": {
+      "main": [
+        [
+          {
+            "node": "Get linked package variant other",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get linked package variant other": {
+      "main": [
+        [
+          {
+            "node": "Variant with selection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get offer template": {
+      "main": [
+        [
+          {
+            "node": "Combine fetched data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get linked testimonials": {
+      "main": [
+        [
+          {
+            "node": "Combine fetched data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Get linked source lead": {
+      "main": [
+        [
+          {
+            "node": "Combine fetched data",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Get linked buyer": {
+      "main": [
+        [
+          {
+            "node": "Combine fetched data",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Assessment with participant": {
+      "main": [
+        [
+          {
+            "node": "Combine fetched data",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Slide with core": {
+      "main": [
+        [
+          {
+            "node": "Combine fetched data",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Variant with selection": {
+      "main": [
+        [
+          {
+            "node": "Combine fetched data",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
+    },
+    "Combine fetched data": {
+      "main": [
+        [
+          {
+            "node": "Assemble offer data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble offer data": {
+      "main": [
+        [
+          {
+            "node": "Set status: creating file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set status: creating file": {
+      "main": [
+        [
+          {
+            "node": "Download template file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download template file": {
+      "main": [
+        [
+          {
+            "node": "Render offer file",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Step failed: pobranie szablonu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render offer file": {
+      "main": [
+        [
+          {
+            "node": "Set offer filename",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Step failed: renderowanie pliku",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set offer filename": {
+      "main": [
+        [
+          {
+            "node": "Upload offer file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload offer file": {
+      "main": [
+        [
+          {
+            "node": "Save offer file and set status: done",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Step failed: wgranie pliku do NocoDB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log activity: offer file ready": {
+      "main": [
+        [
+          {
+            "node": "Is the offer tied to an opportunity? (Log activity: offer file ready)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is the offer tied to an opportunity? (Log activity: offer file ready)": {
+      "main": [
+        [
+          {
+            "node": "Link the activity to the opportunity (Log activity: offer file ready)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save offer file and set status: done": {
+      "main": [
+        [
+          {
+            "node": "Log activity: offer file ready",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Step failed: zapis pliku w ofercie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Step failed: pobranie szablonu": {
+      "main": [
+        [
+          {
+            "node": "Error message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Step failed: renderowanie pliku": {
+      "main": [
+        [
+          {
+            "node": "Error message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Step failed: wgranie pliku do NocoDB": {
+      "main": [
+        [
+          {
+            "node": "Error message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Step failed: zapis pliku w ofercie": {
+      "main": [
+        [
+          {
+            "node": "Error message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

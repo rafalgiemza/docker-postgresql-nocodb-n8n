@@ -153,3 +153,43 @@ payload zbadany w `docs/n8n-nocodb-operations.md` §5).
   zielonych, 1 oczekiwany `xfail`. Testy z prawdziwym szablonem pomijają się,
   gdy pliku `init-data/source/ofer-template-1.0.pptx` nie ma.
 - Nie ruszyłem `init-schema.py`, W1 ani szablonu: czekają na decyzje z §5.
+
+## 8. Decyzje usera (2026-10-29) i lista pól bazy dla W1 v13
+
+Decyzje: (1) `logo_wall_style` = `b2b` / `it`; (2) nazwy `others` (nie `adons`);
+(3) status generowania wg skilla `n8n-flow` §3; (4) `repeat:packages` - jedna
+oferta dla wielu osób, wysyłana do płacącego leada, który nie musi być
+uczestnikiem; (5) ceny w następnej iteracji (nowy szablon z cenami) - W1 v13 ich
+nie wysyła; (6) lead = oferta → szansa → `source_lead.lead_name` (fallback:
+kupujący); (7) flow wg nowych zasad (placeholdery + `make fill-workflows`).
+
+**Odstępstwo od nazwy z decyzji 3:** pole nazywa się `offers.completion_status`
+(nie `generation_status`), bo skill §3 każe używać wszędzie jednej nazwy
+`completion_status` (tak samo `assessments`). Wartości: `none`, `collecting data`,
+`creating file`, `generating`, `done`, `error`.
+
+| Tabela | Pole | Typ | Status | Do czego |
+|---|---|---|---|---|
+| `offers` | `cover_style` | SingleSelect boy/girl/man/woman | **nowe** | `data.key` (okładka) |
+| `offers` | `logo_wall_style` | SingleSelect `b2b`/`it` | **nowe** | `data.logo_wall[0].key` |
+| `offers` | `completion_status` | SingleSelect (6 wartości) | **nowe** | postęp generowania; błąd w `warnings` |
+| `offers` | `document_templates`, `recommendations`, `selected_testimonials`, `sale_opportunity`, `hours`, `total_price`, `title`, `file`, `data_json`, `warnings` | - | istnieją | jak w v12 |
+| `recommendations` | `person`, `headline`, `rationale`, `ai_status`, `title`, `selected_cores`, `selected_others` | - | istnieją (`selected_adons` → `selected_others`) | uczestnicy, tekst rekomendacji (tylko `ai_accepted`) |
+| `selected_package_variants_cores` | `title`, `hours`, `slides` | - | istnieją | `packages[].name/hours` |
+| `package_core_slides` | `name`, `title`, `description` | - | istnieją | `packages[].title/description` |
+| `selected_package_variants_others` (było `…_adons`) | `hours`, link `package_variants_others` | - | **rename** | `others[].hours` |
+| `package_variants_others` (było `…_adons`) | `key`, `name`, `description` | - | **rename** | `others[]` |
+| `persons` | `full_name`, `position`, `assessments` | - | istnieją | `participants[]` |
+| `assessments` | `needs_summary`, `ai_status`, `position`, `cefr_*` | - | istnieją | `assessment`, `a` |
+| `testimonials` | `content`, `client_name`, `position` | - | istnieją | `testimonial(s)` |
+| `leads` | `lead_name` | - | istnieje | `lead.contact_name` |
+
+Rename wymaga na żywej bazie jednego z dwóch kroków (tabele etapu 4 są świeże):
+zmienić nazwy w UI NocoDB (tabele, pola `selected_adons`→`selected_others`,
+`adons_subtotal`→`others_subtotal`, formułę) albo usunąć `…_adons` i uruchomić
+`make init-schema STAGE=4`; potem `make dump-crm-schema`.
+
+Flow: `W1v13_generate_offer.json` (webhook `w1-generate-offer-v13`). Kontrakt
+danych przypina `file-renderer-service/test_schema_v4_contract.py`. Znane luki
+szablonu v1.0: `{{package.hours}}` (potrzebny `repeat:packages`), ceny wariantów,
+slajdy 24/25 (testimonials).

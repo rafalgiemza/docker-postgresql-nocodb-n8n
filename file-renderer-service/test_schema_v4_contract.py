@@ -44,60 +44,130 @@ def _text(slide):
 
 
 # --------------------------------------------------------------------------
-# Kształt, który W1 v4 składa z danych v4:
-#   lead.contact_name   <- sale_opportunities.person (kupujący) .full_name
-#   assessment.*, a.*   <- najnowsza ocena pierwszej osoby oferty (persons.assessments)
-#   offer.*             <- wiersz oferty (hours, total_price) + dzisiejsza data
-#   package.hours       <- pierwszy wybrany pakiet (selected_package_variants_cores)
-#   <Wariant>.price     <- wiersze cennika (offers.pricing)
+# Kształt `data`, który składa W1 v13 (docs/archive/fable/W1v13_generate_offer.json,
+# węzeł "Assemble offer data"):
+#   key                 <- offers.cover_style
+#   lead.contact_name   <- szansa -> lead_name (fallback: kupujący, sale_opportunities.person)
+#   assessment, a       <- najnowsza ocena pierwszej osoby (needs_summary tylko ai_accepted)
+#   recommendation      <- rekomendacja pierwszej osoby (tylko ai_accepted)
+#   participants[]      <- persons z offers.recommendations.person
+#   packages[]          <- jeden wpis na slajd uzasadnienia wybranego core
+#   others[]            <- dodatki (selected_package_variants_others), godziny sumowane
 #   testimonial(s)      <- offers.selected_testimonials
+#   logo_wall           <- offers.logo_wall_style
+# Ceny wariantów (<Wariant>.price) NIE są wysyłane - następna iteracja (nowy szablon).
 # --------------------------------------------------------------------------
-TESTIMONIALS = [
-    {"content": "Bardzo konkretne zajęcia", "name": "Jan K.", "position": "CTO"},
-    {"content": "Poprawiliśmy negocjacje", "name": "Anna N.", "position": "CEO"},
-]
 DATA_V4 = {
-    "lead": {"contact_name": "Piotr Zieliński"},
-    "company": {"name": "ACME", "communication_processes": "demo dla klientów US"},
-    "assessment": {"needs_summary": "Potrzebuje swobody w demo.", "position": "Developer"},
-    "a": {"o": "B2.4", "r": "B2", "a": "B2", "f": "B1", "c": "B2"},
-    "offer": {"date": "01.08.2026", "hours": 60, "price": 20400},
-    "package": {"hours": 40},
-    "BusinessEnglish15h": {"price": 3000},
-    "BusinessEnglish15hinpair": {"price": 2000},
-    "skills1on1": {"price": 1500},
-    "skillsgroup": {"price": 900},
-    # dwa klucze naraz: slajdy 16 i 24 szablonu używają `testimonial` (jeden),
-    # slajd 25 jest `repeat:testimonials` (lista)
-    "testimonial": TESTIMONIALS[0],
-    "testimonials": TESTIMONIALS,
-    # nazwa listy = prefiks w szablonie ({{participant.x}}), tak jak w kontrakcie v3
-    "participant": [
-        {"full_name": "Piotr", "position": "Dev", "a": {"o": "B2.4"},
-         "assessment": {"needs_summary": "demo", "strengths": "słownictwo", "gaps": "articles"},
-         "recommendation": {"type": "business_english", "headline": "BE + Skills",
-                            "rationale": "bo demo", "priority": "wysoki"}},
-        {"full_name": "Anna", "position": "PO", "a": {"o": "C1.0"},
-         "assessment": {"needs_summary": "negocjacje", "strengths": "płynność", "gaps": "rejestr"},
-         "recommendation": {"type": "skills_only", "headline": "Negocjacje",
-                            "rationale": "bo kontrakty", "priority": "średni"}},
+    "key": "boy",
+    "lead": {
+        "contact_name": "ACME sp. z o.o."
+    },
+    "offer": {
+        "date": "01.08.2026",
+        "hours": 60,
+        "price": 20400
+    },
+    "assessment": {
+        "needs_summary": "demo",
+        "position": "Developer"
+    },
+    "a": {
+        "o": "B2.4",
+        "r": "B2",
+        "a": "B2",
+        "f": "B1",
+        "c": "B2"
+    },
+    "recommendation": {
+        "headline": "BE + Skills",
+        "rationale": "bo demo"
+    },
+    "participants": [
+        {
+            "full_name": "Piotr",
+            "position": "Dev"
+        },
+        {
+            "full_name": "Anna",
+            "position": "PO"
+        }
     ],
+    "packages": [
+        {
+            "name": "Business English",
+            "hours": 40,
+            "title": "Cel 1",
+            "description": "opis 1"
+        },
+        {
+            "name": "Business English",
+            "hours": 40,
+            "title": "Cel 2",
+            "description": "opis 2"
+        },
+        {
+            "name": "Skills",
+            "hours": 20,
+            "title": "Skills",
+            "description": ""
+        }
+    ],
+    "others": [
+        {
+            "key": "facilitating",
+            "name": "Facilitating",
+            "description": "d",
+            "hours": 15
+        }
+    ],
+    "testimonials": [
+        {
+            "content": "Super",
+            "name": "Jan K.",
+            "position": "CTO"
+        },
+        {
+            "content": "Ok",
+            "name": "Anna N.",
+            "position": "CEO"
+        }
+    ],
+    "logo_wall": [
+        {
+            "key": "it"
+        }
+    ],
+    "testimonial": {
+        "content": "Super",
+        "name": "Jan K.",
+        "position": "CTO"
+    }
 }
+TESTIMONIALS = DATA_V4["testimonials"]
 
 
-def test_participants_from_persons_resolve_prefixed_and_lifted():
-    """v4: uczestnicy oferty to `persons` z rekomendacji; dane zagnieżdżone pod
-    osobą, tak jak w v3 (prefiks `participant.` oraz klucze podniesione)."""
+def test_participants_and_packages_are_repeat_lists():
+    """W1 v13: `repeat:participants` i `repeat:packages` (jedna oferta dla wielu
+    osób, płaci lead, który nie musi być uczestnikiem). Klucze elementu są
+    podniesione, nazwa listy działa też jako prefiks."""
     prs = Presentation()
-    _add_slide(prs, "{{participant.full_name}}: {{participant.recommendation.headline}} / "
-                    "{{recommendation.type}} / {{assessment.gaps}} / {{a.o}}",
-               notes="repeat:participant")
+    _add_slide(prs, "{{participants.full_name}} / {{position}}", notes="repeat:participants")
+    _add_slide(prs, "{{packages.name}}: {{title}} ({{hours}}h)", notes="repeat:packages")
     warnings = []
-    out = _render_synthetic(prs, {"participant": DATA_V4["participant"]}, warnings)
+    out = _render_synthetic(prs, {"participants": DATA_V4["participants"], "packages": DATA_V4["packages"]}, warnings)
     assert [_text(s) for s in out.slides] == [
-        "Piotr: BE + Skills / business_english / articles / B2.4",
-        "Anna: Negocjacje / skills_only / rejestr / C1.0",
-    ]
+        "Piotr / Dev", "Anna / PO",
+        "Business English: Cel 1 (40h)", "Business English: Cel 2 (40h)", "Skills: Skills (20h)"]
+    assert warnings == []
+
+
+def test_others_and_logo_wall_lists():
+    prs = Presentation()
+    _add_slide(prs, "{{others.name}} {{hours}}h", notes="repeat:others")
+    _add_slide(prs, "{{logo_wall.key}}", notes="repeat:logo_wall")
+    warnings = []
+    out = _render_synthetic(prs, {"others": DATA_V4["others"], "logo_wall": DATA_V4["logo_wall"]}, warnings)
+    assert [_text(s) for s in out.slides] == ["Facilitating 15h", "it"]
     assert warnings == []
 
 
@@ -112,7 +182,7 @@ def test_testimonials_list_and_single_object_serve_different_slides():
     out = _render_synthetic(prs, {"testimonial": TESTIMONIALS[0], "testimonials": TESTIMONIALS},
                             warnings)
     assert [_text(s) for s in out.slides] == [
-        "Jan K.", "Jan K. / Bardzo konkretne zajęcia", "Anna N. / Poprawiliśmy negocjacje"]
+        "Jan K.", "Jan K. / Super", "Anna N. / Ok"]
     assert warnings == []
 
 
@@ -126,30 +196,6 @@ def test_singular_prefix_inside_plural_repeat_repeats_one_testimonial():
     out = _render_synthetic(prs, {"testimonial": TESTIMONIALS[0], "testimonials": TESTIMONIALS},
                             warnings)
     assert [_text(s) for s in out.slides] == ["Jan K.", "Jan K."]
-
-
-def test_price_keys_are_top_level_objects():
-    """Ceny wariantów to obiekty na wierzchu `data` (`{{skills1on1.price}}`), nie
-    lista: n8n musi zbudować je z wierszy `pricing` (offers.pricing)."""
-    prs = Presentation()
-    _add_slide(prs, "{{BusinessEnglish15h.price}} / {{skills1on1.price}}")
-    warnings = []
-    out = _render_synthetic(prs, DATA_V4, warnings)
-    assert _text(list(out.slides)[0]) == "3000 / 1500"
-    assert warnings == []
-
-
-def test_single_package_object_not_list():
-    """`{{package.hours}}` poza `repeat:` czyta OBIEKT `package`. Lista `packages`
-    (tak dziś wysyła W1) go nie zasili."""
-    prs = Presentation()
-    _add_slide(prs, "ETAP 1: {{package.hours}}h")
-    warnings = []
-    out = _render_synthetic(prs, {"packages": [{"hours": 40}]}, warnings)
-    assert any("package.hours" in w for w in warnings)
-    warnings = []
-    out = _render_synthetic(prs, {"package": {"hours": 40}}, warnings)
-    assert _text(list(out.slides)[0]) == "ETAP 1: 40h" and warnings == []
 
 
 # -------------------------------------------------------------- prawdziwy szablon
@@ -174,10 +220,17 @@ def test_real_template_demands_exactly_these_placeholders():
 
 
 @needs_real_template
-def test_real_template_renders_clean_with_v4_data():
+def test_real_template_with_w1_v13_data_has_only_known_gaps():
+    """Szablon v1.0 vs dane W1 v13. Jedyne brakujące wartości to znane luki:
+    `package.hours` (szablon czyta pojedynczy obiekt; docelowo `repeat:packages`
+    + `{{packages.hours}}` - zmiana w szablonie) oraz ceny wariantów (kolejna
+    iteracja, nowy szablon z cenami). Po poprawce szablonu zmień na `== []`."""
     warnings = []
     out = Presentation(io.BytesIO(render_pptx(REAL_TEMPLATE.read_bytes(), DATA_V4, warnings)))
-    assert warnings == []
+    missing = {re.sub(r"^.*value: ", "", w) for w in warnings}
+    assert missing == {"package.hours", "BusinessEnglish15h.price", "BusinessEnglish15hinpair.price",
+                       "skills1on1.price", "skillsgroup.price"}
+    assert all("missing placeholder value" in w for w in warnings)
     assert len(out.slides) == 29    # 28 w szablonie + 1 za drugi testimonial
 
 
@@ -200,31 +253,3 @@ def test_real_template_repeat_slides_show_distinct_testimonials():
     first, second = ("".join(_all_text(slides[i].shapes)) for i in (24, 25))
     assert "Jan K." in first and "Anna N." in second
     assert not any("{{" in t for sl in slides for t in _all_text(sl.shapes))
-
-
-# Kształt, który W1 wysyła DZIŚ (docs/archive/fable/W1_generate_offer.json,
-# węzeł "Assemble offer data"). Charakterystyka luk, usuń po przepisaniu W1.
-CURRENT_W1_DATA = {
-    "key": "boy",
-    "lead": {"contact_name": "Piotr Zieliński"},
-    "offer": {"date": "01.08.2026", "hours": 60, "price": 20400},
-    "assessment": {"needs_summary": "demo", "position": "Dev"},
-    "a": {"o": "B2.4", "r": "B2", "a": "B2", "f": "B1", "c": "B2"},
-    "recomendation": {"headline": "BE", "rationale": "bo"},
-    "participants": [{"full_name": "Piotr", "position": "Dev"}],
-    "packages": [{"title": "Core", "description": "opis", "hours": 40}],
-    "adons": [{"key": "facilitating", "name": "Facilitating", "description": "x", "hours": 20}],
-    "logo_wall": [{"key": "style1"}],
-}
-
-
-@needs_real_template
-def test_current_w1_shape_leaves_known_gaps():
-    warnings = []
-    out = Presentation(io.BytesIO(render_pptx(REAL_TEMPLATE.read_bytes(), CURRENT_W1_DATA, warnings)))
-    joined = " | ".join(warnings)
-    assert "repeat:testimonials slide dropped" in joined      # W1 nie wysyła referencji
-    assert "package.hours" in joined                          # lista `packages`, szablon chce `package`
-    for key in ("BusinessEnglish15h.price", "skills1on1.price"):
-        assert key in joined                                  # W1 nie czyta cennika
-    assert len(out.slides) == 27                              # slajd z referencjami wypadł

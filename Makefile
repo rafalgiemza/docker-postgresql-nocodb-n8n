@@ -125,8 +125,8 @@ init-data:
 	#    gdy plik na VPS zostanie podmieniony na wersję z realnymi cenami)
 	./scripts/import-pricing.sh
 
-	# 7. warianty_core.txt -> package_variants_cores, warianty_adons.txt ->
-	#    package_variants_adons
+	# 7. warianty_core.txt -> package_variants_cores, warianty_others.txt ->
+	#    package_variants_others
 	./scripts/import-packages.sh
 
 # Seeduje przez NocoDB REST API 13 tabel CRM poza leads/companies/participants
