@@ -20,39 +20,6 @@
     },
     {
       "parameters": {
-        "authentication": "nocoDbApiToken",
-        "workspaceId": "__WORKSPACE_ID__",
-        "projectId": "__PROJECT_ID__",
-        "table": "__TBL_ASSESSMENTS__",
-        "operation": "update",
-        "id": "={{ $('Button: Generuj needs summary').first().json.body.data.rows[0].Id }}",
-        "dataToSend": "defineBelow",
-        "fieldsUi": {
-          "fieldValues": [
-            {
-              "fieldName": "completion_status",
-              "fieldValue": "collecting data"
-            }
-          ]
-        }
-      },
-      "id": "w8-02",
-      "name": "Set status: collecting data",
-      "type": "n8n-nodes-base.nocoDb",
-      "typeVersion": 3,
-      "position": [
-        260,
-        570
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "__NOCODB_CRED_ID__",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
         "assignments": {
           "assignments": [
             {
@@ -98,14 +65,46 @@
           "ignoreConversionErrors": true
         }
       },
-      "id": "w8-03",
+      "id": "w8-02",
       "name": "Assessment from button",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        520,
+        260,
         570
       ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "version": 2,
+        "operation": "update",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ASSESSMENTS__",
+        "id": "={{ $('Assessment from button').first().json.assessment_id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "completion_status",
+              "fieldValue": "collecting data"
+            }
+          ]
+        }
+      },
+      "id": "w8-03",
+      "name": "Set status: collecting data",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        520,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
     },
     {
       "parameters": {
@@ -119,7 +118,7 @@
           "conditions": [
             {
               "id": "c1",
-              "leftValue": "={{ $json.has_cefr }}",
+              "leftValue": "={{ $('Assessment from button').first().json.has_cefr }}",
               "rightValue": "",
               "operator": {
                 "type": "boolean",
@@ -479,12 +478,11 @@
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "workspaceId": "__WORKSPACE_ID__",
+        "version": 2,
+        "operation": "update",
         "projectId": "__PROJECT_ID__",
         "table": "__TBL_ASSESSMENTS__",
-        "operation": "update",
         "id": "={{ $('Assessment from button').first().json.assessment_id }}",
-        "dataToSend": "defineBelow",
         "fieldsUi": {
           "fieldValues": [
             {
@@ -585,12 +583,11 @@
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "workspaceId": "__WORKSPACE_ID__",
+        "version": 2,
+        "operation": "update",
         "projectId": "__PROJECT_ID__",
         "table": "__TBL_ASSESSMENTS__",
-        "operation": "update",
         "id": "={{ $('Assessment from button').first().json.assessment_id }}",
-        "dataToSend": "defineBelow",
         "fieldsUi": {
           "fieldValues": [
             {
@@ -758,12 +755,11 @@
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "workspaceId": "__WORKSPACE_ID__",
+        "version": 2,
+        "operation": "update",
         "projectId": "__PROJECT_ID__",
         "table": "__TBL_ASSESSMENTS__",
-        "operation": "update",
         "id": "={{ $('Assessment from button').first().json.assessment_id }}",
-        "dataToSend": "defineBelow",
         "fieldsUi": {
           "fieldValues": [
             {
@@ -843,12 +839,11 @@
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "workspaceId": "__WORKSPACE_ID__",
+        "version": 2,
+        "operation": "update",
         "projectId": "__PROJECT_ID__",
         "table": "__TBL_ASSESSMENTS__",
-        "operation": "update",
         "id": "={{ $('Assessment from button').first().json.assessment_id }}",
-        "dataToSend": "defineBelow",
         "fieldsUi": {
           "fieldValues": [
             {
@@ -1026,7 +1021,7 @@
               "id": "task-details-to-assign-preferred_employee_id",
               "name": "preferred_employee_id",
               "type": "number",
-              "value": "={{ null }}"
+              "value": "={{ $('Get owner of the audit meeting').first().json.id_fields?.Id ?? null }}"
             },
             {
               "id": "task-details-to-assign-on_date",
@@ -1052,7 +1047,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        2080,
+        2210,
         1140
       ]
     },
@@ -1074,7 +1069,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
       "position": [
-        2340,
+        2470,
         1140
       ]
     },
@@ -1106,7 +1101,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        2600,
+        2730,
         1140
       ]
     },
@@ -1152,7 +1147,7 @@
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        2860,
+        2990,
         1140
       ],
       "credentials": {
@@ -1171,7 +1166,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3120,
+        3250,
         1140
       ]
     },
@@ -1191,7 +1186,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
-        3380,
+        3510,
         1140
       ],
       "credentials": {
@@ -1200,21 +1195,66 @@
           "name": "NocoDB Token account"
         }
       }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_MEETINGS__",
+          "mode": "id"
+        },
+        "id": "={{ $('Assessment from button').first().json.meeting_id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_MEETINGS__OWNER__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_EMPLOYEES__ID__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "id": "w8-33",
+      "name": "Get owner of the audit meeting",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        1950,
+        1140
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
     }
   ],
   "connections": {
     "Button: Generuj needs summary": {
-      "main": [
-        [
-          {
-            "node": "Set status: collecting data",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Set status: collecting data": {
       "main": [
         [
           {
@@ -1226,6 +1266,17 @@
       ]
     },
     "Assessment from button": {
+      "main": [
+        [
+          {
+            "node": "Set status: collecting data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set status: collecting data": {
       "main": [
         [
           {
@@ -1491,7 +1542,7 @@
       "main": [
         [
           {
-            "node": "Task details to assign",
+            "node": "Get owner of the audit meeting",
             "type": "main",
             "index": 0
           }
@@ -1547,6 +1598,17 @@
         [
           {
             "node": "Link the task to assignee, assessment and person",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get owner of the audit meeting": {
+      "main": [
+        [
+          {
+            "node": "Task details to assign",
             "type": "main",
             "index": 0
           }
