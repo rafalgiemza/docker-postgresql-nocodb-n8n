@@ -33,6 +33,7 @@ class PsycopgDb:
             dbname=os.environ["APP_DB"],
             user=os.environ["CRM_LEGACY_USER"],
             password=os.environ["CRM_LEGACY_PASSWORD"],
+            connect_timeout=10,  # lepiej blad w raporcie niz zawieszony przycisk
             autocommit=True)
         self.notices = []
         self.conn.add_notice_handler(lambda d: self.notices.append(d.message_primary))
