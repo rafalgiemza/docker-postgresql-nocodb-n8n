@@ -689,19 +689,26 @@ def build(rows, links, employees, export_date, warn):
 
 
 
-def group_warnings(warnings, examples=3):
+def group_warnings(warnings, examples=3, expand_up_to=10):
     """Ostrzezenia z tysiecy wierszy -> "N× tresc (np. #1, #2, #3)"; raport
-    miesci sie w polu tekstowym NocoDB."""
+    miesci sie w polu tekstowym NocoDB. Grupy do `expand_up_to` wystapien sa
+    wypisane w calosci (kazde ostrzezenie z numerem wiersza i wartoscia)."""
     groups = {}
     for w in warnings:
         m = re.match(r"(#\d+)(?: [a-z_]+)?: (.*)", w)
         key, ex = (re.sub(r"[\d/.\-]{4,}|'[^']*'", "…", m[2]), m[1]) if m else (w, "")
-        g = groups.setdefault(key, [0, []])
+        g = groups.setdefault(key, [0, [], []])
         g[0] += 1
+        g[2].append(w)
         if ex and len(g[1]) < examples:
             g[1].append(ex)
-    return [f"{n}× {k}" + (f" (np. {', '.join(ex)})" if ex else "")
-            for k, (n, ex) in sorted(groups.items(), key=lambda kv: -kv[1][0])]
+    out = []
+    for key, (n, ex, full) in sorted(groups.items(), key=lambda kv: -kv[1][0]):
+        if n <= expand_up_to:
+            out.extend(full)
+        else:
+            out.append(f"{n}× {key}" + (f" (np. {', '.join(ex)})" if ex else ""))
+    return out
 
 
 def run_import(db, data, schema_map, apply=False, export_date=date(2026, 10, 30),

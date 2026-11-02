@@ -188,3 +188,13 @@ def test_employee_matching_is_tolerant_but_unambiguous():
     assert m("Agnieszka Lason", emp) == [3]              # bez ogonkow
     assert m("Ola", emp) == []
     assert len(m("Natalia", emp + [(4, "Natalia Inna")])) == 2   # niejednoznaczne
+
+
+def test_small_warning_groups_are_listed_in_full():
+    w = [f"#{i}: brak daty wplyniecia - uzyto daty szansy" for i in range(1, 30)]
+    w += [f"#{i}: zrodlo '{i}' nie ma w opcjach - zapisane tylko w notatkach"
+          for i in (5, 7)]
+    out = li.group_warnings(w)
+    assert out[0].startswith("29× brak daty wplyniecia") and "(np. #1, #2, #3)" in out[0]
+    assert out[1:] == ["#5: zrodlo '5' nie ma w opcjach - zapisane tylko w notatkach",
+                       "#7: zrodlo '7' nie ma w opcjach - zapisane tylko w notatkach"]
