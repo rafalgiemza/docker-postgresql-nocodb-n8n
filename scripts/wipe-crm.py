@@ -10,6 +10,7 @@ do czyszczonej tabeli, baza odmowi (dodaj te tabele do --keep).
 
 Usage:  make wipe-crm                         # podglad
         make wipe-crm KEEP="pricing"          # zachowaj tez pricing
+        make wipe-crm ONLY="leads persons"    # tylko te (+ ich tabele laczace)
         make wipe-crm APPLY=1                 # czysci
 """
 import argparse
@@ -20,6 +21,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "crm-legacy-service"))
+import legacy_cleanup as lc  # noqa: E402
 import legacy_import as li  # noqa: E402
 
 spec = importlib.util.spec_from_file_location("import_cli", HERE / "import-crm-legacy.py")
@@ -31,6 +33,8 @@ def main():
     ap = argparse.ArgumentParser(description="Wyczysc crm poza wybranymi tabelami")
     ap.add_argument("--apply", action="store_true", help="COMMIT (domyslnie podglad)")
     ap.add_argument("--keep", nargs="*", default=[], help="dodatkowe tabele do zachowania")
+    ap.add_argument("--only", nargs="*", default=None,
+                    help="czysc TYLKO te tabele (+ tabele laczace _nc_m2m_* z kluczem obcym do nich)")
     ap.add_argument("--container", default=os.environ.get("PG_CONTAINER", "docker-postgres-1"))
     ap.add_argument("--user", default=os.environ.get("POSTGRES_USER", "postgres"))
     ap.add_argument("--db", default=os.environ.get("APP_DB", "appdata"))
@@ -44,7 +48,20 @@ def main():
         missing = keep - set(tables)
         if missing:
             raise li.LegacyError(f"Brak tabel do zachowania: {sorted(missing)}")
-        wipe = [t for t in tables if t not in keep]
+        if a.only is not None:
+            unknown = set(a.only) - set(tables)
+            if unknown:
+                raise li.LegacyError(f"Brak tabel: {sorted(unknown)}")
+            wipe = set(a.only)
+            # tabele laczace NocoDB z FK do czyszczonej tabeli musza zniknac razem z nia
+            # (inaczej baza odmowi, albo zostalyby osierocone relacje)
+            for t, _, ref in lc._refs(db):
+                if t.startswith(lc.JUNCTION_PREFIX) and ref in wipe:
+                    wipe.add(t)
+            keep = set(tables) - wipe
+            wipe = [t for t in tables if t in wipe]
+        else:
+            wipe = [t for t in tables if t not in keep]
         counts = {t: db.run(f"SELECT count(*) FROM {li.SCHEMA}.{li.ident(t)}", tuples=True)[0][0]
                   for t in tables}
         print(f"Baza: {a.db}   zachowane: {', '.join(sorted(keep))}")

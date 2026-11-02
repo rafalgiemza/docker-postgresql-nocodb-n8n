@@ -107,8 +107,8 @@ export-crm-legacy: ## Export the CRM from Postgres to a CSV in the legacy CRM fo
 delete-crm-legacy: ## Delete records added by an import (leads with legacy_id in IDS, e.g. 1704-1713) so a corrected file can be re-imported; PREVIEW unless APPLY=1
 	python3 -I scripts/delete-crm-legacy.py $(IDS) $(if $(APPLY),--apply)
 
-wipe-crm: ## Wipe ALL crm tables except employees (KEEP="t1 t2" keeps more); PREVIEW unless APPLY=1
-	python3 -I scripts/wipe-crm.py $(if $(KEEP),--keep $(KEEP)) $(if $(APPLY),--apply)
+wipe-crm: ## Wipe ALL crm tables except employees (KEEP="t1 t2" keeps more; ONLY="t1 t2" wipes just those + their _nc_m2m links); PREVIEW unless APPLY=1
+	python3 -I scripts/wipe-crm.py $(if $(KEEP),--keep $(KEEP)) $(if $(ONLY),--only $(ONLY)) $(if $(APPLY),--apply)
 
 dump-crm-schema: ## Dump live CRM table/field ids + relation targets to docs/archive/fable/schema_map.json
 	./scripts/dump-crm-schema.sh
