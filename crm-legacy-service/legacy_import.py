@@ -67,6 +67,7 @@ C = dict(id=0, client=1, org=2, segment=3, seller=4, industry=5, source=6,
          notes=31, check_id=32, folder=33, archived=34)
 N_COLS = 33   # szerokosc eksportu (uklad klienta); folder/archived tylko w imporcie
 N_ROW = len(C)
+BATCH = 50    # wierszy pliku na jeden blok DO (limit pamieci Postgresa)
 REGISTRY = "legacy.rows"  # rejestr ID: wiersz Excela -> lead/szansa (make grant-crm-legacy)
 
 # naglowki (male litery, spacje scalone; dwuwierszowy naglowek laczony w jeden)
@@ -693,18 +694,25 @@ def run_import(db, data, schema_map, apply=False, export_date=date(2026, 10, 30)
     employees = [(int(i), n) for i, n in
                  db.run(f"SELECT id, full_name FROM {SCHEMA}.employees", tuples=True)]
     body = build(rows, links, employees, export_date, warn)
-    sql = (
-        "BEGIN;\nDO $import$\nDECLARE\n"
-        "  v_company bigint; v_person bigint; v_lead bigint; v_opp bigint;\n"
-        "  v_act bigint; v_hist bigint;\n"
-        "  n_companies int := 0; n_persons int := 0; n_leads int := 0;\n"
-        "  n_opps int := 0; n_history int := 0; n_skipped int := 0;\nBEGIN\n"
-        f"{body}\n"
-        "RAISE NOTICE 'companies=%, persons=%, leads=%, opportunities=%, "
-        "history=%, skipped=%', n_companies, n_persons, "
-        "n_leads, n_opps, n_history, n_skipped;\n"
-        "END $import$;\n"
-        f"{'COMMIT' if apply else 'ROLLBACK'};\n")
+    # Paczki po BATCH wierszy, kazda we wlasnym bloku DO (w jednej transakcji):
+    # PL/pgSQL trzyma plany WSZYSTKICH instrukcji bloku do jego konca - jeden blok
+    # na caly plik przekroczyl 512 MB kontenera Postgresa (OOM, restart bazy).
+    blocks = [b for b in re.split(r"(?m)^(?=-- ---- stary CRM #)", body) if b.strip()]
+    parts = ["BEGIN;"]
+    for i in range(0, len(blocks), BATCH):
+        parts.append(
+            "DO $import$\nDECLARE\n"
+            "  v_company bigint; v_person bigint; v_lead bigint; v_opp bigint;\n"
+            "  v_act bigint; v_hist bigint;\n"
+            "  n_companies int := 0; n_persons int := 0; n_leads int := 0;\n"
+            "  n_opps int := 0; n_history int := 0; n_skipped int := 0;\nBEGIN\n"
+            + "".join(blocks[i:i + BATCH]) +
+            "\nRAISE NOTICE 'companies=%, persons=%, leads=%, opportunities=%, "
+            "history=%, skipped=%', n_companies, n_persons, "
+            "n_leads, n_opps, n_history, n_skipped;\n"
+            "END $import$;")
+    parts.append(f"{'COMMIT' if apply else 'ROLLBACK'};\n")
+    sql = "\n".join(parts)
     if apply:
         # sekwencja numerow dla rekordow z nowego CRM startuje za najwiekszym ID
         # z importu (setval nie jest transakcyjny - dlatego dopiero po COMMIT)
@@ -716,14 +724,15 @@ def run_import(db, data, schema_map, apply=False, export_date=date(2026, 10, 30)
         with open(sql_out, "w", encoding="utf-8") as f:
             f.write(sql)
     res = db.run(sql)
-    m = re.search(r"companies=(\d+), persons=(\d+), leads=(\d+), "
-                  r"opportunities=(\d+), history=(\d+), skipped=(\d+)", res)
-    if not m:
+    found = re.findall(r"companies=(\d+), persons=(\d+), leads=(\d+), "
+                       r"opportunities=(\d+), history=(\d+), skipped=(\d+)", res)
+    if not found and blocks:
         raise LegacyError(f"Brak podsumowania z bazy: {res[-300:]}")
     keys = ("companies", "persons", "leads", "opportunities", "history", "skipped")
+    counts = {k: sum(int(f[i]) for f in found) for i, k in enumerate(keys)}
     return dict(
         ok=True, applied=apply, rows=len(rows),
-        counts=dict(zip(keys, map(int, m.groups()))),
+        counts=counts,
         warnings=table_notes + group_warnings(warnings),
         warnings_total=len(warnings), links=list(links),
         sha256=hashlib.sha256(data).hexdigest())
