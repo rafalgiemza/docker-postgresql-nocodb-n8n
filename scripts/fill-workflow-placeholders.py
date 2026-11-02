@@ -17,6 +17,7 @@ literami, znaki inne niż A-Z0-9 -> `_`):
   __N8N_INTERNAL_URL__          N8N_INTERNAL_URL (domyślnie http://n8n:5678)
   __NOCODB_CRED_ID__            N8N_NOCODB_CRED_ID    (id credentiala w n8n)
   __OPENROUTER_CRED_ID__        N8N_OPENROUTER_CRED_ID
+  __CRM_LEGACY_CRED_ID__        N8N_CRM_LEGACY_CRED_ID (Header Auth: X-Token = CRM_LEGACY_TOKEN)
   __W<NN>_WORKFLOW_ID__         id workflow w n8n, jeśli jest N8N_API_KEY
                                 (dopasowanie po prefiksie nazwy `W<NN>`)
 
@@ -92,6 +93,7 @@ def env_map():
         "__N8N_INTERNAL_URL__": os.environ.get("N8N_INTERNAL_URL", "http://n8n:5678"),
         "__NOCODB_CRED_ID__": os.environ.get("N8N_NOCODB_CRED_ID", ""),
         "__OPENROUTER_CRED_ID__": os.environ.get("N8N_OPENROUTER_CRED_ID", ""),
+        "__CRM_LEGACY_CRED_ID__": os.environ.get("N8N_CRM_LEGACY_CRED_ID", ""),
     }
     m.update({k: v for k, v in pairs.items() if v})
     return m

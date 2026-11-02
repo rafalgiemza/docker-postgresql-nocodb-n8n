@@ -8,7 +8,7 @@ DC_CMD = docker compose -f docker-compose.yml
 LATEST_TS := $(shell ls -1t ./backups/appdata_*.sql 2>/dev/null | head -n 1 | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}')
 RESTORE_TS ?= $(LATEST_TS)
 
-.PHONY: help init init-env config up down restart pull ps versions logs dump-appdata-schema seed-extra backup backup-prune restore init-schema seed-test-data demo-schema-init demo-seed upgrade-links dump-crm-schema fill-workflows init-data init-appdata-db add-rag-db
+.PHONY: help init init-env config up down restart pull ps versions logs dump-appdata-schema seed-extra backup backup-prune restore init-schema seed-test-data demo-schema-init demo-seed upgrade-links dump-crm-schema import-crm-legacy export-crm-legacy grant-crm-legacy fill-workflows init-data init-appdata-db add-rag-db
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -90,6 +90,20 @@ upgrade-links: ## Re-run the Links v1 -> LinkToAnotherRecord v3 upgrade standalo
 # Zrzuca id tabel/pol + cele relacji zywego schematu CRM do JSON - potrzebne
 # do rekonstrukcji workflowow n8n (np. W1) po migracji na v3, patrz naglowek
 # scripts/dump-crm-schema.py.
+import-crm-legacy: ## Import starego CRM (CSV) prosto do Postgresa; domyślnie DRY-RUN. Użycie: make import-crm-legacy CSV=docs/crm/crm-utf-8.csv [APPLY=1]
+	./scripts/import-crm-legacy.sh $(CSV) $(if $(APPLY),--apply)
+
+# Rola serwisu crm-legacy-service (import/eksport CRM prosto w Postgres). Tabele
+# crm.* naleza do NOCODB_CRM_USER, wiec prawa nadajemy jawnie; po dodaniu nowych
+# tabel (make init-schema) odpal ponownie - idempotentne.
+grant-crm-legacy: ## One-time/idempotent: create CRM_LEGACY_USER and grant it access to schema crm
+	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "CREATE USER $(CRM_LEGACY_USER) WITH PASSWORD '$(CRM_LEGACY_PASSWORD)';" || true
+	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "GRANT CONNECT ON DATABASE $(APP_DB) TO $(CRM_LEGACY_USER);"
+	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(APP_DB) -c "GRANT USAGE ON SCHEMA crm TO $(CRM_LEGACY_USER); GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA crm TO $(CRM_LEGACY_USER); GRANT USAGE ON ALL SEQUENCES IN SCHEMA crm TO $(CRM_LEGACY_USER);"
+
+export-crm-legacy: ## Export the CRM from Postgres to a CSV in the legacy CRM format (read-only). Usage: make export-crm-legacy OUT=docs/crm/export.csv
+	python3 -I scripts/export-crm-legacy.py $(OUT)
+
 dump-crm-schema: ## Dump live CRM table/field ids + relation targets to docs/archive/fable/schema_map.json
 	./scripts/dump-crm-schema.sh
 

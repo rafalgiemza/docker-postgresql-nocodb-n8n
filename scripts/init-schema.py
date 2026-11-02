@@ -818,6 +818,62 @@ TABLES = [
         ],
     },
     {
+        # 2026-11-02: panel importu historycznych danych CRM. Jeden wiersz =
+        # jedno uruchomienie (historia). Przyciski wolaja W22, ten wola
+        # crm-legacy-service, ktory pisze PROSTO do Postgresa (NocoDB nie
+        # ustawi created_at) - .ai/rules/nocodb.md, sekcja 6.
+        "title": "crm_imports",
+        "icon": "📥",
+        "description": "Import historycznych danych ze starego CRM (CSV, 32 "
+                       "kolumny). Wgraj plik w `old_crm`, kliknij \"Sprawdz "
+                       "import\" (dry-run, nic nie zapisuje), a gdy raport jest "
+                       "OK - \"Importuj\". Ponowny import tego samego pliku nie "
+                       "dubluje danych (klucz: legacy_id).",
+        "fields": [
+            {"title": "title", "type": "SingleLineText"},
+            {"title": "old_crm", "type": "Attachment",
+             "description": "Plik CSV ze starego CRM (UTF-8 lub Windows-1252)."},
+            {"title": "import_result", "type": "SingleSelect",
+             "options": select("none", "dry_run_ok", "imported"),
+             "description": "Ostatni zakonczony krok: dry_run_ok = sprawdzone, "
+                            "mozna kliknac \"Importuj\"; imported = dane "
+                            "zapisane. Ustawiany AUTOMATYCZNIE."},
+            {"title": "dry_run_sha256", "type": "SingleLineText",
+             "description": "Skrot pliku zatwierdzony dry-runem. \"Importuj\" "
+                            "dziala tylko dla pliku o tym samym skrocie "
+                            "(zmieniles plik = sprawdz ponownie). AUTOMATYCZNE."},
+            {"title": "report", "type": "LongText",
+             "description": "Liczniki, ostrzezenia (np. zamiany dat) lub blad. "
+                            "Wypelniane AUTOMATYCZNIE przez n8n."},
+            {"title": "completion_status", "type": "SingleSelect",
+             "options": select("none", "collecting data", "creating file",
+                               "generating", "done", "error"),
+             "description": "Postep importu (n8n). Ustawiany AUTOMATYCZNIE; przy "
+                            "error szczegoly sa w polu `report`."},
+        ],
+    },
+    {
+        # 2026-11-02: eksport calego CRM do pliku w formacie starego CRM
+        # (32 kolumny, daty MM/DD/YYYY). Jeden wiersz = jeden eksport. Przycisk
+        # wola W23 -> crm-legacy-service czyta PROSTO z Postgresa.
+        "title": "crm_exports",
+        "icon": "📤",
+        "description": "Eksport CRM do pliku CSV w formacie starego CRM. "
+                       "Kliknij \"Eksportuj\" - plik pojawi sie w `new_crm`.",
+        "fields": [
+            {"title": "title", "type": "SingleLineText"},
+            {"title": "new_crm", "type": "Attachment",
+             "description": "Wygenerowany plik CSV (UTF-8). AUTOMATYCZNIE."},
+            {"title": "report", "type": "LongText",
+             "description": "Liczba wierszy lub blad. AUTOMATYCZNIE (n8n)."},
+            {"title": "completion_status", "type": "SingleSelect",
+             "options": select("none", "collecting data", "creating file",
+                               "generating", "done", "error"),
+             "description": "Postep eksportu (n8n). AUTOMATYCZNIE; przy error "
+                            "szczegoly sa w polu `report`."},
+        ],
+    },
+    {
         # 2026-09-29: W11 (docs/archive/fable/W11_newsletter_stats_sync.json)
         # synchronizuje tu co tydzien wyslane kampanie z MailerLite (upsert po
         # campaign_id). Tabela wylacznie do odczytu dla ludzi - kazdy sync
@@ -1461,6 +1517,8 @@ BUILD_STAGE_OF = {
     "package_variants_cores": 4, "package_variants_others": 4,
     "package_core_slides": 4, "selected_package_variants_cores": 4,
     "selected_package_variants_others": 4, "materials": 4, "newsletter_stats": 4,
+    # panel importu historycznych danych (bez relacji)
+    "crm_imports": 1, "crm_exports": 1,
 }
 # Relacja trafia do etapu max(etap wlasciciela, etap celu); wyjatki ponizej,
 # zeby karta szansy w etapie 1 nie miala jeszcze pol audytowych.
@@ -1509,6 +1567,9 @@ BUTTONS = [
     ("persons", "Utwórz szansę sprzedaży"),
     ("sale_opportunities", "Generuj zadania audytowe"),
     ("offers", "Utwórz nową wersję"),
+    ("crm_imports", "Sprawdź import"),
+    ("crm_imports", "Importuj"),
+    ("crm_exports", "Eksportuj"),
 ]
 
 BUTTON_PLACEHOLDER_NOTE = (

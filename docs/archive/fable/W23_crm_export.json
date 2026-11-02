@@ -1,0 +1,394 @@
+{
+  "name": "W23 - CRM export (button: Eksportuj)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "w23-crm-export",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "w23-01",
+      "name": "Button: Eksportuj",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "wh-w23-crm-export"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "02-export",
+              "name": "export",
+              "type": "object",
+              "value": "={{ $('Button: Eksportuj').first().json.body.data.rows[0] }}"
+            },
+            {
+              "id": "02-export_id",
+              "name": "export_id",
+              "type": "number",
+              "value": "={{ $('Button: Eksportuj').first().json.body.data.rows[0].Id }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w23-02",
+      "name": "Export from button",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        260,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "version": 2,
+        "operation": "update",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_CRM_EXPORTS__",
+        "id": "={{ $('Export from button').first().json.export_id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "completion_status",
+              "fieldValue": "collecting data"
+            }
+          ]
+        }
+      },
+      "id": "w23-03",
+      "name": "Set status: collecting data",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        520,
+        300
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "version": 2,
+        "operation": "update",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_CRM_EXPORTS__",
+        "id": "={{ $('Export from button').first().json.export_id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "completion_status",
+              "fieldValue": "creating file"
+            }
+          ]
+        }
+      },
+      "id": "w23-04",
+      "name": "Set status: creating file",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        780,
+        300
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://crm-legacy-service:8000/export",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "file",
+              "outputPropertyName": "new_crm"
+            }
+          },
+          "timeout": 300000
+        }
+      },
+      "id": "w23-05",
+      "name": "Export CRM from Postgres (crm-legacy-service)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        300
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "__CRM_LEGACY_CRED_ID__",
+          "name": "CRM legacy service token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/storage/upload",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "new_crm"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "w23-06",
+      "name": "Upload new CRM file",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1300,
+        300
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/__TBL_CRM_EXPORTS__/records",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Export from button').first().json.export_id, new_crm: $json.body, report: 'Wyeksportowano wierszy: ' + $('Export CRM from Postgres (crm-legacy-service)').first().json.headers['x-rows'], completion_status: 'done' }]) }}",
+        "options": {}
+      },
+      "id": "w23-07",
+      "name": "Save file and set status: done",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        300
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "08-error_message",
+              "name": "error_message",
+              "type": "string",
+              "value": "={{ $json.error?.message ?? (typeof $json.error === 'string' ? $json.error : JSON.stringify($json).slice(0, 500)) }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w23-08",
+      "name": "Prepare error details",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1300,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "version": 2,
+        "operation": "update",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_CRM_EXPORTS__",
+        "id": "={{ $('Export from button').first().json.export_id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "completion_status",
+              "fieldValue": "error"
+            },
+            {
+              "fieldName": "report",
+              "fieldValue": "={{ 'BŁĄD: ' + $json.error_message }}"
+            }
+          ]
+        }
+      },
+      "id": "w23-09",
+      "name": "Write error and set status: error",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        1560,
+        560
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Button: Eksportuj": {
+      "main": [
+        [
+          {
+            "node": "Export from button",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Export from button": {
+      "main": [
+        [
+          {
+            "node": "Set status: collecting data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set status: collecting data": {
+      "main": [
+        [
+          {
+            "node": "Set status: creating file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set status: creating file": {
+      "main": [
+        [
+          {
+            "node": "Export CRM from Postgres (crm-legacy-service)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Export CRM from Postgres (crm-legacy-service)": {
+      "main": [
+        [
+          {
+            "node": "Upload new CRM file",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare error details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload new CRM file": {
+      "main": [
+        [
+          {
+            "node": "Save file and set status: done",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare error details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save file and set status: done": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Prepare error details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare error details": {
+      "main": [
+        [
+          {
+            "node": "Write error and set status: error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

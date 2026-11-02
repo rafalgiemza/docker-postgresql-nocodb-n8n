@@ -88,3 +88,38 @@ ID rodzica w dedykowanym nodzie `Set` zaraz po fetchu, przed jakimkolwiek
   stają się leadem ani szansą: flow tworzące leady i szanse je pomijają.
 - Schemat tworzy `make init-schema STAGE=N` (etapy 1-4, patrz plan migracji);
   dane testowe `make seed-test-data STAGE=N`.
+
+## 6. Wyjątek: import/eksport CRM z/do pliku idzie przez PostgreSQL, nie przez NocoDB
+
+Decyzja usera 2026-11-01, po próbie importu `docs/crm/crm-2026-10-30.csv`
+(eksport z dotychczasowego CRM).
+
+**Powód:** NocoDB (API i importer) nie pozwala ustawić systemowych pól
+`created_at`/`CreatedAt` — zawsze wpisuje datę importu. Przy migracji
+historycznych danych tracimy realną datę utworzenia leada/klienta/szansy z
+dawnego CRM, a na niej opiera się raportowanie (czas w lejku, źródła w
+czasie).
+
+**Zasada:** hurtowy import danych z pliku CRM oraz eksport bazy do pliku CRM
+wykonujemy bezpośrednio na PostgreSQL (schemat `crm`, kontener
+`docker-postgres-1`, baza `$(APP_DB)`), nie przez API/importer/node NocoDB.
+Dotyczy tylko tego jednego przypadku — zwykłe operacje flow (sekcja 1 w
+[common.md](common.md)) nadal idą natywnym node'em NocoDB.
+
+**Konsekwencje:**
+- Import = skrypt zapisujący do tabel `crm.*` (SQL/psql lub Python z
+  `psycopg`), z jawnie ustawianym `created_at` z pliku. Najpierw `--dry-run`,
+  całość w jednej transakcji.
+- Nazwy tabel/kolumn bierzemy z live schematu Postgresa (`\d crm.*`) lub
+  `schema_map.json`, nie zgadujemy (zasada 1). Kolumny relacji/linków
+  (FK, tabele łączące M2M) wypełniamy SQL-em samodzielnie.
+- Po imporcie NocoDB widzi dane od razu (czyta ten sam schemat); w razie
+  potrzeby odśwież metadane tabel w UI.
+- Eksport do pliku CRM analogicznie: `COPY`/`SELECT` z `crm.*`, bez API NocoDB.
+- Skrypt łączy się rolą z uprawnieniami zapisu do `crm` (nie rolą
+  `NOCODB_CRM_USER`/`N8N_CRM_USER` bez sprawdzenia grantów).
+
+Implementacja: `make import-crm-legacy CSV=docs/crm/crm-utf-8.csv` (dry-run;
+`APPLY=1` zapisuje), kod w `scripts/import-crm-legacy.py`. Relacje (też
+belongs-to) siedzą w tabelach łączących `_nc_m2m_*`: nazwy tabel z
+`schema_map.json`, nazwy kolumn z kluczy obcych w bazie, nie z pamięci.
