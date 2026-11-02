@@ -178,3 +178,13 @@ def test_unknown_dictionary_values_are_kept_in_notes():
     assert "Data archiwizacji (stary CRM): 02.03.2024" in sql
     assert "Folder klienta (stary CRM): B2B23" in sql
     assert not any("Linked In" in x for x in w)   # "Linked In" == "LinkedIn" (spacje)
+
+
+def test_employee_matching_is_tolerant_but_unambiguous():
+    emp = [(1, "Przemek Giemza"), (2, "Natalia Nowak"), (3, "Agnieszka Lasoń")]
+    m = li.match_employee
+    assert m("Natalia", emp) == [2] and m("Przemek", emp) == [1]
+    assert m("Agnieszka Lasoń-Kurzela", emp) == [3]      # nazwisko dluzsze w pliku
+    assert m("Agnieszka Lason", emp) == [3]              # bez ogonkow
+    assert m("Ola", emp) == []
+    assert len(m("Natalia", emp + [(4, "Natalia Inna")])) == 2   # niejednoznaczne

@@ -39,6 +39,7 @@ import csv
 import hashlib
 import io
 import re
+import unicodedata
 from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 
@@ -236,6 +237,26 @@ def q(v):
     if v is None or v == "":
         return "NULL"
     return "'" + str(v).replace("'", "''") + "'"
+
+
+def _fold(s):
+    """male litery, bez ogonkow, lacznik = spacja ('Lasoń-Kurzela' ~ 'Lason Kurzela')."""
+    s = unicodedata.normalize("NFKD", s.replace("ł", "l").replace("Ł", "L"))
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    return re.sub(r"[\s\-]+", " ", s).strip().lower()
+
+
+def match_employee(seller, employees):
+    """id pracownikow pasujacych do 'Handlowiec' z pliku. Najpierw nazwa pelna
+    (jedna strona jest poczatkiem drugiej: 'Natalia' ~ 'Natalia Nowak',
+    'Agnieszka Lasoń-Kurzela' ~ 'Agnieszka Lasoń'), potem samo imie, ale tylko
+    gdy jest jednoznaczne."""
+    sf = _fold(seller)
+    full = [i for i, n in employees if _fold(n).startswith(sf) or sf.startswith(_fold(n))]
+    if full:
+        return full
+    first = sf.split(" ")[0]
+    return [i for i, n in employees if _fold(n).split(" ")[0] == first]
 
 
 def ident(s):
@@ -510,7 +531,7 @@ def build(rows, links, employees, export_date, warn):
         seller = r[C["seller"]]
         owner_id = None
         if seller:
-            hits = [i for i, n in employees if n.lower().startswith(seller.lower())]
+            hits = match_employee(seller, employees)
             if len(hits) == 1:
                 owner_id = hits[0]
             else:
