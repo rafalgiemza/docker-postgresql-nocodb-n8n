@@ -254,15 +254,9 @@
         "url": "http://crm-legacy-service:8000/import",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "contentType": "multipart-form-data",
-        "bodyParameters": {
+        "sendQuery": true,
+        "queryParameters": {
           "parameters": [
-            {
-              "parameterType": "formBinaryData",
-              "name": "file",
-              "inputDataFieldName": "old_crm"
-            },
             {
               "name": "dry_run",
               "value": "={{ $('Import request').first().json.dry_run }}"
@@ -273,6 +267,9 @@
             }
           ]
         },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "old_crm",
         "options": {
           "timeout": 300000
         }

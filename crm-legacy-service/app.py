@@ -10,7 +10,7 @@ import json
 import os
 from datetime import date
 
-from fastapi import FastAPI, File, Form, Header, HTTPException, Response, UploadFile
+from fastapi import FastAPI, Header, HTTPException, Request, Response
 
 import legacy_export as le
 import legacy_import as li
@@ -66,15 +66,18 @@ def health():
 
 
 @app.post("/import")
-async def import_csv(file: UploadFile = File(...), dry_run: bool = Form(True),
-                     export_date: str = Form("2026-10-30"),
-                     expect_sha256: str = Form(""),
+async def import_csv(request: Request, dry_run: bool = True,
+                     export_date: str = "2026-10-30", expect_sha256: str = "",
                      x_token: str = Header(default="")):
-    """dry_run=true (domyslnie): pelny import w transakcji + ROLLBACK.
-    dry_run=false wymaga expect_sha256 = skrot tego samego pliku zwrocony
-    wczesniej przez dry-run (nie zapiszemy pliku, ktorego nie sprawdzono)."""
+    """Plik CSV jako SUROWE cialo zadania (nie multipart - multipart z n8n
+    wisial); parametry w adresie. dry_run=true (domyslnie): pelny import w
+    transakcji + ROLLBACK. dry_run=false wymaga expect_sha256 = skrot tego
+    samego pliku zwrocony wczesniej przez dry-run (nie zapiszemy pliku, ktorego
+    nie sprawdzono)."""
     check_token(x_token)
-    data = await file.read()
+    data = await request.body()
+    if not data:
+        raise HTTPException(422, "Puste ciało zadania - brak pliku CSV.")
     if not dry_run and expect_sha256 != hashlib.sha256(data).hexdigest():
         raise HTTPException(
             409, "Plik nie byl sprawdzony - najpierw kliknij \"Sprawdz import\" "
