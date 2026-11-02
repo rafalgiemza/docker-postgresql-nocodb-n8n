@@ -854,7 +854,7 @@ TABLES = [
     },
     {
         # 2026-11-02: eksport calego CRM do pliku w formacie starego CRM
-        # (32 kolumny, daty MM/DD/YYYY). Jeden wiersz = jeden eksport. Przycisk
+        # (33 kolumny, daty MM/DD/YYYY). Jeden wiersz = jeden eksport. Przycisk
         # wola W23 -> crm-legacy-service czyta PROSTO z Postgresa.
         "title": "crm_exports",
         "icon": "📤",

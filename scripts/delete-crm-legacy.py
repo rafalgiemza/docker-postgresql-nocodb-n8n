@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Usuwa z bazy rekordy dodane przez import (zakres legacy_id leadow), zeby moc
+"""Usuwa z bazy rekordy dodane przez import (zakres ID z pliku), zeby moc
 zaimportowac poprawiony plik od nowa. Domyslnie PODGLAD (transakcja z ROLLBACK).
 Logika: crm-legacy-service/legacy_cleanup.py.
 
@@ -25,7 +25,7 @@ spec.loader.exec_module(cli)
 
 def main():
     ap = argparse.ArgumentParser(description="Usun zaimportowane rekordy")
-    ap.add_argument("ids", help="zakres legacy_id leadow, np. 1704-1713")
+    ap.add_argument("ids", help="zakres ID z pliku, np. 1704-1713")
     ap.add_argument("--apply", action="store_true", help="COMMIT (domyslnie podglad)")
     ap.add_argument("--container", default=os.environ.get("PG_CONTAINER", "docker-postgres-1"))
     ap.add_argument("--user", default=os.environ.get("POSTGRES_USER", "postgres"))

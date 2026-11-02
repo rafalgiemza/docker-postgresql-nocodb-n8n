@@ -1,7 +1,7 @@
-"""Usuwanie rekordow dodanych przez import (po zakresie legacy_id leadow).
+"""Usuwanie rekordow dodanych przez import (po zakresie ID z rejestru legacy.rows).
 
 Do poprawek na UAT: ponowny import POMIJA wiersze, ktore juz sa w bazie
-(klucz legacy_id), wiec zly import trzeba najpierw usunac. Kasuje tylko to, co
+(klucz: rejestr legacy.rows), wiec zly import trzeba najpierw usunac. Kasuje tylko to, co
 import tworzy: leady i szanse z legacy_id w zakresie, ich aktywnosci
 (flow=import-crm-legacy), wpisy historii etapow (changed_by=import) oraz osoby
 i firmy, do ktorych NIC innego nie jest juz podpiete. Wszystko w jednej
@@ -46,8 +46,8 @@ def run_cleanup(db, schema_map, lo, hi, apply=False):
     links = li.discover(db, schema_map)
     refs = _refs(db)
     s = SCHEMA
-    out = [f"l_ids := array(SELECT id FROM {s}.leads WHERE legacy_id BETWEEN {lo} AND {hi});",
-           f"o_ids := array(SELECT id FROM {s}.sale_opportunities WHERE legacy_id BETWEEN {lo} AND {hi});"]
+    out = [f"l_ids := array(SELECT lead_id FROM {li.REGISTRY} WHERE export_id BETWEEN {lo} AND {hi} AND lead_id IS NOT NULL);",
+           f"o_ids := array(SELECT opportunity_id FROM {li.REGISTRY} WHERE export_id BETWEEN {lo} AND {hi} AND opportunity_id IS NOT NULL);"]
     t, o, c = _junction(links, "lead_activities")
     out.append(f"a_ids := array(SELECT id FROM {s}.activities WHERE flow = 'import-crm-legacy' "
                f"AND id IN (SELECT {c} FROM {t} WHERE {o} = ANY(l_ids)));")
@@ -81,6 +81,8 @@ def run_cleanup(db, schema_map, lo, hi, apply=False):
     unlink_and_delete("activities", "a_ids", "activities")
     unlink_and_delete("sale_opportunities", "o_ids", "opportunities")
     unlink_and_delete("leads", "l_ids", "leads")
+    # numery z rejestru zwalniamy (import poprawionego pliku bierze je od nowa)
+    out.append(f"DELETE FROM {li.REGISTRY} WHERE export_id BETWEEN {lo} AND {hi} AND source = 'import';")
 
     # osoby: tylko te, do ktorych nic poza ich wlasnym linkiem do firmy nie prowadzi
     own = links["person_company"]["table"]

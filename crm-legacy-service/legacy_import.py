@@ -56,15 +56,46 @@ def die(msg):
 TZ = ZoneInfo("Europe/Warsaw")
 SCHEMA = "crm"
 
-# pozycje kolumn (naglowki "Data" sie powtarzaja - rozrozniamy po pozycji)
+# pozycje pol w wierszu po wczytaniu (kolumny pliku dobieramy po nazwie naglowka,
+# patrz HEADERS/read_table); kolejnosc 0-32 = uklad klienta/eksportu
 C = dict(id=0, client=1, org=2, segment=3, seller=4, industry=5, source=6,
          channel=7, qualification=8, disq_reason=9, contact=10, phone=11,
          email=12, received_d=13, received_t=14, client_created=15,
          opp_created=16, needs=17, demo=18, offer_sent=19, offer_discussed=20,
          contract_sent=21, contract_signed=22, lost_d=23, loss_reason=24,
-         stage=25, state=26, planned=27, value=28, label=29, notes=30,
-         check_id=31)
-N_COLS = 32
+         stage=25, state=26, planned_d=27, planned=28, value=29, label=30,
+         notes=31, check_id=32, folder=33, archived=34)
+N_COLS = 33   # szerokosc eksportu (uklad klienta); folder/archived tylko w imporcie
+N_ROW = len(C)
+REGISTRY = "legacy.rows"  # rejestr ID: wiersz Excela -> lead/szansa (make grant-crm-legacy)
+
+# naglowki (male litery, spacje scalone; dwuwierszowy naglowek laczony w jeden)
+HEADERS = {
+    "id": ["id"], "client": ["nazwa klienta"], "org": ["organizacja"],
+    "segment": ["b2b / b2c"], "seller": ["handlowiec"], "industry": ["branża"],
+    "source": ["źródło"], "channel": ["forma kontaktu"],
+    "qualification": ["kwalifikacja lead'a"],
+    "disq_reason": ["powód braku kwalifikacji lead'a"],
+    # w zanonimizowanym pliku te trzy kolumny nazywaja sie Kolumna1-3
+    "contact": ["osoba kontaktowa", "kolumna1"],
+    "phone": ["nr telefonu", "kolumna2"], "email": ["e.mail", "kolumna3"],
+    "received_d": ["data wpłynięcia"], "received_t": ["godzina wpłynięcia"],
+    "client_created": ["data utworzenia klienta"],
+    "opp_created": ["data szansy sprzedaży"], "needs": ["data badania potrzeb"],
+    "demo": ["data demo"], "offer_sent": ["data wysłania oferty"],
+    "offer_discussed": ["data omówienia oferty"],
+    "contract_sent": ["data wysłania umowy"],
+    "contract_signed": ["data podpisania umowy"], "lost_d": ["data utracenia"],
+    "loss_reason": ["powód utraty szansy"], "stage": ["etap"], "state": ["stan"],
+    "planned_d": ["data planowanego działania"], "planned": ["planowane działanie"],
+    "value": ["szansa sprzedaży wartość"],
+    "label": ["szansa sprzedaży . etykieta"], "notes": ["notatki"],
+    "check_id": ["spr. id"], "folder": ["folder klienta"],
+    "archived": ["data archiwizacji"]}
+HEADER_REQUIRED = ("id", "segment", "received_d", "opp_created")
+# kolumny bez miejsca w CRM - zachowane w notatkach leada (eksport je odtworzy)
+EXTRA_NOTES = {"folder": "Folder klienta (stary CRM): ",
+               "archived": "Data archiwizacji (stary CRM): "}
 
 INDUSTRY = {"Agriculture", "AI", "Automation", "Automotive", "Banking", "Clothing",
             "Construction", "Data Solutions", "Design", "E.commerce", "Energy",
@@ -100,7 +131,7 @@ REQUIRED = {
     "persons": ["id", "full_name", "email", "phone", "industry", "created_at"],
     "leads": ["id", "lead_name", "lead_type", "lead_source", "contact_channel",
               "qualification", "disqualify_reason", "disqualify_note",
-              "received_at", "notes", "legacy_id", "created_at"],
+              "received_at", "notes", "created_at"],
     "sale_opportunities": ["id", "name", "segment", "stage", "state", "loss_reason",
                            "loss_note", "deal_value", "offer_sent_at",
                            "contract_sent_at", "closed_at", "stage_changed_at",
@@ -143,6 +174,9 @@ def discover(pg, schema_map):
         miss = [c for c in need if c not in cols[t]]
         if miss:
             die(f"{SCHEMA}.{t}: brak kolumn {miss}. Podeslij `\\d {SCHEMA}.{t}`.")
+    reg = pg.run(f"SELECT to_regclass('{REGISTRY}')", tuples=True)
+    if not (reg and reg[0] and reg[0][0]):
+        die(f"Brak rejestru ID {REGISTRY}. Uruchom `make grant-crm-legacy`.")
     strip = lambda x: x.split(".")[-1].strip('"')
     fks = {}  # (tabela-z-FK, tabela-docelowa) -> [kolumny]
     for child, col, parent in pg.run(
@@ -211,6 +245,13 @@ def parse_date(s, export_date, warn, ctx):
     s = s.strip()
     if not s:
         return None
+    m = re.fullmatch(r"(\d{1,2})\.(\d{1,2})\.(\d{4})", s)
+    if m:  # recznie wpisane wiersze: DD.MM.YYYY (kropki = zawsze dzien pierwszy)
+        try:
+            return date(int(m[3]), int(m[2]), int(m[1]))
+        except ValueError:
+            warn(f"{ctx}: niepoprawna data '{s}' - pominieta")
+            return None
     m = re.fullmatch(r"(\d{1,2})/(\d{1,2})/(\d{4})", s)
     if not m:
         warn(f"{ctx}: nieczytelna data '{s}' - pominieta")
@@ -254,16 +295,23 @@ def date_lit(d):
     return q(d.isoformat()) if d else "NULL"
 
 
-def pick(v, allowed, warn, ctx, label):
+def pick(v, allowed, warn, ctx, label, note=None, aliases=None):
+    """Wartosc z listy opcji (bez rozrozniania wielkosci liter i spacji).
+    Nieznana wartosc nie ginie: idzie do `note` (notatki leada) i ostrzezenia."""
     v = v.strip()
     if not v:
         return None
     if v in allowed:
         return v
-    low = {a.lower(): a for a in allowed}
-    if v.lower() in low:
-        return low[v.lower()]
-    warn(f"{ctx}: {label} '{v}' nie ma w opcjach - pominiete")
+    key = lambda x: re.sub(r"[\s.\-]", "", x).lower()  # 'E-commerce' == 'E.commerce'
+    low = {key(a): a for a in allowed}
+    if key(v) in low:
+        return low[key(v)]
+    if key(v) in (aliases or {}):
+        return aliases[key(v)]
+    warn(f"{ctx}: {label} '{v}' nie ma w opcjach - zapisane tylko w notatkach")
+    if note is not None:
+        note.append(f"{label[0].upper() + label[1:]} (stary CRM): {v}")
     return None
 
 
@@ -298,13 +346,16 @@ def loss_reason(text):
 
 
 def money(s):
+    """'3,900.00 PLN', '1 234,50 zł', '4800' -> '3900.00' ... (ostatni separator
+    to ulamek, o ile ma 1-2 cyfry; reszta to separatory tysiecy)."""
     s = re.sub(r"[^\d,.\-]", "", s.replace("\xa0", ""))
     if not s:
         return None
-    if "," in s:
-        s = s.replace(".", "").replace(",", ".")
+    m = re.search(r"[.,](\d{1,2})$", s)
+    whole, frac = (s[:m.start()], m[1]) if m else (s, "0")
+    whole = re.sub(r"[.,]", "", whole)
     try:
-        return f"{float(s):.2f}"
+        return f"{float(whole + '.' + frac):.2f}"
     except ValueError:
         return None
 
@@ -319,12 +370,61 @@ def decode(data):
     raise LegacyError("Nie mozna odczytac pliku (UTF-8 ani cp1252).")
 
 
-def read_rows(text):
+def _norm(h):
+    return re.sub(r"\s+", " ", h).strip().lower()
+
+
+def read_table(text):
+    """(wiersze, uwagi). Wiersze w ukladzie kolumn C (N_ROW pol), kolumny dobrane
+    po NAZWIE naglowka - kolejnosc i dodatkowe kolumny nie maja znaczenia.
+    Naglowek moze byc jedno- lub dwuwierszowy (drugi wiersz z pustym ID jest
+    doklejany do pierwszego); puste kolumny na koncu sa pomijane."""
     rows = list(csv.reader(io.StringIO(text, newline="")))
-    if not rows or len(rows[0]) != N_COLS:
-        raise LegacyError(f"Oczekiwano {N_COLS} kolumn w naglowku, jest "
-            f"{len(rows[0]) if rows else 0}.")
-    return [r for r in rows[2:] if r and r[0].strip().isdigit()]
+    if not rows:
+        raise LegacyError("Pusty plik.")
+    head = list(rows[0])
+    body = rows[1:]
+    if body and not body[0][:1] == [] and not body[0][0].strip() \
+            and any(c.strip() for c in body[0]) \
+            and not any(c.strip().isdigit() for c in body[0][:1]):
+        head = [f"{h} {body[0][i] if i < len(body[0]) else ''}" for i, h in enumerate(head)]
+        body = body[1:]
+    head = [_norm(h) for h in head]
+    alias = {a: k for k, names in HEADERS.items() for a in names}
+    idx, ignored = {}, []
+    for i, h in enumerate(head):
+        k = alias.get(h)
+        if k and k not in idx:
+            idx[k] = i
+        elif h:
+            ignored.append(h)
+    miss = [HEADERS[k][0] for k in HEADER_REQUIRED if k not in idx]
+    if miss:
+        raise LegacyError(
+            "W naglowku brak wymaganych kolumn: " + ", ".join(repr(m) for m in miss)
+            + ". Znaleziono: " + " | ".join(f"{i + 1}={h!r}" for i, h in enumerate(head) if h))
+    out, skipped = [], 0
+    for r in body:
+        if not any(c.strip() for c in r):
+            continue
+        if not r[idx["id"]].strip().isdigit():
+            skipped += 1  # np. ujemne ID, wiersze zbiorcze
+            continue
+        row = [""] * N_ROW
+        for k, i in idx.items():
+            if i < len(r):
+                row[C[k]] = r[i]
+        out.append(row)
+    notes = []
+    if ignored:
+        notes.append("Kolumny pominięte (brak w CRM): " + ", ".join(sorted(set(ignored))))
+    if skipped:
+        notes.append(f"Pominięto {skipped} wierszy bez poprawnego dodatniego ID")
+    return out, notes
+
+
+def read_rows(text):
+    return read_table(text)[0]
 
 
 # ---------------------------------------------------------------- generator
@@ -333,7 +433,7 @@ def build(rows, links, employees, export_date, warn):
     emit = out.append
     seen_ids = set()
     for r in rows:
-        r = [x.strip() for x in r] + [""] * (N_COLS - len(r))
+        r = [x.strip() for x in r] + [""] * (N_ROW - len(r))
         lid = int(r[C["id"]])
         ctx = f"#{lid}"
         if lid in seen_ids:
@@ -355,34 +455,55 @@ def build(rows, links, employees, export_date, warn):
         phone = r[C["phone"]]
         core = re.sub(r"\D", "", phone)
         core = core[-9:] if len(core) >= 9 else ""
-        ind = pick(r[C["industry"]], INDUSTRY, warn, ctx, "branza")
+        kept = []  # wartosci spoza slownikow - zostaja w notatkach leada
+        ind = pick(r[C["industry"]], INDUSTRY, warn, ctx, "branża", kept)
 
         # --- daty
-        pd = lambda k: parse_date(r[C[k]], export_date, warn, f"{ctx} {k}")
+        def pd(k):
+            d = parse_date(r[C[k]], export_date, warn, f"{ctx} {k}")
+            if d is None and r[C[k]]:  # nieczytelna wartosc nie ginie
+                kept.append(f"{HEADERS[k][0].capitalize()} (stary CRM): {r[C[k]]}")
+            return d
         rd = pd("received_d")
+        opp_d = pd("opp_created")
+        if rd is None and opp_d:
+            # w pelnym eksporcie wiekszosc wierszy nie ma daty wplyniecia - lead
+            # powstal razem z szansa
+            rd = opp_d
+            warn(f"{ctx}: brak daty wplyniecia - uzyto daty szansy sprzedazy")
         if rd is None:
-            warn(f"{ctx}: brak daty wplyniecia - wiersz pominiety")
+            warn(f"{ctx}: brak daty wplyniecia i daty szansy - wiersz pominiety")
             continue
         rt = time(0)
         if r[C["received_t"]]:
-            try:
-                rt = datetime.strptime(r[C["received_t"]], "%I:%M:%S %p").time()
-            except ValueError:
+            for fmt in ("%I:%M:%S %p", "%H:%M:%S", "%H:%M", "%I:%M %p"):
+                try:
+                    rt = datetime.strptime(r[C["received_t"]], fmt).time()
+                    break
+                except ValueError:
+                    continue
+            else:
                 warn(f"{ctx}: nieczytelna godzina '{r[C['received_t']]}' - 00:00")
         received = datetime.combine(rd, rt, TZ)
         client_created = at(pd("client_created"), hour=0) or received
         if client_created.date() == received.date():
             client_created = received  # klient powstaje razem z leadem
-        opp_d = pd("opp_created")
         d_needs, d_demo = pd("needs"), pd("demo")
         d_offer, d_disc = pd("offer_sent"), pd("offer_discussed")
         d_csent, d_sign = pd("contract_sent"), pd("contract_signed")
         d_lost = pd("lost_d")
+        if not opp_d and any((d_needs, d_demo, d_offer, d_disc, d_csent, d_sign)):
+            # kamienie milowe bez daty szansy: szansa istniala - bierzemy
+            # najwczesniejszy kamien jako date jej utworzenia
+            opp_d = min(d for d in (d_needs, d_demo, d_offer, d_disc, d_csent, d_sign) if d)
+            warn(f"{ctx}: brak 'Data szansy sprzedazy' - uzyto najwczesniejszej "
+                 f"daty kamienia milowego")
 
         # --- pola leada
-        src = pick(r[C["source"]], LEAD_SOURCE, warn, ctx, "zrodlo")
-        chan = pick(r[C["channel"]], CHANNEL, warn, ctx, "forma kontaktu")
-        qual = pick(r[C["qualification"]], QUALIFICATION, warn, ctx, "kwalifikacja")
+        src = pick(r[C["source"]], LEAD_SOURCE, warn, ctx, "źródło", kept)
+        chan = pick(r[C["channel"]], CHANNEL, warn, ctx, "forma kontaktu", kept,
+                    {"email": "Mail"})
+        qual = pick(r[C["qualification"]], QUALIFICATION, warn, ctx, "kwalifikacja", kept)
         dq_text = r[C["disq_reason"]]
         dq = disq_reason(dq_text) if qual in ("non-MQL", "non-SQL") else None
         seller = r[C["seller"]]
@@ -394,7 +515,12 @@ def build(rows, links, employees, export_date, warn):
             else:
                 warn(f"{ctx}: handlowiec '{seller}' - dopasowan: {len(hits)}, "
                      f"owner pominiety")
-        notes = [r[C["notes"]]]
+        notes = [r[C["notes"]]] + kept
+        for key, prefix in EXTRA_NOTES.items():
+            if r[C[key]]:
+                notes.append(prefix + r[C[key]])
+        if r[C["planned_d"]]:
+            notes.append(f"Data planowanego działania (stary CRM): {r[C['planned_d']]}")
         if r[C["planned"]]:
             notes.append(f"Planowane działanie (stary CRM): {r[C['planned']]}")
         if r[C["label"]]:
@@ -444,9 +570,6 @@ def build(rows, links, employees, export_date, warn):
                        loss_note=lost_text if state == "lost" else None,
                        closed=d_sign if state == "won" else (d_lost if state == "lost" else None))
         else:
-            if any((d_needs, d_demo, d_offer, d_disc, d_csent, d_sign)):
-                warn(f"{ctx}: daty kamieni milowych bez 'Data szansy sprzedazy' - "
-                     f"szansa NIE utworzona")
             if d_lost or r[C["state"]].lower() == "utracona":
                 notes.append(
                     f"Utracone w starym CRM"
@@ -456,8 +579,8 @@ def build(rows, links, employees, export_date, warn):
 
         # ================= SQL dla wiersza =================
         emit(f"-- ---- stary CRM #{lid}: {lead_name}")
-        emit(f"IF NOT EXISTS (SELECT 1 FROM {SCHEMA}.leads WHERE legacy_id = {lid}) THEN")
-        emit("v_company := NULL; v_person := NULL;")
+        emit(f"IF NOT EXISTS (SELECT 1 FROM {REGISTRY} WHERE export_id = {lid}) THEN")
+        emit("v_company := NULL; v_person := NULL; v_opp := NULL;")
         if company:
             emit(f"SELECT id INTO v_company FROM {SCHEMA}.companies "
                  f"WHERE lower(name) = lower({q(company)}) LIMIT 1;")
@@ -486,10 +609,10 @@ def build(rows, links, employees, export_date, warn):
         # lead
         lcols = ["lead_name", "lead_type", "lead_source", "contact_channel",
                  "qualification", "disqualify_reason", "disqualify_note",
-                 "received_at", "notes", "legacy_id", "created_at"]
+                 "received_at", "notes", "created_at"]
         lvals = [q(lead_name), q(segment), q(src), q(chan), q(qual), q(dq),
                  q(dq_text if dq else None), ts_lit(received), q(lead_notes),
-                 str(lid), ts_lit(received)]
+                 ts_lit(received)]
         emit(f"INSERT INTO {SCHEMA}.leads ({', '.join(ident(c) for c in lcols)}) "
              f"VALUES ({', '.join(lvals)}) RETURNING id INTO v_lead; "
              "n_leads := n_leads + 1;")
@@ -537,9 +660,26 @@ def build(rows, links, employees, export_date, warn):
                 emit(link(links, "history_opp", "v_hist", "v_opp"))
                 emit("n_history := n_history + 1;")
                 prev = stage
+        emit(f"INSERT INTO {REGISTRY} (export_id, lead_id, opportunity_id, source) "
+             f"VALUES ({lid}, v_lead, v_opp, 'import');")
         emit("ELSE n_skipped := n_skipped + 1; END IF;")
     return "\n".join(out)
 
+
+
+def group_warnings(warnings, examples=3):
+    """Ostrzezenia z tysiecy wierszy -> "N× tresc (np. #1, #2, #3)"; raport
+    miesci sie w polu tekstowym NocoDB."""
+    groups = {}
+    for w in warnings:
+        m = re.match(r"(#\d+)(?: [a-z_]+)?: (.*)", w)
+        key, ex = (re.sub(r"[\d/.\-]{4,}|'[^']*'", "…", m[2]), m[1]) if m else (w, "")
+        g = groups.setdefault(key, [0, []])
+        g[0] += 1
+        if ex and len(g[1]) < examples:
+            g[1].append(ex)
+    return [f"{n}× {k}" + (f" (np. {', '.join(ex)})" if ex else "")
+            for k, (n, ex) in sorted(groups.items(), key=lambda kv: -kv[1][0])]
 
 
 def run_import(db, data, schema_map, apply=False, export_date=date(2026, 10, 30),
@@ -548,7 +688,7 @@ def run_import(db, data, schema_map, apply=False, export_date=date(2026, 10, 30)
     warnings = []
     warn = warnings.append
     text = decode(data)
-    rows = read_rows(text)
+    rows, table_notes = read_table(text)
     links = discover(db, schema_map)
     employees = [(int(i), n) for i, n in
                  db.run(f"SELECT id, full_name FROM {SCHEMA}.employees", tuples=True)]
@@ -565,6 +705,13 @@ def run_import(db, data, schema_map, apply=False, export_date=date(2026, 10, 30)
         "n_leads, n_opps, n_history, n_skipped;\n"
         "END $import$;\n"
         f"{'COMMIT' if apply else 'ROLLBACK'};\n")
+    if apply:
+        # sekwencja numerow dla rekordow z nowego CRM startuje za najwiekszym ID
+        # z importu (setval nie jest transakcyjny - dlatego dopiero po COMMIT)
+        sql += (f"SELECT setval('legacy.export_id_seq', greatest(m.v, s.v)) FROM "
+                f"(SELECT coalesce(max(export_id), 0) v FROM {REGISTRY}) m, "
+                f"(SELECT CASE WHEN is_called THEN last_value ELSE 0 END v "
+                f"FROM legacy.export_id_seq) s WHERE greatest(m.v, s.v) > 0;\n")
     if sql_out:
         with open(sql_out, "w", encoding="utf-8") as f:
             f.write(sql)
@@ -577,5 +724,6 @@ def run_import(db, data, schema_map, apply=False, export_date=date(2026, 10, 30)
     return dict(
         ok=True, applied=apply, rows=len(rows),
         counts=dict(zip(keys, map(int, m.groups()))),
-        warnings=warnings, links=list(links),
+        warnings=table_notes + group_warnings(warnings),
+        warnings_total=len(warnings), links=list(links),
         sha256=hashlib.sha256(data).hexdigest())

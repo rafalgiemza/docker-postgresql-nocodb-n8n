@@ -70,8 +70,16 @@ def main():
         for t in sorted(keep):
             print(f"  ZACHOWANE   {t:45} {counts[t]:>6}")
         lst = ", ".join(f"{li.SCHEMA}.{li.ident(t)}" for t in wipe)
+        reg = db.run("SELECT to_regclass('legacy.rows')", tuples=True)
+        reset_registry = bool(reg and reg[0] and reg[0][0]) and (
+            "leads" in wipe or "sale_opportunities" in wipe)
+        if reset_registry:  # inaczej import uznalby wiersze za juz zaimportowane
+            n = db.run("SELECT count(*) FROM legacy.rows", tuples=True)[0][0]
+            print(f"  czyszczone  {'legacy.rows (rejestr ID importu)':45} {n:>6}")
         db.run(f"BEGIN;\nTRUNCATE {lst} RESTART IDENTITY;\n"
-               f"{'COMMIT' if a.apply else 'ROLLBACK'};")
+               + ("TRUNCATE legacy.rows;\nALTER SEQUENCE legacy.export_id_seq RESTART;\n"
+                  if reset_registry else "")
+               + f"{'COMMIT' if a.apply else 'ROLLBACK'};")
     except li.LegacyError as e:
         print(f"❌ {e}", file=sys.stderr)
         sys.exit(1)

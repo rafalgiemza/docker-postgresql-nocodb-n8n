@@ -18,19 +18,18 @@ from datetime import datetime
 import legacy_import as li
 from legacy_import import C, N_COLS, SCHEMA, TZ, ident
 
+# naglowek jak w pliku klienta: jeden wiersz, komorki z nowymi liniami
 HEADER = [
     "ID", "Nazwa klienta", "Organizacja", "B2B / B2C", "Handlowiec", "Branża",
-    "Źródło", "Forma", "Kwalifikacja lead'a", "Powód braku kwalifikacji lead'a",
-    "Osoba kontaktowa", "Nr telefonu", "E.mail", "Data", "Godzina",
+    "Źródło", "Forma\nkontaktu", "Kwalifikacja lead'a",
+    "Powód braku kwalifikacji lead'a", "Osoba kontaktowa", "Nr telefonu",
+    "E.mail", "Data\nwpłynięcia", "Godzina\nwpłynięcia",
     "Data utworzenia klienta", "Data szansy sprzedaży", "Data badania potrzeb",
-    "Data", "Data wysłania oferty", "Data omówienia oferty",
-    "Data wysłania umowy", "Data podpisania umowy", "Data",
-    "Powód utraty szansy", "Etap", "Stan", "Planowane działanie",
-    "Szansa sprzedaży ", "Szansa sprzedaży . Etykieta", "Notatki", "Spr. ID"]
-HEADER2 = [""] * N_COLS
-for _i, _t in {7: "kontaktu", 13: "wpłynięcia", 14: "wpłynięcia", 18: "DEMO",
-               23: "utracenia", 28: "Wartość"}.items():
-    HEADER2[_i] = _t
+    "Data\nDEMO", "Data wysłania oferty", "Data omówienia oferty",
+    "Data wysłania umowy", "Data podpisania umowy", "Data\nutracenia",
+    "Powód utraty szansy", "Etap", "Stan", "Data planowanego działania",
+    "Planowane działanie", "Szansa sprzedaży \nWartość",
+    "Szansa sprzedaży . Etykieta", "Notatki", "Spr. ID"]
 
 # stage v4 -> "Etap" starego CRM (odwrotnosc STAGE_MAP; "Nowa" i etapy
 # discovery nie maja odpowiednika w starym CRM)
@@ -47,6 +46,7 @@ MILESTONE = {"Audyt": "needs", "Rekomendacja / demo": "demo",
              "Utracona": "lost_d"}
 
 NOTE_PREFIXES = {
+    "planned_d": "Data planowanego działania (stary CRM): ",
     "planned": "Planowane działanie (stary CRM): ",
     "label": "Etykieta szansy (stary CRM): ",
     "check_id": "Spr. ID (stary CRM): "}
@@ -82,7 +82,9 @@ def build_query(links, schema_map):
     hist_ids = _link_sql(links, schema_map, "history_opp", "h.id")
     return f"""
 SELECT coalesce(jsonb_agg(x ORDER BY x.received_at, x.lead_id), '[]'::jsonb)::text FROM (
-  SELECT l.id AS lead_id, l.legacy_id, l.lead_name, l.lead_type, l.lead_source,
+  SELECT l.id AS lead_id,
+         (SELECT r.export_id FROM legacy.rows r WHERE r.lead_id = l.id
+          ORDER BY r.export_id LIMIT 1) AS legacy_id, l.lead_name, l.lead_type, l.lead_source,
          l.contact_channel, l.qualification, l.disqualify_note, l.received_at,
          l.notes,
          p.full_name AS p_name, p.email AS p_email, p.phone AS p_phone,
@@ -179,6 +181,7 @@ def to_row(x, legacy_id):
             r[C["stage"]] = "utracona"
             r[C["lost_d"]] = _d(datetime.fromisoformat(lost[0]).replace(tzinfo=TZ)) if lost[0] else ""
             r[C["loss_reason"]] = lost[1] if lost[1] != "bez powodu" else ""
+    r[C["planned_d"]] = extra.get("planned_d", "")
     r[C["planned"]] = extra.get("planned", "")
     r[C["label"]] = extra.get("label", "")
     r[C["check_id"]] = extra.get("check_id", "")
@@ -204,7 +207,6 @@ def run_export(db, schema_map):
     buf = io.StringIO()
     w = csv.writer(buf, lineterminator="\r\n")
     w.writerow(HEADER)
-    w.writerow(HEADER2)
     for _id, r in rows:
         w.writerow(r)
     return buf.getvalue().encode("utf-8"), len(rows)

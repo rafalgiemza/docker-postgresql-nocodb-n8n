@@ -12,9 +12,10 @@ def row(**kw):
     return le.to_row({**BASE, **kw}, 1704)
 
 
-def test_header_has_32_columns_and_second_row_labels():
-    assert len(le.HEADER) == 32 and len(le.HEADER2) == 32
-    assert le.HEADER2[28] == "Wartość" and le.HEADER2[18] == "DEMO"
+def test_header_has_33_columns_single_row_like_client_file():
+    assert len(le.HEADER) == 33
+    assert le.HEADER[27] == "Data planowanego działania"
+    assert le.HEADER[18] == "Data\nDEMO" and le.HEADER[29].endswith("Wartość")
 
 
 def test_dates_and_time_format():
@@ -28,17 +29,21 @@ def test_midnight_time_is_empty():
 
 
 def test_notes_are_split_back_into_columns():
-    notes = ("Moja notatka\nPlanowane działanie (stary CRM): zadzwonić\n"
+    notes = ("Moja notatka\nData planowanego działania (stary CRM): 11/05/2026\n"
+             "Planowane działanie (stary CRM): zadzwonić\n"
              "Etykieta szansy (stary CRM): gorący\nSpr. ID (stary CRM): 77")
     r = row(notes=notes)
-    assert r[30] == "Moja notatka"
-    assert (r[27], r[29], r[31]) == ("zadzwonić", "gorący", "77")
+    C = le.C
+    assert r[C["notes"]] == "Moja notatka"
+    assert (r[C["planned_d"]], r[C["planned"]], r[C["label"]], r[C["check_id"]]) == (
+        "11/05/2026", "zadzwonić", "gorący", "77")
 
 
 def test_lost_lead_without_opportunity():
     r = row(notes="Utracone w starym CRM 2026-10-20: nie chce discovery")
-    assert (r[25], r[26], r[23], r[24]) == ("utracona", "Utracona", "10/20/2026",
-                                           "nie chce discovery")
+    C = le.C
+    assert (r[C["stage"]], r[C["state"]], r[C["lost_d"]], r[C["loss_reason"]]) == (
+        "utracona", "Utracona", "10/20/2026", "nie chce discovery")
 
 
 def test_opportunity_stage_state_and_milestones():

@@ -96,15 +96,16 @@ import-crm-legacy: ## Import starego CRM (CSV) prosto do Postgresa; domyślnie D
 # Rola serwisu crm-legacy-service (import/eksport CRM prosto w Postgres). Tabele
 # crm.* naleza do NOCODB_CRM_USER, wiec prawa nadajemy jawnie; po dodaniu nowych
 # tabel (make init-schema) odpal ponownie - idempotentne.
-grant-crm-legacy: ## One-time/idempotent: create CRM_LEGACY_USER and grant it access to schema crm
+grant-crm-legacy: ## One-time/idempotent: create CRM_LEGACY_USER and grant it access to schema crm + create the legacy.rows ID registry
 	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "CREATE USER $(CRM_LEGACY_USER) WITH PASSWORD '$(CRM_LEGACY_PASSWORD)';" || true
 	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "GRANT CONNECT ON DATABASE $(APP_DB) TO $(CRM_LEGACY_USER);"
 	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(APP_DB) -c "GRANT USAGE ON SCHEMA crm TO $(CRM_LEGACY_USER); GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA crm TO $(CRM_LEGACY_USER); GRANT USAGE ON ALL SEQUENCES IN SCHEMA crm TO $(CRM_LEGACY_USER);"
+	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(APP_DB) -v ON_ERROR_STOP=1 -v u=$(CRM_LEGACY_USER) < scripts/legacy-registry.sql
 
 export-crm-legacy: ## Export the CRM from Postgres to a CSV in the legacy CRM format (read-only). Usage: make export-crm-legacy OUT=docs/crm/export.csv
 	python3 -I scripts/export-crm-legacy.py $(OUT)
 
-delete-crm-legacy: ## Delete records added by an import (leads with legacy_id in IDS, e.g. 1704-1713) so a corrected file can be re-imported; PREVIEW unless APPLY=1
+delete-crm-legacy: ## Delete records added by an import (rows with ID in IDS, e.g. 1704-1713) so a corrected file can be re-imported; PREVIEW unless APPLY=1
 	python3 -I scripts/delete-crm-legacy.py $(IDS) $(if $(APPLY),--apply)
 
 wipe-crm: ## Wipe ALL crm tables except employees (KEEP="t1 t2" keeps more; ONLY="t1 t2" wipes just those + their _nc_m2m links); PREVIEW unless APPLY=1

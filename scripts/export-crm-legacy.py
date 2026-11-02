@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Eksport CRM z PostgreSQL do pliku CSV w formacie starego CRM (32 kolumny,
+"""Eksport CRM z PostgreSQL do pliku CSV w formacie starego CRM (33 kolumny,
 daty MM/DD/YYYY, UTF-8). Cienki CLI nad crm-legacy-service/legacy_export.py;
 tylko odczyt. Patrz .ai/rules/nocodb.md, sekcja 6.
 
