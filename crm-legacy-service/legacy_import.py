@@ -38,6 +38,7 @@ daty bez godziny = 12:00 (nie wczesniej niz wplyniecie leada).
 import csv
 import hashlib
 import io
+import json
 import re
 import unicodedata
 from datetime import date, datetime, time
@@ -94,6 +95,19 @@ HEADERS = {
     "label": ["szansa sprzedaży . etykieta"], "notes": ["notatki"],
     "check_id": ["spr. id"], "folder": ["folder klienta"],
     "archived": ["data archiwizacji"]}
+ALIAS = {a: k for k, names in HEADERS.items() for a in names}
+
+
+def header_key(cell):
+    """Nazwa kolumny w ukladzie C dla komorki naglowka (None = nieznana/pusta)."""
+    return ALIAS.get(re.sub(r"\s+", " ", cell).strip().lower())
+
+
+def kept_prefix(label):
+    """Poczatek linii w notatkach leada dla wartosci, ktorej nie ma gdzie zapisac."""
+    return f"{label[0].upper()}{label[1:]} (stary CRM): "
+
+
 HEADER_REQUIRED = ("id", "segment", "received_d", "opp_created")
 # kolumny bez miejsca w CRM - zachowane w notatkach leada (eksport je odtworzy)
 EXTRA_NOTES = {"folder": "Folder klienta (stary CRM): ",
@@ -333,7 +347,7 @@ def pick(v, allowed, warn, ctx, label, note=None, aliases=None):
         return aliases[key(v)]
     warn(f"{ctx}: {label} '{v}' nie ma w opcjach - zapisane tylko w notatkach")
     if note is not None:
-        note.append(f"{label[0].upper() + label[1:]} (stary CRM): {v}")
+        note.append(f"{kept_prefix(label)}{v}")
     return None
 
 
@@ -396,26 +410,33 @@ def _norm(h):
     return re.sub(r"\s+", " ", h).strip().lower()
 
 
+def _split_header(rows):
+    """(wiersze naglowka, reszta). Drugi wiersz naglowka = pusty ID i niepuste
+    pozostale komorki (np. 'kontaktu', 'wpłynięcia')."""
+    if not rows:
+        raise LegacyError("Pusty plik.")
+    body = rows[1:]
+    if body and body[0] and not body[0][0].strip() and any(c.strip() for c in body[0]):
+        return [rows[0], body[0]], body[1:]
+    return [rows[0]], body
+
+
+def read_header(text):
+    """Surowe wiersze naglowka pliku (1 lub 2) - eksport odtwarza ten uklad."""
+    return _split_header(list(csv.reader(io.StringIO(text, newline=""))))[0]
+
+
 def read_table(text):
     """(wiersze, uwagi). Wiersze w ukladzie kolumn C (N_ROW pol), kolumny dobrane
     po NAZWIE naglowka - kolejnosc i dodatkowe kolumny nie maja znaczenia.
     Naglowek moze byc jedno- lub dwuwierszowy (drugi wiersz z pustym ID jest
     doklejany do pierwszego); puste kolumny na koncu sa pomijane."""
-    rows = list(csv.reader(io.StringIO(text, newline="")))
-    if not rows:
-        raise LegacyError("Pusty plik.")
-    head = list(rows[0])
-    body = rows[1:]
-    if body and not body[0][:1] == [] and not body[0][0].strip() \
-            and any(c.strip() for c in body[0]) \
-            and not any(c.strip().isdigit() for c in body[0][:1]):
-        head = [f"{h} {body[0][i] if i < len(body[0]) else ''}" for i, h in enumerate(head)]
-        body = body[1:]
-    head = [_norm(h) for h in head]
-    alias = {a: k for k, names in HEADERS.items() for a in names}
+    head_rows, body = _split_header(list(csv.reader(io.StringIO(text, newline=""))))
+    head = [_norm(" ".join(c[i] if i < len(c) else "" for c in head_rows))
+            for i in range(len(head_rows[0]))]
     idx, ignored = {}, []
     for i, h in enumerate(head):
-        k = alias.get(h)
+        k = ALIAS.get(h)
         if k and k not in idx:
             idx[k] = i
         elif h:
@@ -454,6 +475,7 @@ def build(rows, links, employees, export_date, warn):
     out = []
     emit = out.append
     seen_ids = set()
+    sellers = {}  # id pracownika -> zapis handlowca w pliku (eksport go odtworzy)
     for r in rows:
         r = [x.strip() for x in r] + [""] * (N_ROW - len(r))
         lid = int(r[C["id"]])
@@ -484,7 +506,7 @@ def build(rows, links, employees, export_date, warn):
         def pd(k):
             d = parse_date(r[C[k]], export_date, warn, f"{ctx} {k}")
             if d is None and r[C[k]]:  # nieczytelna wartosc nie ginie
-                kept.append(f"{HEADERS[k][0].capitalize()} (stary CRM): {r[C[k]]}")
+                kept.append(f"{kept_prefix(HEADERS[k][0])}{r[C[k]]}")
             return d
         rd = pd("received_d")
         opp_d = pd("opp_created")
@@ -534,6 +556,7 @@ def build(rows, links, employees, export_date, warn):
             hits = match_employee(seller, employees)
             if len(hits) == 1:
                 owner_id = hits[0]
+                sellers.setdefault(owner_id, seller)
             else:
                 warn(f"{ctx}: handlowiec '{seller}' - dopasowan: {len(hits)}, "
                      f"owner pominiety")
@@ -553,15 +576,23 @@ def build(rows, links, employees, export_date, warn):
         # --- szansa
         opp = None
         if opp_d:
-            opp_ts = at(opp_d, received)
+            # daty zostaja DOKLADNIE takie jak w pliku (finanse i analiza lacza sie
+            # po nich) - nawet gdy nie sa po kolei; nieprawidlowosci idą do raportu
+            opp_ts = at(opp_d)
             ev = [("Nowa", opp_ts)]
+            if opp_d < rd:
+                warn(f"{ctx}: Data szansy sprzedazy ({opp_d}) przed data wplyniecia "
+                     f"leada ({rd}) - daty zachowane")
             for stage, d in (("Audyt", d_needs), ("Rekomendacja / demo", d_demo),
                              ("Oferta wysłana", d_offer),
                              ("Omówienie oferty", d_disc),
                              ("Umowa wysłana", d_csent),
                              ("Umowa podpisana", d_sign)):
                 if d:
-                    ev.append((stage, at(d, ev[-1][1])))
+                    ev.append((stage, at(d)))
+                    if ev[-1][1].date() < ev[-2][1].date():
+                        warn(f"{ctx}: {stage} ({d}) wcześniej niż {ev[-2][0]} "
+                             f"({ev[-2][1].date()}) - daty zachowane")
             state_raw = r[C["state"]].lower()
             etap = r[C["stage"]].lower()
             is_lost = bool(d_lost) or state_raw == "utracona" or etap == "utracona"
@@ -569,7 +600,7 @@ def build(rows, links, employees, export_date, warn):
                 if not d_lost:
                     warn(f"{ctx}: szansa utracona bez daty utracenia - uzyto daty "
                          f"ostatniego kamienia")
-                ev.append(("Utracona", at(d_lost, ev[-1][1]) if d_lost else ev[-1][1]))
+                ev.append(("Utracona", at(d_lost) if d_lost else ev[-1][1]))
             derived = ev[-1][0]
             stage = STAGE_MAP.get(etap) if etap else None
             if etap and not stage:
@@ -596,7 +627,9 @@ def build(rows, links, employees, export_date, warn):
                 notes.append(
                     f"Utracone w starym CRM"
                     f"{' ' + d_lost.isoformat() if d_lost else ''}: "
-                    f"{r[C['loss_reason']] or dq_text or 'bez powodu'}")
+                    f"{r[C['loss_reason']] or 'bez powodu'}")
+        if not opp and r[C["value"]]:
+            notes.append(f"{kept_prefix(HEADERS['value'][0])}{r[C['value']]}")
         lead_notes = "\n".join(n for n in notes if n)
 
         # ================= SQL dla wiersza =================
@@ -622,7 +655,7 @@ def build(rows, links, employees, export_date, warn):
         emit("IF v_person IS NULL THEN "
              f"INSERT INTO {SCHEMA}.persons (full_name, email, phone, industry, "
              f"created_at) VALUES ({q(person_name)}, {q(email)}, {q(phone)}, "
-             f"{q(ind if not b2b else None)}, {ts_lit(client_created)}) "
+             f"{q(ind if not company else None)}, {ts_lit(client_created)}) "
              "RETURNING id INTO v_person; n_persons := n_persons + 1; "
              f"ELSE UPDATE {SCHEMA}.persons SET created_at = "
              f"LEAST(created_at, {ts_lit(client_created)}) WHERE id = v_person; END IF;")
@@ -633,7 +666,7 @@ def build(rows, links, employees, export_date, warn):
                  "qualification", "disqualify_reason", "disqualify_note",
                  "received_at", "notes", "created_at"]
         lvals = [q(lead_name), q(segment), q(src), q(chan), q(qual), q(dq),
-                 q(dq_text if dq else None), ts_lit(received), q(lead_notes),
+                 q(dq_text), ts_lit(received), q(lead_notes),
                  ts_lit(received)]
         emit(f"INSERT INTO {SCHEMA}.leads ({', '.join(ident(c) for c in lcols)}) "
              f"VALUES ({', '.join(lvals)}) RETURNING id INTO v_lead; "
@@ -682,10 +715,19 @@ def build(rows, links, employees, export_date, warn):
                 emit(link(links, "history_opp", "v_hist", "v_opp"))
                 emit("n_history := n_history + 1;")
                 prev = stage
-        emit(f"INSERT INTO {REGISTRY} (export_id, lead_id, opportunity_id, source) "
-             f"VALUES ({lid}, v_lead, v_opp, 'import');")
+        orig = {k: r[C[k]] for k in C if k != "id" and r[C[k]]}
+        emit(f"INSERT INTO {REGISTRY} (export_id, lead_id, opportunity_id, source, orig) "
+             f"VALUES ({lid}, v_lead, v_opp, 'import', "
+             f"{q(json.dumps(orig, ensure_ascii=False))}::jsonb);")
         emit("ELSE n_skipped := n_skipped + 1; END IF;")
-    return "\n".join(out)
+    meta = [meta_sql(f"seller:{i}", t) for i, t in sellers.items()]
+    return "\n".join(meta + out)
+
+
+def meta_sql(key, value):
+    return (f"INSERT INTO legacy.meta (key, value) VALUES ({q(key)}, "
+            f"{q(json.dumps(value, ensure_ascii=False))}::jsonb) "
+            f"ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;")
 
 
 
@@ -726,7 +768,7 @@ def run_import(db, data, schema_map, apply=False, export_date=date(2026, 10, 30)
     # PL/pgSQL trzyma plany WSZYSTKICH instrukcji bloku do jego konca - jeden blok
     # na caly plik przekroczyl 512 MB kontenera Postgresa (OOM, restart bazy).
     blocks = [b for b in re.split(r"(?m)^(?=-- ---- stary CRM #)", body) if b.strip()]
-    parts = ["BEGIN;"]
+    parts = ["BEGIN;", meta_sql("header", read_header(text))]
     for i in range(0, len(blocks), BATCH):
         parts.append(
             "DO $import$\nDECLARE\n"

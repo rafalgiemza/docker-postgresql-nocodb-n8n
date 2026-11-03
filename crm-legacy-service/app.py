@@ -97,8 +97,9 @@ async def import_csv(request: Request, dry_run: bool = True,
 
 @app.post("/export")
 def export_csv(x_token: str = Header(default="")):
-    """Caly CRM z Postgresa -> CSV w formacie starego CRM (32 kolumny, daty
-    MM/DD/YYYY, UTF-8). Tylko odczyt."""
+    """Caly CRM z Postgresa -> CSV w ukladzie ostatnio zaimportowanego pliku
+    (ID z rejestru legacy.rows, daty M/D/YYYY, UTF-8 z BOM). Nie zmienia danych
+    CRM; zapisuje tylko numery ID nowych rekordow w rejestrze."""
     check_token(x_token)
     with open(SCHEMA_MAP_PATH, encoding="utf-8") as f:
         schema_map = json.load(f)

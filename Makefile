@@ -8,7 +8,7 @@ DC_CMD = docker compose -f docker-compose.yml
 LATEST_TS := $(shell ls -1t ./backups/appdata_*.sql 2>/dev/null | head -n 1 | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}')
 RESTORE_TS ?= $(LATEST_TS)
 
-.PHONY: help init init-env config up down restart pull ps versions logs dump-appdata-schema seed-extra backup backup-prune restore init-schema seed-test-data demo-schema-init demo-seed upgrade-links dump-crm-schema import-crm-legacy export-crm-legacy delete-crm-legacy wipe-crm grant-crm-legacy fill-workflows init-data init-appdata-db add-rag-db
+.PHONY: help init init-env config up down restart pull ps versions logs dump-appdata-schema seed-extra backup backup-prune restore init-schema seed-test-data demo-schema-init demo-seed upgrade-links dump-crm-schema import-crm-legacy export-crm-legacy compare-crm-export delete-crm-legacy wipe-crm grant-crm-legacy fill-workflows init-data init-appdata-db add-rag-db
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -104,6 +104,9 @@ grant-crm-legacy: ## One-time/idempotent: create CRM_LEGACY_USER and grant it ac
 
 export-crm-legacy: ## Export the CRM from Postgres to a CSV in the legacy CRM format (read-only). Usage: make export-crm-legacy OUT=docs/crm/export.csv
 	python3 -I scripts/export-crm-legacy.py $(OUT)
+
+compare-crm-export: ## Round-trip check: compare the imported source file with an export. Usage: make compare-crm-export ORIG=docs/crm/CRM_big-utf-8.csv EXPORT=docs/crm/export.csv
+	python3 -I scripts/compare-crm-export.py $(ORIG) $(EXPORT)
 
 delete-crm-legacy: ## Delete records added by an import (rows with ID in IDS, e.g. 1704-1713) so a corrected file can be re-imported; PREVIEW unless APPLY=1
 	python3 -I scripts/delete-crm-legacy.py $(IDS) $(if $(APPLY),--apply)

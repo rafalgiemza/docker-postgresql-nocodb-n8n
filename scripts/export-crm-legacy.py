@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Eksport CRM z PostgreSQL do pliku CSV w formacie starego CRM (33 kolumny,
-daty MM/DD/YYYY, UTF-8). Cienki CLI nad crm-legacy-service/legacy_export.py;
-tylko odczyt. Patrz .ai/rules/nocodb.md, sekcja 6.
+"""Eksport CRM z PostgreSQL do pliku CSV w ukladzie ostatnio zaimportowanego
+pliku (daty M/D/YYYY, UTF-8 z BOM). Cienki CLI nad
+crm-legacy-service/legacy_export.py; nie zmienia danych CRM (zapisuje tylko
+numery ID nowych rekordow w rejestrze legacy.rows). Patrz .ai/rules/nocodb.md, sekcja 6.
 
 Usage:  make export-crm-legacy OUT=docs/crm/export.csv
 """

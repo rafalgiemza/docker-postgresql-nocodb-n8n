@@ -57,9 +57,29 @@ Import i eksport historycznych danych CRM **prosto do PostgreSQL**
    Tabela `crm_exports`, przycisk „Eksportuj” → `w23-crm-export`
    (import `W23_crm_export.json`).
 
-Eksport (do przebudowy): ID wierszy z rejestru `legacy.rows`; leady założone już
-w nowym CRM dostają kolejne numery po największym ID. Daty zawsze
-MM/DD/YYYY, więc poprawny plik wraca z eksportu bez zmian.
+## Eksport (kontrakt dla finansow i analizy)
+
+- Kolumna ID = numer z rejestru `legacy.rows`: raz nadany, nigdy nie zmieniany
+  ani używany ponownie. Rekordy z nowego CRM dostają kolejny numer z sekwencji
+  przy pierwszym eksporcie (eksport zapisuje go w rejestrze), więc kolejne
+  eksporty zwracają te same numery. Lead bez szansy, który dostał szansę po
+  imporcie, zachowuje swój numer. Usunięty rekord znika z pliku, numer nie wraca.
+- Nagłówek i kolejność kolumn = ostatnio zaimportowany plik (`legacy.meta`,
+  klucz `header`); handlowiec w zapisie z pliku (`seller:<id>`). Bez importu:
+  układ klienta (33 kolumny).
+- Formaty jak w pliku źródłowym: daty M/D/YYYY (bez zer), `H:MM:SS AM/PM`,
+  kwoty `3,900.00 PLN`, UTF-8 z BOM, CRLF, od najwyższego ID. Komórki puste w
+  pliku źródłowym (np. data wpłynięcia, dane osobowe zastępcze) wracają puste.
+- Wartości, których import nie umiał zapisać (spoza słowników, nieczytelne
+  daty, Folder klienta, Data archiwizacji, kwota przy leadzie bez szansy) wracają
+  z notatek do swoich kolumn.
+- Test pełnego obiegu: `make export-crm-legacy OUT=…` potem
+  `make compare-crm-export ORIG=<plik> EXPORT=<eksport>` - porównanie po
+  znaczeniu (ta sama data/kwota w innym zapisie to nie różnica). Na pliku
+  `CRM_big-utf-8.csv`: 1684 z 1686 wierszy identyczne; różnice: pusty segment
+  → B2C (#1473) i `Email` → `Mail`; #1585 (bez dat) nie jest importowany.
+- Daty kamieni milowych są zachowane dokładnie, także gdy w pliku są
+  niespójne (np. podpisanie przed wysłaniem umowy) - import zgłasza je w raporcie.
 
 ## Testy
 
