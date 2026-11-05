@@ -11,6 +11,7 @@ ich wiersze w tabeli i uwagi o placeholderach/braku pola Button niżej):
 | `W2_stage_change.json` | webhook: leads update | kamienie milowe + `state`, task "uzupełnij powód utraty", mail do ownera |
 | `W3_task_notifications.json` | webhook: tasks insert **i** update | mail do assignee przy nowym tasku / zmianie assignee |
 | `W4_new_lead_intake.json` | webhook: Tally | lead + task "Schedule discovery call" dla Przemka |
+| `W4v4_form_intake.json` | webhook: Contact Form 7 (WordPress), `responseMode: lastNode` | wzorowany na W7 (nody NocoDB, Set/SplitOut, linkowanie wsadowe jednym HTTP). Szuka osoby w `persons` po e-mailu i telefonie, ustala wynik (`accountant` / `client` / `new_lead`) i właściciela przez `W15`. Nowa osoba → `persons` + `leads` + task "Umów discovery call"; znana osoba → tylko task "napisała ponownie" (priorytet high). Każdy błąd (też odczytów i `W15`) → task "BŁĄD intake" przypisany do assignee + activity `automation_error` + `Fail the intake`. **Draft, nieprzetestowany na żywo.** |
 | `W5_company_dedup.json` | webhook: leads insert | dopasowanie firmy po domenie, `pending_confirmation`, komentarz, mail |
 | `W6a_meeting_ai_pipeline.json` | webhook: meetings update | transkrypcja → OpenRouter → `ai_analysis` → task weryfikacji; akceptacja → task "cele" (routing B2B→Dorota / B2C→Aleksandra); odrzucenie / brak transkrypcji → task naprawczy |
 | `W6b_offer_pipeline.json` | webhook: leads update | `goals_provided` → task referencji; `testimonials_provided` → walidacja linków → task "złóż ofertę" + `draft_ready` |
@@ -246,6 +247,7 @@ Dla każdego workflow z triggerem webhook: tabela → *Details* → *Webhooks* �
 |---|---|---|---|
 | W2 | leads | after **update** | `https://n8n.../webhook/w2-stage-change` |
 | W3 | tasks | after **insert** ORAZ drugi after **update** | `.../webhook/w3-task-notify` (oba na ten sam URL) |
+| W4v4 | — (Contact Form 7, WordPress) | — | `.../webhook/w4v4-form-intake` |
 | W5 | leads | after **insert** | `.../webhook/w5-company-dedup` |
 | W6a | meetings | after **update** | `.../webhook/w6a-meeting-ai` |
 | W6b | leads | after **update** | `.../webhook/w6b-offer-pipeline` |
