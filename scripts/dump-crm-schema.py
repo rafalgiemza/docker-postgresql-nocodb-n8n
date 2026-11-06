@@ -70,6 +70,9 @@ def dump():
         for c in full.get("columns", []):
             entry = {"id": c["id"], "uidt": c["uidt"]}
             co = c.get("colOptions") or {}
+            if c["uidt"] in ("SingleSelect", "MultiSelect") and co.get("options"):
+                # listy opcji - importer CRM sprawdza wartosci z pliku wlasnie z nich
+                entry["options"] = [o["title"] for o in co["options"] if o.get("title")]
             if c["uidt"] in _RELATION_UIDT and co:
                 if co.get("type"):
                     entry["relation_type"] = co["type"]  # hm / mm / bt / oo

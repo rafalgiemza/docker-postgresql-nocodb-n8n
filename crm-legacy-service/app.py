@@ -67,7 +67,7 @@ def health():
 
 @app.post("/import")
 async def import_csv(request: Request, dry_run: bool = True,
-                     export_date: str = "2026-10-30", expect_sha256: str = "",
+                     export_date: str = "", expect_sha256: str = "",
                      x_token: str = Header(default="")):
     """Plik CSV jako SUROWE cialo zadania (nie multipart - multipart z n8n
     wisial); parametry w adresie. dry_run=true (domyslnie): pelny import w
@@ -87,7 +87,7 @@ async def import_csv(request: Request, dry_run: bool = True,
     db = get_db()
     try:
         return li.run_import(db, data, schema_map, apply=not dry_run,
-                             export_date=date.fromisoformat(export_date))
+                             export_date=date.fromisoformat(export_date) if export_date else None)
     except li.LegacyError as e:
         # 422: n8n pokazuje komunikat userowi w polu raportu
         raise HTTPException(422, str(e))

@@ -198,3 +198,48 @@ def test_small_warning_groups_are_listed_in_full():
     assert out[0].startswith("29× brak daty wplyniecia") and "(np. #1, #2, #3)" in out[0]
     assert out[1:] == ["#5: zrodlo '5' nie ma w opcjach - zapisane tylko w notatkach",
                        "#7: zrodlo '7' nie ma w opcjach - zapisane tylko w notatkach"]
+
+
+def _build(csv_text, options=None, today=EXPORT):
+    skipped, warns = [], []
+    sql = li.build(li.read_rows(csv_text), fake_links(), [(1, "Natalia Test")], today,
+                   warns.append, skipped.append, options)
+    return sql, skipped, warns
+
+
+def test_unreadable_date_skips_the_whole_row_but_a_substitute_does_not():
+    sql, skipped, warns = _build(
+        _big_csv(**{"Data DEMO": "22.12.205"}).replace("1519", "1548"))
+    assert "INSERT INTO crm.leads" not in sql
+    assert skipped == ["#1548: nieczytelna data w kolumnie 'data demo': '22.12.205'"]
+    assert not any("1548" in w for w in warns)             # skip = bez ostrzezen o wierszu
+    sql, skipped, warns = _build(_big_csv())                # brak daty wplyniecia: zastepnik
+    assert "INSERT INTO crm.leads" in sql and skipped == []
+    assert any("uzyto daty szansy" in w for w in warns)
+
+
+def test_row_without_any_date_is_skipped_with_reason():
+    _, skipped, _ = _build(_big_csv(**{"Data szansy sprzedaży": ""}))
+    assert skipped == ["#1519: brak daty wpłynięcia i daty szansy sprzedaży"]
+
+
+def test_unreadable_time_skips_the_row():
+    _, skipped, _ = _build(_big_csv(**{"Data wpłynięcia": "3/7/2024",
+                                       "Godzina wpłynięcia": "kiedyś"}))
+    assert len(skipped) == 1 and "godzina" in skipped[0]
+
+
+def test_options_from_nocodb_replace_builtin_dictionaries():
+    csv_text = _big_csv(**{"Źródło": "LLM", "Branża": "Luxury"})
+    sql, _, w = _build(csv_text)                               # slowniki wbudowane
+    assert any("'LLM'" in x for x in w) and any("'Luxury'" in x for x in w)
+    sql, _, w = _build(csv_text, {"source": {"LLM", "Google"}, "industry": {"Luxury"}})
+    assert not any("LLM" in x or "Luxury" in x for x in w)
+    assert "'LLM'" in sql and "'Luxury'" in sql
+    assert li.options_from({"leads": {"fields": {"lead_source": {"options": ["A"]}}}}) == {"source": {"A"}}
+
+
+def test_recent_mdy_date_is_not_flipped_when_cutoff_is_today():
+    # 11/5/2026 przy granicy 30.10.2026 bylo czytane jako 11 maja
+    assert li.parse_date("11/5/2026", date(2026, 11, 6), [].append, "t") == date(2026, 11, 5)
+    assert li.parse_date("11/5/2026", EXPORT, [].append, "t") == date(2026, 5, 11)  # stara granica

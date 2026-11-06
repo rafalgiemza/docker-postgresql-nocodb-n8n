@@ -471,7 +471,14 @@ def read_rows(text):
 
 
 # ---------------------------------------------------------------- generator
-def build(rows, links, employees, export_date, warn):
+def build(rows, links, employees, export_date, warn, skip=None, options=None):
+    """SQL dla wierszy pliku. Dwie kategorie problemow: (a) da sie sensownie
+    zastapic - wiersz jest importowany, ostrzezenie `warn`; (b) wartosc
+    nieczytelna (data, godzina) albo brak danych do utworzenia leada - wiersz
+    jest POMIJANY w calosci i zgloszony przez `skip`. `options`: listy opcji z
+    NocoDB (schema_map.json), domyslnie slowniki wbudowane."""
+    opt = options or {}
+    skip = skip or (lambda m: None)
     out = []
     emit = out.append
     seen_ids = set()
@@ -480,15 +487,17 @@ def build(rows, links, employees, export_date, warn):
         r = [x.strip() for x in r] + [""] * (N_ROW - len(r))
         lid = int(r[C["id"]])
         ctx = f"#{lid}"
+        rwl, bad = [], []   # ostrzezenia wiersza (tylko gdy wiersz zostaje) / powody pominiecia
+        rw = rwl.append
         if lid in seen_ids:
-            warn(f"{ctx}: zdublowane ID w pliku - pominiete")
+            skip(f"{ctx}: zdublowane ID w pliku")
             continue
         seen_ids.add(lid)
 
         b2b = r[C["segment"]].upper() == "B2B"
         segment = "B2B" if b2b else "B2C"
         if r[C["segment"]].upper() not in ("B2B", "B2C"):
-            warn(f"{ctx}: brak/niepoprawne 'B2B / B2C' - przyjeto B2C")
+            rw(f"{ctx}: brak/niepoprawne 'B2B / B2C' - przyjeto B2C")
 
         # --- osoba / firma
         company = (r[C["org"]] or r[C["client"]]) if b2b else ""
@@ -500,24 +509,19 @@ def build(rows, links, employees, export_date, warn):
         core = re.sub(r"\D", "", phone)
         core = core[-9:] if len(core) >= 9 else ""
         kept = []  # wartosci spoza slownikow - zostaja w notatkach leada
-        ind = pick(r[C["industry"]], INDUSTRY, warn, ctx, "branża", kept)
+        ind = pick(r[C["industry"]], opt.get("industry", INDUSTRY), rw, ctx, "branża", kept)
 
-        # --- daty
+        # --- daty (nieczytelna wartosc = wiersz pominiety)
         def pd(k):
-            d = parse_date(r[C[k]], export_date, warn, f"{ctx} {k}")
-            if d is None and r[C[k]]:  # nieczytelna wartosc nie ginie
-                kept.append(f"{kept_prefix(HEADERS[k][0])}{r[C[k]]}")
+            d = parse_date(r[C[k]], export_date, rw, f"{ctx} {k}")
+            if d is None and r[C[k]]:
+                bad.append(f"nieczytelna data w kolumnie '{HEADERS[k][0]}': '{r[C[k]]}'")
             return d
-        rd = pd("received_d")
-        opp_d = pd("opp_created")
-        if rd is None and opp_d:
-            # w pelnym eksporcie wiekszosc wierszy nie ma daty wplyniecia - lead
-            # powstal razem z szansa
-            rd = opp_d
-            warn(f"{ctx}: brak daty wplyniecia - uzyto daty szansy sprzedazy")
-        if rd is None:
-            warn(f"{ctx}: brak daty wplyniecia i daty szansy - wiersz pominiety")
-            continue
+        rd, opp_d, cc_d = pd("received_d"), pd("opp_created"), pd("client_created")
+        d_needs, d_demo = pd("needs"), pd("demo")
+        d_offer, d_disc = pd("offer_sent"), pd("offer_discussed")
+        d_csent, d_sign = pd("contract_sent"), pd("contract_signed")
+        d_lost = pd("lost_d")
         rt = time(0)
         if r[C["received_t"]]:
             for fmt in ("%I:%M:%S %p", "%H:%M:%S", "%H:%M", "%I:%M %p"):
@@ -527,27 +531,37 @@ def build(rows, links, employees, export_date, warn):
                 except ValueError:
                     continue
             else:
-                warn(f"{ctx}: nieczytelna godzina '{r[C['received_t']]}' - 00:00")
+                bad.append(f"nieczytelna godzina wpłynięcia: '{r[C['received_t']]}'")
+        if bad:
+            skip(f"{ctx}: " + "; ".join(bad))
+            continue
+        if rd is None and opp_d:
+            # w pelnym eksporcie wiekszosc wierszy nie ma daty wplyniecia - lead
+            # powstal razem z szansa
+            rd = opp_d
+            rw(f"{ctx}: brak daty wplyniecia - uzyto daty szansy sprzedazy")
+        if rd is None and any((d_needs, d_demo, d_offer, d_disc, d_csent, d_sign)):
+            rd = min(d for d in (d_needs, d_demo, d_offer, d_disc, d_csent, d_sign) if d)
+            rw(f"{ctx}: brak daty wplyniecia i szansy - uzyto najwczesniejszego kamienia")
+        if rd is None:
+            skip(f"{ctx}: brak daty wpłynięcia i daty szansy sprzedaży")
+            continue
         received = datetime.combine(rd, rt, TZ)
-        client_created = at(pd("client_created"), hour=0) or received
+        client_created = at(cc_d, hour=0) or received
         if client_created.date() == received.date():
             client_created = received  # klient powstaje razem z leadem
-        d_needs, d_demo = pd("needs"), pd("demo")
-        d_offer, d_disc = pd("offer_sent"), pd("offer_discussed")
-        d_csent, d_sign = pd("contract_sent"), pd("contract_signed")
-        d_lost = pd("lost_d")
         if not opp_d and any((d_needs, d_demo, d_offer, d_disc, d_csent, d_sign)):
             # kamienie milowe bez daty szansy: szansa istniala - bierzemy
             # najwczesniejszy kamien jako date jej utworzenia
             opp_d = min(d for d in (d_needs, d_demo, d_offer, d_disc, d_csent, d_sign) if d)
-            warn(f"{ctx}: brak 'Data szansy sprzedazy' - uzyto najwczesniejszej "
+            rw(f"{ctx}: brak 'Data szansy sprzedazy' - uzyto najwczesniejszej "
                  f"daty kamienia milowego")
 
         # --- pola leada
-        src = pick(r[C["source"]], LEAD_SOURCE, warn, ctx, "źródło", kept)
-        chan = pick(r[C["channel"]], CHANNEL, warn, ctx, "forma kontaktu", kept,
+        src = pick(r[C["source"]], opt.get("source", LEAD_SOURCE), rw, ctx, "źródło", kept)
+        chan = pick(r[C["channel"]], opt.get("channel", CHANNEL), rw, ctx, "forma kontaktu", kept,
                     {"email": "Mail"})
-        qual = pick(r[C["qualification"]], QUALIFICATION, warn, ctx, "kwalifikacja", kept)
+        qual = pick(r[C["qualification"]], opt.get("qualification", QUALIFICATION), rw, ctx, "kwalifikacja", kept)
         dq_text = r[C["disq_reason"]]
         dq = disq_reason(dq_text) if qual in ("non-MQL", "non-SQL") else None
         seller = r[C["seller"]]
@@ -558,7 +572,7 @@ def build(rows, links, employees, export_date, warn):
                 owner_id = hits[0]
                 sellers.setdefault(owner_id, seller)
             else:
-                warn(f"{ctx}: handlowiec '{seller}' - dopasowan: {len(hits)}, "
+                rw(f"{ctx}: handlowiec '{seller}' - dopasowan: {len(hits)}, "
                      f"owner pominiety")
         notes = [r[C["notes"]]] + kept
         for key, prefix in EXTRA_NOTES.items():
@@ -581,7 +595,7 @@ def build(rows, links, employees, export_date, warn):
             opp_ts = at(opp_d)
             ev = [("Nowa", opp_ts)]
             if opp_d < rd:
-                warn(f"{ctx}: Data szansy sprzedazy ({opp_d}) przed data wplyniecia "
+                rw(f"{ctx}: Data szansy sprzedazy ({opp_d}) przed data wplyniecia "
                      f"leada ({rd}) - daty zachowane")
             for stage, d in (("Audyt", d_needs), ("Rekomendacja / demo", d_demo),
                              ("Oferta wysłana", d_offer),
@@ -591,22 +605,22 @@ def build(rows, links, employees, export_date, warn):
                 if d:
                     ev.append((stage, at(d)))
                     if ev[-1][1].date() < ev[-2][1].date():
-                        warn(f"{ctx}: {stage} ({d}) wcześniej niż {ev[-2][0]} "
+                        rw(f"{ctx}: {stage} ({d}) wcześniej niż {ev[-2][0]} "
                              f"({ev[-2][1].date()}) - daty zachowane")
             state_raw = r[C["state"]].lower()
             etap = r[C["stage"]].lower()
             is_lost = bool(d_lost) or state_raw == "utracona" or etap == "utracona"
             if is_lost:
                 if not d_lost:
-                    warn(f"{ctx}: szansa utracona bez daty utracenia - uzyto daty "
+                    rw(f"{ctx}: szansa utracona bez daty utracenia - uzyto daty "
                          f"ostatniego kamienia")
                 ev.append(("Utracona", at(d_lost) if d_lost else ev[-1][1]))
             derived = ev[-1][0]
             stage = STAGE_MAP.get(etap) if etap else None
             if etap and not stage:
-                warn(f"{ctx}: nieznany Etap '{r[C['stage']]}' - uzyto {derived}")
+                rw(f"{ctx}: nieznany Etap '{r[C['stage']]}' - uzyto {derived}")
             if stage and stage != derived:
-                warn(f"{ctx}: Etap '{r[C['stage']]}' -> {stage}, ale daty wskazuja "
+                rw(f"{ctx}: Etap '{r[C['stage']]}' -> {stage}, ale daty wskazuja "
                      f"{derived} - uzyto Etapu")
             stage = stage or derived
             if is_lost:
@@ -614,7 +628,7 @@ def build(rows, links, employees, export_date, warn):
             elif d_sign or stage == "Umowa podpisana" or state_raw == "zamknięta":
                 state = "won"
                 if not d_sign:
-                    warn(f"{ctx}: wygrana bez daty podpisania umowy")
+                    rw(f"{ctx}: wygrana bez daty podpisania umowy")
             else:
                 state = "open"
             lost_text = r[C["loss_reason"]]
@@ -633,6 +647,8 @@ def build(rows, links, employees, export_date, warn):
         lead_notes = "\n".join(n for n in notes if n)
 
         # ================= SQL dla wiersza =================
+        for m in rwl:
+            warn(m)
         emit(f"-- ---- stary CRM #{lid}: {lead_name}")
         emit(f"IF NOT EXISTS (SELECT 1 FROM {REGISTRY} WHERE export_id = {lid}) THEN")
         emit("v_company := NULL; v_person := NULL; v_opp := NULL;")
@@ -724,6 +740,17 @@ def build(rows, links, employees, export_date, warn):
     return "\n".join(meta + out)
 
 
+def options_from(schema_map):
+    """Listy opcji pol typu SingleSelect z NocoDB (schema_map.json, `make
+    dump-crm-schema`) - pusto, gdy zrzut jest starszy i ich nie zawiera."""
+    def opts(table, field):
+        return set(schema_map.get(table, {}).get("fields", {}).get(field, {}).get("options") or [])
+    o = {"industry": opts("companies", "industry") | opts("persons", "industry"),
+         "source": opts("leads", "lead_source"), "channel": opts("leads", "contact_channel"),
+         "qualification": opts("leads", "qualification")}
+    return {k: v for k, v in o.items() if v}
+
+
 def meta_sql(key, value):
     return (f"INSERT INTO legacy.meta (key, value) VALUES ({q(key)}, "
             f"{q(json.dumps(value, ensure_ascii=False))}::jsonb) "
@@ -753,17 +780,25 @@ def group_warnings(warnings, examples=3, expand_up_to=10):
     return out
 
 
-def run_import(db, data, schema_map, apply=False, export_date=date(2026, 10, 30),
-               sql_out=None):
+def run_import(db, data, schema_map, apply=False, export_date=None, sql_out=None):
     """Importuje CSV (bytes). Zwraca dict z licznikami i ostrzezeniami."""
-    warnings = []
+    warnings, skipped = [], []
     warn = warnings.append
+    # granica "data z przyszlosci" = dzis (plik jest eksportem z dnia importu)
+    export_date = export_date or datetime.now(TZ).date()
     text = decode(data)
     rows, table_notes = read_table(text)
     links = discover(db, schema_map)
     employees = [(int(i), n) for i, n in
                  db.run(f"SELECT id, full_name FROM {SCHEMA}.employees", tuples=True)]
-    body = build(rows, links, employees, export_date, warn)
+    options = options_from(schema_map)
+    missing = [k for k in ("industry", "source", "channel", "qualification")
+               if k not in options]
+    if missing:
+        table_notes.append(
+            "schema_map.json bez list opcji dla: " + ", ".join(missing)
+            + " - użyto wbudowanych słowników (uruchom `make dump-crm-schema`)")
+    body = build(rows, links, employees, export_date, warn, skipped.append, options)
     # Paczki po BATCH wierszy, kazda we wlasnym bloku DO (w jednej transakcji):
     # PL/pgSQL trzyma plany WSZYSTKICH instrukcji bloku do jego konca - jeden blok
     # na caly plik przekroczyl 512 MB kontenera Postgresa (OOM, restart bazy).
@@ -803,6 +838,10 @@ def run_import(db, data, schema_map, apply=False, export_date=date(2026, 10, 30)
     return dict(
         ok=True, applied=apply, rows=len(rows),
         counts=counts,
-        warnings=table_notes + group_warnings(warnings),
+        skipped=skipped,
+        warnings=table_notes
+        + ([f"POMINIĘTE WIERSZE ({len(skipped)}) - nieczytelne dane, popraw w pliku:"]
+           + [f"  {m}" for m in skipped] if skipped else [])
+        + group_warnings(warnings),
         warnings_total=len(warnings), links=list(links),
         sha256=hashlib.sha256(data).hexdigest())

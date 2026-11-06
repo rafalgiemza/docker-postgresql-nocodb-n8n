@@ -119,9 +119,9 @@ def test_layout_follows_the_header_of_the_imported_file():
 def test_import_notes_and_export_prefixes_agree():
     """Wszystko, co import dopisuje do notatek, eksport musi rozpoznac."""
     csv_text = "\n".join([
-        "ID,B2B / B2C,Źródło,Branża,Data wpłynięcia,Data szansy sprzedaży,Data DEMO,"
-        "Folder klienta,Data archiwizacji,Planowane działanie,Szansa sprzedaży . Etykieta,Spr. ID",
-        "9,B2C,36,Luxury,3/7/2026,3/7/2026,bzdura,F1,01.02.2026,zadzwonić,gorący,OK"])
+        "ID,B2B / B2C,Źródło,Branża,Data wpłynięcia,Data szansy sprzedaży,Data archiwizacji,"
+        "Folder klienta,Planowane działanie,Szansa sprzedaży . Etykieta,Spr. ID",
+        "9,B2C,36,Luxury,3/7/2026,3/7/2026,01.02.2026,F1,zadzwonić,gorący,OK"])
     rows = li.read_rows(csv_text)
     sql = li.build(rows, {n: dict(kind="fk", table="t", col="c", on_owner=True)
                           for n in li.LINKS}, [], __import__("datetime").date(2026, 10, 30),
@@ -129,6 +129,6 @@ def test_import_notes_and_export_prefixes_agree():
     lead_sql = sql.split("INSERT INTO crm.leads")[1].split("RETURNING", 1)[0]
     notes = "\n".join(__import__("re").findall(r"[^\n']*\(stary CRM\): [^\n']*", lead_sql))
     _, extra, _ = le.split_notes(notes)
-    assert extra == {"source": "36", "industry": "Luxury", "demo": "bzdura",
+    assert extra == {"source": "36", "industry": "Luxury",
                      "folder": "F1", "archived": "01.02.2026", "planned": "zadzwonić",
                      "label": "gorący", "check_id": "OK"}

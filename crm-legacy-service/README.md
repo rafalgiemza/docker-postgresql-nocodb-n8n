@@ -34,6 +34,17 @@ Import i eksport historycznych danych CRM **prosto do PostgreSQL**
   stabilne ID w eksporcie. `sale_opportunities.legacy_id` też jest wypełniane.
 - Brak daty wpłynięcia (większość wierszy pełnego pliku) → data szansy;
   brak daty szansy przy kamieniach milowych → najwcześniejszy kamień.
+- Dwie kategorie problemów: (a) da się sensownie zastąpić (brak daty wpłynięcia,
+  pusty segment, wartość spoza słownika...) → wiersz jest importowany, ostrzeżenie
+  w raporcie; (b) nieczytelna data lub godzina, albo brak jakiejkolwiek daty →
+  wiersz jest **pomijany w całości** i wypisany w sekcji "POMINIĘTE WIERSZE" z ID
+  i powodem. Po poprawce w pliku trafia do bazy przy następnym imporcie.
+- Listy opcji (branża, źródło, forma kontaktu, kwalifikacja) importer czyta z
+  NocoDB przez `schema_map.json`. Po dodaniu opcji w NocoDB uruchom
+  `make dump-crm-schema` (bez tego użyje wbudowanych słowników i napisze o tym w
+  raporcie). Wartość spoza listy nie blokuje wiersza - trafia do notatek.
+- Granica "data z przyszłości" przy odczycie M/D vs D/M to dzień importu
+  (`export_date` w API, `--export-date` w CLI, domyślnie dziś).
 - Raport zbiera ostrzeżenia w grupy ("1376× … (np. #1394, …)").
 - Daty zawsze MM/DD/YYYY (wejście i wyjście). Zabezpieczenie na błędy w pliku:
   gdy tak odczytana data jest po dacie eksportu, a DD/MM jest poprawne —

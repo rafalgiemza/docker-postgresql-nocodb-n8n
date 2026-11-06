@@ -73,7 +73,7 @@ def main():
     ap.add_argument("csv")
     ap.add_argument("--apply", action="store_true",
                     help="COMMIT (domyslnie dry-run = ROLLBACK)")
-    ap.add_argument("--export-date", default="2026-10-30",
+    ap.add_argument("--export-date", default="",
                     help="data eksportu CSV (YYYY-MM-DD)")
     ap.add_argument("--container", default=os.environ.get("PG_CONTAINER", "docker-postgres-1"))
     ap.add_argument("--user", default=os.environ.get("POSTGRES_USER", "postgres"))
@@ -89,7 +89,7 @@ def main():
         data = f.read()
     try:
         res = li.run_import(DockerPg(a.container, a.user, a.db), data, schema_map,
-                            apply=a.apply, export_date=date.fromisoformat(a.export_date),
+                            apply=a.apply, export_date=date.fromisoformat(a.export_date) if a.export_date else None,
                             sql_out=a.sql_out)
     except li.LegacyError as e:
         print(f"❌ {e}", file=sys.stderr)
