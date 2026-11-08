@@ -132,3 +132,12 @@ def test_import_notes_and_export_prefixes_agree():
     assert extra == {"source": "36", "industry": "Luxury",
                      "folder": "F1", "archived": "01.02.2026", "planned": "zadzwonić",
                      "label": "gorący", "check_id": "OK"}
+
+
+def test_ts_naive_is_warsaw_wall_time_regardless_of_machine_tz(monkeypatch):
+    import os, time as _t
+    monkeypatch.setenv("TZ", "UTC")
+    _t.tzset()
+    t = le._ts("2026-10-21T14:09:00")
+    assert (t.hour, t.minute) == (14, 9)
+    assert le._ts("2026-10-21T12:09:00+00:00").hour == 14   # z offsetem: przeliczenie

@@ -156,7 +156,13 @@ SELECT coalesce(jsonb_agg(to_jsonb(x) ORDER BY x.export_id DESC), '[]'::jsonb)::
 
 # ------------------------------------------------------------- formatting
 def _ts(v):
-    return datetime.fromisoformat(v).astimezone(TZ) if v else None
+    """Czas z bazy -> Europe/Warsaw. Wartosc bez strefy (kolumna timestamp) to czas
+    scienny Warszawy (tak go zapisuje import) - NIE czas lokalny maszyny, bo kontener
+    dziala w UTC."""
+    if not v:
+        return None
+    t = datetime.fromisoformat(v)
+    return t.replace(tzinfo=TZ) if t.tzinfo is None else t.astimezone(TZ)
 
 
 def _d(ts):
