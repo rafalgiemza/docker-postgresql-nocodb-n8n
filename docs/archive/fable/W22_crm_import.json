@@ -1,0 +1,637 @@
+{
+  "name": "W22 - CRM import (buttons: Sprawdź import, Importuj)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "w22-crm-import-check",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "w22-01",
+      "name": "Button: Sprawdź import",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "wh-w22-crm-import-check"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "w22-crm-import-apply",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "w22-02",
+      "name": "Button: Importuj",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        560
+      ],
+      "webhookId": "wh-w22-crm-import-apply"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "03-import",
+              "name": "import",
+              "type": "object",
+              "value": "={{ $('Button: Sprawdź import').first().json.body.data.rows[0] }}"
+            },
+            {
+              "id": "03-import_id",
+              "name": "import_id",
+              "type": "number",
+              "value": "={{ $('Button: Sprawdź import').first().json.body.data.rows[0].Id }}"
+            },
+            {
+              "id": "03-dry_run",
+              "name": "dry_run",
+              "type": "boolean",
+              "value": "={{ true }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w22-03",
+      "name": "Import from check button",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        260,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "04-import",
+              "name": "import",
+              "type": "object",
+              "value": "={{ $('Button: Importuj').first().json.body.data.rows[0] }}"
+            },
+            {
+              "id": "04-import_id",
+              "name": "import_id",
+              "type": "number",
+              "value": "={{ $('Button: Importuj').first().json.body.data.rows[0].Id }}"
+            },
+            {
+              "id": "04-dry_run",
+              "name": "dry_run",
+              "type": "boolean",
+              "value": "={{ false }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w22-04",
+      "name": "Import from apply button",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        260,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "05-import",
+              "name": "import",
+              "type": "object",
+              "value": "={{ $json.import }}"
+            },
+            {
+              "id": "05-import_id",
+              "name": "import_id",
+              "type": "number",
+              "value": "={{ $json.import_id }}"
+            },
+            {
+              "id": "05-dry_run",
+              "name": "dry_run",
+              "type": "boolean",
+              "value": "={{ $json.dry_run }}"
+            },
+            {
+              "id": "05-file_url",
+              "name": "file_url",
+              "type": "string",
+              "value": "={{ $json.import.old_crm?.[0]?.signedUrl ?? $json.import.old_crm?.[0]?.url ?? ($json.import.old_crm?.[0]?.signedPath ? '__NOCODB_BASE_URL__/' + $json.import.old_crm[0].signedPath : '') }}"
+            },
+            {
+              "id": "05-expect_sha256",
+              "name": "expect_sha256",
+              "type": "string",
+              "value": "={{ String($json.import.dry_run_sha256 ?? '') }}"
+            },
+            {
+              "id": "05-anonymous",
+              "name": "anonymous",
+              "type": "boolean",
+              "value": "={{ $json.import.anonymous === true || $json.import.anonymous === 1 }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w22-05",
+      "name": "Import request",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        520,
+        430
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "version": 2,
+        "operation": "update",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_CRM_IMPORTS__",
+        "id": "={{ $('Import request').first().json.import_id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "completion_status",
+              "fieldValue": "collecting data"
+            }
+          ]
+        }
+      },
+      "id": "w22-06",
+      "name": "Set status: collecting data",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        780,
+        430
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Import request').first().json.file_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "w22-07",
+      "name": "File attached?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1040,
+        430
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Import request').first().json.file_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "old_crm"
+            }
+          }
+        }
+      },
+      "id": "w22-08",
+      "name": "Download old CRM file",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1300,
+        360
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://crm-legacy-service:8000/import",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "dry_run",
+              "value": "={{ $('Import request').first().json.dry_run }}"
+            },
+            {
+              "name": "expect_sha256",
+              "value": "={{ $('Import request').first().json.expect_sha256 }}"
+            },
+            {
+              "name": "anonymous",
+              "value": "={{ $('Import request').first().json.anonymous }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "old_crm",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "w22-09",
+      "name": "Run import in Postgres (crm-legacy-service)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        360
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "__CRM_LEGACY_CRED_ID__",
+          "name": "CRM legacy service token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "10-result",
+              "name": "result",
+              "type": "string",
+              "value": "={{ $('Import request').first().json.dry_run ? 'dry_run_ok' : 'imported' }}"
+            },
+            {
+              "id": "10-sha256",
+              "name": "sha256",
+              "type": "string",
+              "value": "={{ $json.sha256 }}"
+            },
+            {
+              "id": "10-report",
+              "name": "report",
+              "type": "string",
+              "value": "={{ [ $('Import request').first().json.dry_run ? 'SPRAWDZONO (dry-run, nic nie zapisano). Kliknij \"Importuj\", jeśli liczby się zgadzają.' : 'ZAIMPORTOWANO.', ($('Import request').first().json.anonymous ? 'TRYB ANONIM: dane osobowe pominięte (placeholdery \"Nieznany kontakt\").' : 'Tryb: pełne dane.'), 'Wiersze w pliku: ' + $json.rows, 'Firmy: ' + $json.counts.companies + ', osoby: ' + $json.counts.persons + ', leady: ' + $json.counts.leads + ', szanse: ' + $json.counts.opportunities + ', wpisy historii etapów: ' + $json.counts.history, 'Pominięte (już zaimportowane): ' + $json.counts.skipped, ($json.warnings.length ? 'Ostrzeżenia (' + $json.warnings.length + '):\\n- ' + $json.warnings.join('\\n- ') : 'Brak ostrzeżeń.')].join('\\n') }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w22-10",
+      "name": "Import report",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1820,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "version": 2,
+        "operation": "update",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_CRM_IMPORTS__",
+        "id": "={{ $('Import request').first().json.import_id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "completion_status",
+              "fieldValue": "done"
+            },
+            {
+              "fieldName": "import_result",
+              "fieldValue": "={{ $json.result }}"
+            },
+            {
+              "fieldName": "dry_run_sha256",
+              "fieldValue": "={{ $('Import request').first().json.dry_run ? $json.sha256 : $('Import request').first().json.expect_sha256 }}"
+            },
+            {
+              "fieldName": "report",
+              "fieldValue": "={{ $json.report }}"
+            }
+          ]
+        }
+      },
+      "id": "w22-11",
+      "name": "Save report and set status: done",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2080,
+        360
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "12-error_message",
+              "name": "error_message",
+              "type": "string",
+              "value": "Brak pliku w polu old_crm - wgraj plik CSV ze starego CRM i kliknij ponownie."
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w22-12",
+      "name": "Prepare error: no file",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1300,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "13-error_message",
+              "name": "error_message",
+              "type": "string",
+              "value": "={{ $json.error?.message ?? (typeof $json.error === 'string' ? $json.error : JSON.stringify($json).slice(0, 500)) }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w22-13",
+      "name": "Prepare error details",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1820,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "version": 2,
+        "operation": "update",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_CRM_IMPORTS__",
+        "id": "={{ $('Import request').first().json.import_id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "completion_status",
+              "fieldValue": "error"
+            },
+            {
+              "fieldName": "report",
+              "fieldValue": "={{ 'BŁĄD: ' + $json.error_message }}"
+            }
+          ]
+        }
+      },
+      "id": "w22-14",
+      "name": "Write error and set status: error",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2080,
+        620
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Button: Sprawdź import": {
+      "main": [
+        [
+          {
+            "node": "Import from check button",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Button: Importuj": {
+      "main": [
+        [
+          {
+            "node": "Import from apply button",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Import from check button": {
+      "main": [
+        [
+          {
+            "node": "Import request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Import from apply button": {
+      "main": [
+        [
+          {
+            "node": "Import request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Import request": {
+      "main": [
+        [
+          {
+            "node": "Set status: collecting data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set status: collecting data": {
+      "main": [
+        [
+          {
+            "node": "File attached?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "File attached?": {
+      "main": [
+        [
+          {
+            "node": "Download old CRM file",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare error: no file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download old CRM file": {
+      "main": [
+        [
+          {
+            "node": "Run import in Postgres (crm-legacy-service)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare error details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run import in Postgres (crm-legacy-service)": {
+      "main": [
+        [
+          {
+            "node": "Import report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare error details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Import report": {
+      "main": [
+        [
+          {
+            "node": "Save report and set status: done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare error: no file": {
+      "main": [
+        [
+          {
+            "node": "Write error and set status: error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare error details": {
+      "main": [
+        [
+          {
+            "node": "Write error and set status: error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

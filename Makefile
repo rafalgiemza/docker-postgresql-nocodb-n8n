@@ -8,7 +8,7 @@ DC_CMD = docker compose -f docker-compose.yml
 LATEST_TS := $(shell ls -1t ./backups/appdata_*.sql 2>/dev/null | head -n 1 | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}')
 RESTORE_TS ?= $(LATEST_TS)
 
-.PHONY: help init init-env config up down restart pull ps versions logs dump-appdata-schema seed-extra backup backup-prune restore init-schema upgrade-links dump-crm-schema init-data init-appdata-db add-rag-db
+.PHONY: help init init-env config up down restart pull ps versions logs dump-appdata-schema seed-extra backup backup-prune restore init-schema seed-test-data demo-schema-init demo-seed upgrade-links dump-crm-schema import-crm-legacy export-crm-legacy compare-crm-export delete-crm-legacy wipe-crm grant-crm-legacy fill-workflows init-data init-appdata-db add-rag-db
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -52,9 +52,27 @@ dump-appdata-schema: ## Dump current schema of a running appdata DB into appdata
 # komenda, dwa kroki. Wymaga Kroku 0 (NC_API_TOKEN w .env, patrz
 # docs/hard-reset.md) najpierw. Patrz naglowek scripts/init-schema.py po
 # pelny kontekst.
-init-schema: ## Create the full CRM schema (17 tables + relations) in NocoDB, then upgrade links to v3
-	./scripts/init-schema.sh
-	./scripts/upgrade-links.sh
+init-schema: ## Create the CRM schema v4 in NocoDB, incl. links v3 upgrade and reverse-field names. STAGE=1..4 builds up to that stage (default: all)
+	./scripts/init-schema.sh $(if $(STAGE),--stage $(STAGE))
+
+# Dane testowe CRM v4, etapami (docs/archive/fable/nocodb_crm_migration_v4.md):
+# `make seed-test-data STAGE=2` seeduje etapy 1..2 (etap juz seedowany jest
+# pomijany). Wymaga tabel z `make init-schema STAGE=N`. NIE uruchamiac
+# `init-data` ani `seed-extra` na bazie v4 - pisza do starych tabel.
+seed-test-data: ## Seed CRM v4 test data up to STAGE=1..4 (default 4); needs matching init-schema STAGE
+	python3 scripts/seed-test-data.py --stage $(or $(STAGE),4)
+
+# DEMO koncepcji schematu v4 (docs/crm-schema-v4-proposal.md): 8 tabel demo_*
+# + relacje miedzy nimi, bez dotykania istniejacych tabel CRM. Same wymagania co
+# init-schema. Po pokazie tabele demo_* usuwa sie recznie w UI. Patrz naglowek
+# scripts/demo-schema-init.py.
+demo-schema-init: ## Create the demo_* tables for the v4 concept demo (does not touch existing CRM tables)
+	python3 scripts/demo-schema-init.py
+
+# Dwa przyklady (B2C Anna, B2B Acme) w tabelach demo_* - patrz naglowek
+# scripts/demo-seed.py. Wymaga uprzedniego `make demo-schema-init`.
+demo-seed: ## Seed the demo_* tables with one B2C and one B2B example
+	python3 scripts/demo-seed.py
 
 # Naprawia pola relacji utworzone przez init-schema.py: NocoDB tworzy je w
 # starym formacie "Link to another record" v1 (bez fizycznej tabeli łączącej
@@ -72,8 +90,35 @@ upgrade-links: ## Re-run the Links v1 -> LinkToAnotherRecord v3 upgrade standalo
 # Zrzuca id tabel/pol + cele relacji zywego schematu CRM do JSON - potrzebne
 # do rekonstrukcji workflowow n8n (np. W1) po migracji na v3, patrz naglowek
 # scripts/dump-crm-schema.py.
+import-crm-legacy: ## Import starego CRM (CSV) prosto do Postgresa; domyślnie DRY-RUN. Użycie: make import-crm-legacy CSV=docs/crm/crm-utf-8.csv [APPLY=1]
+	./scripts/import-crm-legacy.sh $(CSV) $(if $(APPLY),--apply)
+
+# Rola serwisu crm-legacy-service (import/eksport CRM prosto w Postgres). Tabele
+# crm.* naleza do NOCODB_CRM_USER, wiec prawa nadajemy jawnie; po dodaniu nowych
+# tabel (make init-schema) odpal ponownie - idempotentne.
+grant-crm-legacy: ## One-time/idempotent: create CRM_LEGACY_USER and grant it access to schema crm + create the legacy.rows ID registry
+	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "CREATE USER $(CRM_LEGACY_USER) WITH PASSWORD '$(CRM_LEGACY_PASSWORD)';" || true
+	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "GRANT CONNECT ON DATABASE $(APP_DB) TO $(CRM_LEGACY_USER);"
+	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(APP_DB) -c "GRANT USAGE ON SCHEMA crm TO $(CRM_LEGACY_USER); GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA crm TO $(CRM_LEGACY_USER); GRANT USAGE ON ALL SEQUENCES IN SCHEMA crm TO $(CRM_LEGACY_USER);"
+	docker exec -i docker-postgres-1 psql -U $(POSTGRES_USER) -d $(APP_DB) -v ON_ERROR_STOP=1 -v u=$(CRM_LEGACY_USER) < scripts/legacy-registry.sql
+
+export-crm-legacy: ## Export the CRM from Postgres to a CSV in the legacy CRM format (read-only). Usage: make export-crm-legacy OUT=docs/crm/export.csv
+	python3 -I scripts/export-crm-legacy.py $(OUT)
+
+compare-crm-export: ## Round-trip check: compare the imported source file with an export. Usage: make compare-crm-export ORIG=docs/crm/CRM_big-utf-8.csv EXPORT=docs/crm/export.csv
+	python3 -I scripts/compare-crm-export.py $(ORIG) $(EXPORT)
+
+delete-crm-legacy: ## Delete records added by an import (rows with ID in IDS, e.g. 1704-1713) so a corrected file can be re-imported; PREVIEW unless APPLY=1
+	python3 -I scripts/delete-crm-legacy.py $(IDS) $(if $(APPLY),--apply)
+
+wipe-crm: ## Wipe ALL crm tables except employees (KEEP="t1 t2" keeps more; ONLY="t1 t2" wipes just those + their _nc_m2m links); PREVIEW unless APPLY=1
+	python3 -I scripts/wipe-crm.py $(if $(KEEP),--keep $(KEEP)) $(if $(ONLY),--only $(ONLY)) $(if $(APPLY),--apply)
+
 dump-crm-schema: ## Dump live CRM table/field ids + relation targets to docs/archive/fable/schema_map.json
 	./scripts/dump-crm-schema.sh
+
+fill-workflows: ## Replace __PLACEHOLDERS__ in workflow JSONs with live NocoDB ids (IN=docs/archive/fable OUT=n8n/generated)
+	python3 scripts/fill-workflow-placeholders.py $(or $(IN),docs/archive/fable) --out $(or $(OUT),n8n/generated)
 
 # Kroki 1-3: leady/firmy z init-data/source/leads.xlsx przez seed-service.
 # Kroki 4-5: referencje klienta z init-data/source/testimonials.{xlsx,pptx} -
@@ -104,8 +149,8 @@ init-data:
 	#    gdy plik na VPS zostanie podmieniony na wersję z realnymi cenami)
 	./scripts/import-pricing.sh
 
-	# 7. warianty_core.txt -> package_variants_cores, warianty_adons.txt ->
-	#    package_variants_adons
+	# 7. warianty_core.txt -> package_variants_cores, warianty_others.txt ->
+	#    package_variants_others
 	./scripts/import-packages.sh
 
 # Seeduje przez NocoDB REST API 13 tabel CRM poza leads/companies/participants

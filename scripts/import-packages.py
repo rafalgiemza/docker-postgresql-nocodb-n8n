@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-r"""Wypełnia `package_variants_cores`/`package_variants_adons` z
-`init-data/warianty_core.txt`/`init-data/warianty_adons.txt`.
+r"""Wypełnia `package_variants_cores`/`package_variants_others` z
+`init-data/warianty_core.txt`/`init-data/warianty_others.txt`.
 
 Zmiana 2026-09-17: klientka dostarczyła osobne pliki dla dwóch katalogów
 (patrz nagłówek scripts/init-schema.py "Zmiana z 2026-09-16"/"z 2026-09-17")
 zamiast jednego `warianty_slajd_4.txt` (usunięty - 10 pakietów podzielone
-na 2 core + 8 adons). Ten skrypt importuje OBA pliki w jednym przebiegu
+na 2 core + 8 others). Ten skrypt importuje OBA pliki w jednym przebiegu
 (`--catalog` pozwala ograniczyć do jednego), każdy do swojego katalogu:
 - `warianty_core.txt` -> `package_variants_cores` (GŁÓWNE pakiety)
-- `warianty_adons.txt` -> `package_variants_adons` (dodatki/skille)
+- `warianty_others.txt` -> `package_variants_others` (dodatki/skille)
 
 Format obu plików identyczny - prozaiczna lista dla slajdu "NASZA
 REKOMENDACJA" (dostarczona przez klientkę), naprzemiennie: linia z nazwą
@@ -16,12 +16,12 @@ pakietu (zaczyna się od "✅", zawiera placeholdery {{package.hours}} itd.,
 które i tak nie są tu parsowane - trafiają do oferty dopiero w n8n) i linia
 z krótkim opisem. Parser niżej rozbija ją na pary (name, description).
 
-`package_variants_adons.default_hours`/`.key` NIE występują w
-`warianty_adons.txt` - zostają puste, do ręcznego uzupełnienia w NocoDB po
+`package_variants_others.default_hours`/`.key` NIE występują w
+`warianty_others.txt` - zostają puste, do ręcznego uzupełnienia w NocoDB po
 imporcie (analogicznie do `package_variants_cores.slides`, które i tak
 trzeba dopiąć osobno przez `package_core_slides`).
 
-Uwaga na duplikaty nazw: `warianty_adons.txt` ma DWA wpisy "English +
+Uwaga na duplikaty nazw: `warianty_others.txt` ma DWA wpisy "English +
 Business Skills: Facilitating" i DWA "...Negotiating" - każdy z INNYM
 opisem (dwa warianty tekstu marketingowego, prawdopodobnie pod różne
 konteksty/odbiorców) - to świadomie zostaje jako dwa osobne wiersze, `name`
@@ -39,7 +39,7 @@ Usage (przez kontener testimonials-import - patrz jego README, PEP 668 na
 hoście robi z gołego `pip install` problem):
   ./scripts/import-packages.sh --dry-run       # ZAWSZE najpierw, oba katalogi
   ./scripts/import-packages.sh                 # oba katalogi
-  ./scripts/import-packages.sh --catalog adons  # tylko dodatki
+  ./scripts/import-packages.sh --catalog others  # tylko dodatki
   ./scripts/import-packages.sh --catalog cores --txt inny/plik.txt
 """
 import argparse
@@ -58,7 +58,7 @@ DASH = "–"  # en dash - separator w "✅ Nazwa – reszta" w źródłowym plik
 
 CATALOGS = {
     "cores": {"txt": "init-data/warianty_core.txt", "table": "package_variants_cores"},
-    "adons": {"txt": "init-data/warianty_adons.txt", "table": "package_variants_adons"},
+    "others": {"txt": "init-data/warianty_others.txt", "table": "package_variants_others"},
 }
 
 if not TOKEN or not BASE_ID:
@@ -171,11 +171,11 @@ def main():
     ap.add_argument("--catalog", choices=[*CATALOGS, "all"], default="all",
                      help="Który katalog zaimportować (domyślnie: all = oba).")
     ap.add_argument("--txt", help="Nadpisz domyślną ścieżkę pliku źródłowego "
-                                   "(tylko razem z --catalog cores|adons).")
+                                   "(tylko razem z --catalog cores|others).")
     args = ap.parse_args()
 
     if args.txt and args.catalog == "all":
-        sys.exit("--txt wymaga --catalog cores|adons (nie all - nie da się "
+        sys.exit("--txt wymaga --catalog cores|others (nie all - nie da się "
                  "nadpisać ścieżki dla dwóch katalogów naraz).")
 
     print(f"NocoDB: {URL}, base: {BASE_ID}{' [DRY RUN]' if args.dry_run else ''}")

@@ -15,8 +15,8 @@ zależności pythonowe potrzebne przez skrypty w `../scripts/`:
   (UPSERT po strukturze segment/hours/tryb, nie po cenach - bezpieczne
   ponowne uruchomienie po podmianie pliku na wersję z realnymi stawkami).
 - `import-packages.py` — `init-data/warianty_core.txt` → tabela
-  `package_variants_cores`, `init-data/warianty_adons.txt` → tabela
-  `package_variants_adons` (parsuje prozaiczny tekst, nie arkusz).
+  `package_variants_cores`, `init-data/warianty_others.txt` → tabela
+  `package_variants_others` (parsuje prozaiczny tekst, nie arkusz).
 
 Pełny kontekst i mechanika: nagłówki poszczególnych skryptów.
 

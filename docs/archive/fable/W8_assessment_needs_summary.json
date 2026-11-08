@@ -1,186 +1,528 @@
 {
+  "name": "W8 - Assessment needs summary (button: Generuj needs summary)",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "w11-assessment-needs-summary",
-        "responseMode": "lastNode",
+        "path": "w8-assessment-needs-summary",
+        "responseMode": "onReceived",
         "options": {}
       },
-      "id": "e1dd1f4a-8920-40ed-ba7b-ba7845ae3d2e",
+      "id": "w8-01",
       "name": "Button: Generuj needs summary",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -6256,
-        416
+        0,
+        570
       ],
-      "webhookId": "wh-w11-assessment-needs-summary"
+      "webhookId": "wh-w8-assessment-needs-summary"
     },
     {
       "parameters": {
-        "jsCode": "// Buttony NocoDB CE wysylaja caly biezacy wiersz w body.data.rows[0] - ten sam\n// ksztalt co webhook tabeli (patrz W9 \"Button: Generate offer\"), tylko bez\n// previous_rows (to nie jest zdarzenie zmiany pola, tylko klikniecie).\nconst row = ($input.first().json.body && $input.first().json.body.data\n  && $input.first().json.body.data.rows && $input.first().json.body.data.rows[0])\n  || $input.first().json;\nconst has_cefr = !!(row.cefr_overall && String(row.cefr_overall).trim());\nreturn [{ json: {\n  assessment_id: row.Id,\n  participant_id: (row.participants && row.participants.Id) || null,\n  cefr_overall: row.cefr_overall || '',\n  cefr_range: row.cefr_range || '',\n  cefr_accuracy: row.cefr_accuracy || '',\n  cefr_fluency: row.cefr_fluency || '',\n  cefr_communication: row.cefr_communication || '',\n  strengths: row.strengths || '',\n  gaps: row.gaps || '',\n  auditor_notes: row.auditor_notes || '',\n  has_cefr,\n} }];\n"
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assessment-from-button-assessment",
+              "name": "assessment",
+              "type": "object",
+              "value": "={{ $('Button: Generuj needs summary').first().json.body.data.rows[0] }}"
+            },
+            {
+              "id": "assessment-from-button-assessment_id",
+              "name": "assessment_id",
+              "type": "number",
+              "value": "={{ $('Button: Generuj needs summary').first().json.body.data.rows[0].Id }}"
+            },
+            {
+              "id": "assessment-from-button-person_id",
+              "name": "person_id",
+              "type": "number",
+              "value": "={{ $('Button: Generuj needs summary').first().json.body.data.rows[0].person?.Id ?? $('Button: Generuj needs summary').first().json.body.data.rows[0].person?.[0]?.Id ?? 0 }}"
+            },
+            {
+              "id": "assessment-from-button-meeting_id",
+              "name": "meeting_id",
+              "type": "number",
+              "value": "={{ $('Button: Generuj needs summary').first().json.body.data.rows[0].meeting?.Id ?? $('Button: Generuj needs summary').first().json.body.data.rows[0].meeting?.[0]?.Id ?? 0 }}"
+            },
+            {
+              "id": "assessment-from-button-title",
+              "name": "title",
+              "type": "string",
+              "value": "={{ $('Button: Generuj needs summary').first().json.body.data.rows[0].title || ('ocena #' + $('Button: Generuj needs summary').first().json.body.data.rows[0].Id) }}"
+            },
+            {
+              "id": "assessment-from-button-has_cefr",
+              "name": "has_cefr",
+              "type": "boolean",
+              "value": "={{ String($('Button: Generuj needs summary').first().json.body.data.rows[0].cefr_overall ?? '').trim().length > 0 }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
       },
-      "id": "78b7b835-dd6b-470b-9c86-96cdb2dd75fa",
-      "name": "Guard",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "w8-02",
+      "name": "Assessment from button",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
-        -5808,
-        416
+        260,
+        570
       ]
     },
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "workspaceId": "wpgg1mff",
-        "projectId": "p6w78auzu6sjdoo",
-        "table": "m4a428ghnk38e2m",
-        "id": "={{ $json.participant_id }}"
-      },
-      "id": "22abd13f-2c6b-48d3-9c1a-c750fd928535",
-      "name": "Get participant",
-      "type": "n8n-nodes-base.nocoDb",
-      "typeVersion": 3,
-      "position": [
-        -5584,
-        416
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      },
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "authentication": "nocoDbApiToken",
-        "workspaceId": "wpgg1mff",
-        "projectId": "p6w78auzu6sjdoo",
-        "table": "m0jdxehwusgig66",
-        "id": "={{ $json.leads?.Id }}"
-      },
-      "id": "aa7baaa8-06ca-43c8-8b70-a76e15e13248",
-      "name": "Get lead",
-      "type": "n8n-nodes-base.nocoDb",
-      "typeVersion": 3,
-      "position": [
-        -5360,
-        416
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      },
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "boolean": [
+        "version": 2,
+        "operation": "update",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ASSESSMENTS__",
+        "id": "={{ $('Assessment from button').first().json.assessment_id }}",
+        "fieldsUi": {
+          "fieldValues": [
             {
-              "value1": "={{ $('Guard').item.json.has_cefr }}",
-              "value2": true
+              "fieldName": "completion_status",
+              "fieldValue": "collecting data"
             }
           ]
         }
       },
-      "id": "29c6fc48-dd89-47c4-bb3d-626adb339607",
-      "name": "CEFR uzupelnione?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
+      "id": "w8-03",
+      "name": "Set status: collecting data",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
       "position": [
-        -5136,
-        416
+        520,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Assessment from button').first().json.has_cefr }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "w8-04",
+      "name": "CEFR filled in?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        780,
+        570
       ]
     },
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "workspaceId": "wpgg1mff",
-        "projectId": "p6w78auzu6sjdoo",
-        "table": "mig7am3pj0zco59",
-        "id": "={{ $('Get lead').item.json.companies?.Id }}"
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_PERSONS__",
+        "operation": "get",
+        "id": "={{ $('Assessment from button').first().json.person_id }}"
       },
-      "id": "975bfd9d-9dd3-4d5c-b905-bd4aab9ae9f3",
-      "name": "Get company",
+      "id": "w8-05",
+      "name": "Get person",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        -4912,
-        272
+        1040,
+        190
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
       },
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
     },
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "operation": "getAll",
-        "workspaceId": "wpgg1mff",
-        "projectId": "p6w78auzu6sjdoo",
-        "table": "m5772o5ggw39zs7",
-        "returnAll": true,
-        "options": {}
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_PERSONS__",
+          "mode": "id"
+        },
+        "id": "={{ $('Assessment from button').first().json.person_id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_PERSONS__COMPANY__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_COMPANIES__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_COMPANIES__NAME__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_COMPANIES__INDUSTRY__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_COMPANIES__COMMUNICATION_PROCESSES__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_COMPANIES__BUSINESS_IMPACT__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
       },
-      "id": "673a8582-fd67-427d-95d5-d27912330916",
-      "name": "Fetch meetings",
+      "id": "w8-06",
+      "name": "Get company of the person",
       "type": "n8n-nodes-base.nocoDb",
-      "typeVersion": 3,
+      "typeVersion": 4,
       "position": [
-        -4688,
-        272
+        1040,
+        380
       ],
-      "alwaysOutputData": true,
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
       },
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
     },
     {
       "parameters": {
-        "jsCode": "// Sklada dane z CRM w jeden tekst kontekstowy dla AI Agenta (system prompt\n// z metodyka CoAction siedzi w node \"AI Agent\" -> System Message, nie tutaj -\n// to jedyne miejsce z tresciu do edycji przez osobe nietechniczna).\n// \"Notatki Przemka\" to meetings.notes najnowszego spotkania typu discovery\n// dla tego leada (NIE transcript - klient wprost mowi \"notatki, bez\n// transkrypcji\"); \"notatki metodyka po demo\" to assessments.auditor_notes\n// tego wiersza.\nconst guard = $('Guard').item.json;\nconst participant = $('Get participant').item.json || {};\nconst lead = $('Get lead').item.json || {};\nconst company = $('Get company').item.json || {};\nconst leadId = lead.Id ?? null;\n\nconst allMeetings = $('Fetch meetings').all().map(i => i.json);\nconst discoveryMeetings = allMeetings.filter(m =>\n  m.leads && m.leads.Id === leadId && m.meeting_type === 'discovery');\nconst latestDiscovery = discoveryMeetings.slice().sort((a, b) =>\n  String(b.starts_at || b.UpdatedAt || '').localeCompare(String(a.starts_at || a.UpdatedAt || ''))\n)[0] || {};\n\nconst methodologist = lead.lead_type === 'B2B' ? 'dorota@coaction.pl' : 'aleksandra@coaction.pl';\n\nconst lines = [\n  '## Wyniki audytu (ocena CEFR)',\n  `Ogolny: ${guard.cefr_overall || 'brak'}`,\n  `Zakres jezyka: ${guard.cefr_range || 'brak'}`,\n  `Poprawnosc: ${guard.cefr_accuracy || 'brak'}`,\n  `Plynnosc: ${guard.cefr_fluency || 'brak'}`,\n  `Komunikatywnosc: ${guard.cefr_communication || 'brak'}`,\n  `Mocne strony: ${guard.strengths || 'brak danych'}`,\n  `Luki: ${guard.gaps || 'brak danych'}`,\n  '',\n  '## Notatki metodyka po demo/audycie',\n  guard.auditor_notes || 'brak notatek',\n  '',\n  '## Kontekst uczestnika',\n  `Imie i nazwisko: ${participant.full_name || 'brak'}`,\n  `Stanowisko: ${participant.position || 'brak'}`,\n  `Kontekst roli (z kim/o czym rozmawia po angielsku): ${participant.role_context || 'brak'}`,\n  `Czestotliwosc uzywania angielskiego: ${participant.frequency || 'brak'}`,\n  `Samoocena uczestnika: ${participant.self_assessment || 'brak'}`,\n  `Potrzeby wg managera/HR: ${participant.manager_needs || 'brak'}`,\n  '',\n  '## Kontekst biznesowy',\n  `Typ klienta: ${lead.lead_type || 'brak'}`,\n  `Branza: ${lead.industry || 'brak'}`,\n  company.name ? `Firma: ${company.name}` : null,\n  company.communication_processes ? `Procesy komunikacyjne w firmie: ${company.communication_processes}` : null,\n  company.business_impact ? `Wplyw jezyka na biznes: ${company.business_impact}` : null,\n  '',\n  '## Notatki Przemka z discovery call',\n  latestDiscovery.notes || 'brak notatek z discovery call (lub brak spotkania typu discovery dla tego leada)',\n];\n\nreturn [{ json: {\n  assessment_id: guard.assessment_id,\n  participant_id: guard.participant_id,\n  lead_id: leadId,\n  methodologist,\n  user: lines.filter(l => l !== null).join('\\n'),\n} }];\n"
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_MEETINGS__",
+          "mode": "id"
+        },
+        "id": "={{ $('Assessment from button').first().json.meeting_id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_MEETINGS__SALE_OPPORTUNITY__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_SALE_OPPORTUNITIES__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_SALE_OPPORTUNITIES__SEGMENT__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
       },
-      "id": "639f7094-aef7-4966-9de2-e9889655b693",
+      "id": "w8-07",
+      "name": "Get opportunity of the audit meeting",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        1040,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "opportunity-of-the-audit-opp_id",
+              "name": "opp_id",
+              "type": "number",
+              "value": "={{ $json.id_fields?.Id ?? 0 }}"
+            },
+            {
+              "id": "opportunity-of-the-audit-segment",
+              "name": "segment",
+              "type": "string",
+              "value": "={{ $json.fields?.segment ?? '' }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w8-08",
+      "name": "Opportunity of the audit",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1300,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_SALE_OPPORTUNITIES__",
+          "mode": "id"
+        },
+        "id": "={{ $json.opp_id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_SALE_OPPORTUNITIES__MEETINGS__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_MEETINGS__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_MEETINGS__MEETING_TYPE__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_MEETINGS__STARTS_AT__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_MEETINGS__NOTES__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_MEETINGS__AI_STATUS__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_MEETINGS__GOALS__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_MEETINGS__CHALLENGES__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_MEETINGS__COMMUNICATION_SITUATIONS__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "id": "w8-09",
+      "name": "Get meetings of the opportunity",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        1560,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "id": "w8-10",
+      "name": "Wait for person, company and discovery data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1820,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Sklada dane z CRM w jeden tekst dla AI Agenta; prompt metodyczny siedzi w\n// System Message noda \"AI Agent\" (edytowalny bez znajomosci JS).\nconst g = $('Assessment from button').first().json;\nconst a = g.assessment;\nconst person = $('Get person').first().json || {};\nconst company = ($('Get company of the person').first().json || {}).fields || {};\nconst opp = $('Opportunity of the audit').first().json;\nconst meetings = $('Get meetings of the opportunity').all().map(i => i.json.fields).filter(Boolean);\nconst latest = meetings.filter(m => m.meeting_type === 'discovery')\n  .sort((x, y) => String(y.starts_at || '').localeCompare(String(x.starts_at || '')))[0] || {};\nconst accepted = latest.ai_status === 'ai_accepted';\nconst lines = [\n  '## Wyniki audytu (ocena CEFR)',\n  `Ogolny: ${a.cefr_overall || 'brak'}`,\n  `Zakres jezyka: ${a.cefr_range || 'brak'}`,\n  `Poprawnosc: ${a.cefr_accuracy || 'brak'}`,\n  `Plynnosc: ${a.cefr_fluency || 'brak'}`,\n  `Komunikatywnosc: ${a.cefr_communication || 'brak'}`,\n  `Mocne strony: ${a.strengths || 'brak danych'}`,\n  `Luki: ${a.gaps || 'brak danych'}`,\n  '',\n  '## Notatki metodyka po demo/audycie',\n  a.auditor_notes || 'brak notatek',\n  '',\n  '## Kontekst uczestnika',\n  `Imie i nazwisko: ${person.full_name || 'brak'}`,\n  `Stanowisko: ${person.position || 'brak'}`,\n  `Kontekst roli (z kim/o czym rozmawia po angielsku): ${person.role_context || 'brak'}`,\n  `Czestotliwosc uzywania angielskiego: ${person.frequency || 'brak'}`,\n  `Samoocena uczestnika: ${a.self_assessment || 'brak'}`,\n  `Potrzeby wg managera/HR: ${a.manager_needs || 'brak'}`,\n  '',\n  '## Kontekst biznesowy',\n  `Typ klienta: ${opp.segment || 'brak'}`,\n  `Branza: ${person.industry || company.industry || 'brak'}`,\n  company.name ? `Firma: ${company.name}` : null,\n  company.communication_processes ? `Procesy komunikacyjne w firmie: ${company.communication_processes}` : null,\n  company.business_impact ? `Wplyw jezyka na biznes: ${company.business_impact}` : null,\n  '',\n  '## Notatki z discovery call',\n  latest.notes || 'brak notatek z discovery call (lub brak spotkania typu discovery dla tej szansy)',\n  accepted && latest.goals ? `\\nCele klienta (zaakceptowana analiza): ${latest.goals}` : null,\n  accepted && latest.challenges ? `Wyzwania (zaakceptowana analiza): ${latest.challenges}` : null,\n  accepted && latest.communication_situations ? `Sytuacje komunikacyjne (zaakceptowana analiza): ${latest.communication_situations}` : null,\n];\nreturn [{ json: { user: lines.filter(l => l !== null).join('\\n') } }];\n"
+      },
+      "id": "w8-11",
       "name": "Assemble context",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -4464,
-        272
+        2080,
+        380
       ]
     },
     {
       "parameters": {
+        "authentication": "nocoDbApiToken",
+        "version": 2,
+        "operation": "update",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ASSESSMENTS__",
+        "id": "={{ $('Assessment from button').first().json.assessment_id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "completion_status",
+              "fieldValue": "generating"
+            }
+          ]
+        }
+      },
+      "id": "w8-12",
+      "name": "Set status: generating",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2340,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
         "promptType": "define",
-        "text": "={{ $json.user }}",
+        "text": "={{ $('Assemble context').first().json.user }}",
         "options": {
           "systemMessage": "Jestes metodykiem CoAction piszacym rekomendacje szkoleniowa (opis potrzeby\ntreningowej) dla jednego uczestnika, na podstawie audytu jezykowego i wywiadu\ndiscovery. Tekst, ktory tworzysz, trafia wprost na slajd 3 oferty (\"Potrzeba\nszkoleniowa - opis Twojej sytuacji\").\n\nFILOZOFIA COACTION: najpierw opisujemy czlowieka i jego sytuacje biznesowa,\npotem wyjasniamy, dlaczego jezyk jest dzis ograniczeniem, a dopiero na koncu\npokazujemy jakie konkretne umiejetnosci szkolenie rozwinie. Rekomendacja ma\nsprawiac wrazenie napisanego specjalnie dla tej jednej osoby dokumentu, a nie\nszablonu z podmienionym imieniem. W kazdym fragmencie odpowiadaj na pytanie:\n\"dlaczego wlasnie to jest teraz najwazniejsze dla tego klienta?\"\n\nSTRUKTURA REKOMENDACJI\n\n1. Wynik audytu\nNa poczatku podaj poziomy: ogolny, zakres jezyka, poprawnosc, plynnosc,\nkomunikatywnosc. Zawsze: odwolaj sie do wszystkich kompetencji z audytu, pokaz\nzaleznosci miedzy nimi, wskaz ktora kompetencja ogranicza klienta najbardziej,\nnie opisuj tylko liczb, pokaz praktyczny wplyw na prace. Opisz konkretne\nzachowania (np. spadek plynnosci, brak struktury, niepewnosc, brak jezyka\nperswazji, brak jezyka do parafrazy, trudnosci z asking for clarification,\nblokowanie sie, zbyt szybkie przechodzenie do sedna, problemy z wymowa,\nniewykorzystywanie znanego slownictwa, brak signposting, brak small talku\nitp.) - tylko te, ktore faktycznie wynikaja z danych ponizej.\n\n2. Kontekst biznesowy\nW 2-4 zdaniach opisz: kim jest klient, w jakim srodowisku pracuje, dlaczego\nwlasnie teraz angielski stal sie kluczowy, jaki jest jego glowny cel\nbiznesowy. Skup sie na rzeczywistym problemie biznesowym, nie na ogolnej\npotrzebie nauki jezyka.\n\n3. Dotychczasowa nauka i jej ograniczenia\nKrotko (1-2 zdania) opisz historie nauki TYLKO wtedy, gdy dane ponizej na to\npozwalaja i gdy to pomaga zrozumiec obecna sytuacje (wczesniejsze kursy, dluga\nprzerwa, praca w innym jezyku, samodzielna nauka, brak kontekstu biznesowego\nlub branzowego). Zakoncz wskazaniem, czego zabraklo dotychczasowej nauce (np.\npracy na realnych sytuacjach zawodowych, personalizacji, praktyki mowienia,\nregularnego feedbacku, kontekstu branzowego, cwiczenia konkretnych scenariuszy\nbiznesowych) - tak, by naturalnie uzasadnic, dlaczego poprzednie metody nie\nprzynioly oczekiwanego efektu. Jesli danych o historii nauki brak, pomin ta\nczesc zamiast zmyslac.\n\n4. Wnioski z audytu\nOpisz wylacznie obserwacje z audytu/demo: mocne strony, spadki plynnosci lub\nkomunikatywnosci, najtrudniejsze scenariusze, zauwazalne braki jezykowe,\nelementy wymagajace rozwoju. Odnos sie do konkretnych sytuacji zawodowych z\nrole play, jesli sa opisane w notatkach ponizej (nie tylko \"poziom B2\", ale\nnp. zabraklo signposting, zabraklo jezyka argumentacji, pojawil sie stres,\nklient zaczal od \"How can I help you?\" zamiast small talku, nie potrafil\nrozwinac wypowiedzi, zabraklo jezyka parafrazy, zatrzymywal sie na\nniezrozumianym fragmencie rozmowy - o ile takie obserwacje faktycznie\nwystepuja w danych).\n\n5. Rekomendacja\nRozpocznij od: \"Potrzebujesz szkolenia, ktore...\". Opisz, w jaki sposob\nszkolenie pomoze rozwiazac najwazniejsze problemy biznesowe klienta. Nie\nopisuj programu zajec ani konkretnych modulow/godzin. Pokaz efekt, jaki\nklient osiagnie dzieki pracy na autentycznych scenariuszach z jego\ncodziennej pracy.\n\nSTYL I JEZYK\nMa brzmiec jak konsultacja - nie marketing, nie raport, nie opis poziomu, nie\ncoaching. Profesjonalny, naturalny jezyk polski, bez pustych slow (\"kompleksowy\",\n\"holistyczny\", \"synergia\", \"efektywne wykorzystanie potencjalu\", \"rozwoj\nkompetencji komunikacyjnych\" - chyba ze da sie napisac konkretniej). Klient\njest wyczulony na maslo maslane: nie powtarzaj \"plynnosc\"/\"swoboda\"/\"pewnosc\nsiebie\" w kilku roznych miejscach - kazda mysl wystepuje tylko raz.\n\nFORMAT WYJSCIA\nZwroc gotowy tekst na slajd (bez naglowkow \"1./2./3.\" i bez nazw sekcji jako\nosobnych linii) - ciagly, spojny tekst po polsku, w kolejnosci: wynik audytu,\nkontekst biznesowy, dotychczasowa nauka (jesli sa dane), wnioski z audytu,\nrekomendacja. Opieraj sie WYLACZNIE na danych podanych w wiadomosci\nuzytkownika - nie zmyslaj faktow, ktorych tam nie ma."
         }
       },
-      "id": "d13d2e10-f383-4ca7-bf0e-7f3ad312a936",
+      "id": "w8-13",
       "name": "AI Agent",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.9,
       "position": [
-        -4240,
-        160
+        2600,
+        380
       ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000,
       "onError": "continueErrorOutput"
     },
     {
@@ -190,81 +532,90 @@
           "timeout": 60000
         }
       },
-      "id": "76591194-62f2-4d4f-a7ef-f9363d460d35",
+      "id": "w8-14",
       "name": "OpenRouter Chat Model",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
       "position": [
-        -4160,
-        384
+        2600,
+        570
       ],
       "credentials": {
         "openRouterApi": {
-          "id": "sd2Yv1RgXeRJ2gk9",
+          "id": "__OPENROUTER_CRED_ID__",
           "name": "OpenRouter account"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "// Sukces AI Agenta -> draft needs_summary, task weryfikacji dla metodyka, activity.\nconst src = $('Assemble context').item.json;\nconst res = $input.first().json;\nconst content = (res.output || '').trim();\nif (!content) throw new Error('Pusta odpowiedz LLM: ' + JSON.stringify(res).slice(0, 400));\nreturn [{ json: { ...src,\n  patch: { Id: src.assessment_id, needs_summary: content, ai_status: 'ai_draft_ready' },\n  task: { title: `Zweryfikuj needs summary (assessment #${src.assessment_id})`,\n          status: 'todo', priority: 'high', assignee: src.methodologist,\n          created_by_flow: 'W11',\n          description: `assessment:${src.assessment_id} participant:${src.participant_id} lead:${src.lead_id}` },\n  activity: { summary: `AI needs summary draft gotowy (assessment #${src.assessment_id})`,\n              type: 'ai_analysis_done', flow: 'W11', triggered_by: 'system',\n              payload: JSON.stringify({ assessment_id: src.assessment_id, lead_id: src.lead_id,\n                model: 'anthropic/claude-sonnet-4.5' }) }\n} }];\n"
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
       },
-      "id": "a82c788e-6cb9-4126-936b-daeda12fd4ae",
-      "name": "Parse LLM response",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "w8-15",
+      "name": "AI output valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
       "position": [
-        -3888,
-        176
+        2860,
+        190
       ]
     },
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "operation": "create",
-        "workspaceId": "wpgg1mff",
-        "projectId": "p6w78auzu6sjdoo",
-        "table": "mu8d49p6roaxqeu",
+        "version": 2,
+        "operation": "update",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ASSESSMENTS__",
+        "id": "={{ $('Assessment from button').first().json.assessment_id }}",
         "fieldsUi": {
           "fieldValues": [
             {
-              "fieldName": "title",
-              "fieldValue": "={{ $json.task.title }}"
+              "fieldName": "needs_summary",
+              "fieldValue": "={{ String($json.output).trim() }}"
             },
             {
-              "fieldName": "status",
-              "fieldValue": "={{ $json.task.status }}"
+              "fieldName": "ai_status",
+              "fieldValue": "ai_draft_ready"
             },
             {
-              "fieldName": "priority",
-              "fieldValue": "={{ $json.task.priority }}"
-            },
-            {
-              "fieldName": "assignee",
-              "fieldValue": "={{ $json.task.assignee }}"
-            },
-            {
-              "fieldName": "created_by_flow",
-              "fieldValue": "={{ $json.task.created_by_flow }}"
-            },
-            {
-              "fieldName": "description",
-              "fieldValue": "={{ $json.task.description }}"
+              "fieldName": "completion_status",
+              "fieldValue": "done"
             }
           ]
         }
       },
-      "id": "cf230628-380b-4ec8-9743-1639fe845295",
-      "name": "Task: zweryfikuj needs summary",
+      "id": "w8-16",
+      "name": "Save needs summary and set status: done",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        -3440,
-        176
+        3120,
+        0
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
       }
@@ -272,110 +623,167 @@
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ACTIVITIES__",
         "operation": "create",
-        "workspaceId": "wpgg1mff",
-        "projectId": "p6w78auzu6sjdoo",
-        "table": "m2xqxvc3dsfifsn",
+        "dataToSend": "defineBelow",
         "fieldsUi": {
           "fieldValues": [
             {
               "fieldName": "summary",
-              "fieldValue": "={{ $json.activity.summary }}"
+              "fieldValue": "={{ 'Szkic needs summary gotowy do weryfikacji: ' + $('Assessment from button').first().json.title }}"
             },
             {
               "fieldName": "type",
-              "fieldValue": "={{ $json.activity.type }}"
+              "fieldValue": "ai_analysis_done"
             },
             {
               "fieldName": "flow",
-              "fieldValue": "={{ $json.activity.flow }}"
+              "fieldValue": "W8"
             },
             {
               "fieldName": "triggered_by",
-              "fieldValue": "={{ $json.activity.triggered_by }}"
+              "fieldValue": "user"
             },
             {
               "fieldName": "payload",
-              "fieldValue": "={{ $json.activity.payload }}"
+              "fieldValue": "={{ JSON.stringify({ assessment_id: $('Assessment from button').first().json.assessment_id }) }}"
             }
           ]
         }
       },
-      "id": "01e31e3b-92b9-4aef-8012-beb2e29b88a2",
-      "name": "Log activity (draft ready)",
+      "id": "w8-17",
+      "name": "Log activity: AI needs summary ready",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        -3216,
-        176
+        3380,
+        0
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "// AI Agent zawiodl po probach retry - cofnij ai_status na 'none' (przycisk\n// znow klikalny), task naprawczy, activity z bledem.\nconst src = $('Assemble context').item.json;\nconst err = $input.first().json;\nreturn [{ json: { ...src,\n  patch: { Id: src.assessment_id, ai_status: 'none' },\n  task: { title: `BLAD generowania needs summary (assessment #${src.assessment_id})`,\n          status: 'todo', priority: 'high', assignee: src.methodologist,\n          created_by_flow: 'W11',\n          description: `assessment:${src.assessment_id} participant:${src.participant_id} lead:${src.lead_id}\\n`\n            + JSON.stringify(err).slice(0, 500) },\n  activity: { summary: `Generowanie needs summary NIEUDANE (assessment #${src.assessment_id})`,\n              type: 'automation_error', flow: 'W11', triggered_by: 'system',\n              payload: JSON.stringify({ assessment_id: src.assessment_id, error: err }).slice(0, 800) }\n} }];\n"
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Opportunity of the audit').first().json.opp_id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ]
+        },
+        "options": {}
       },
-      "id": "12e76c43-45f4-49b5-9f6d-d5ab58312047",
-      "name": "Prepare LLM error payload",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "w8-18",
+      "name": "Is the audit tied to an opportunity?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
       "position": [
-        -3888,
-        368
+        3640,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/__TBL_SALE_OPPORTUNITIES__/links/__COL_SALE_OPPORTUNITIES__ACTIVITIES__/records/{{ $('Opportunity of the audit').first().json.opp_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $json.Id }]) }}",
+        "options": {}
+      },
+      "id": "w8-19",
+      "name": "Link the activity to the opportunity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        3900,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "prepare-ai-error-message",
+              "name": "message",
+              "type": "string",
+              "value": "={{ 'Generowanie needs summary nie powiodło się (' + ($json.error?.message ?? (typeof $json.error === 'string' ? $json.error : null) ?? 'model zwrócił pustą odpowiedź') + '). Kliknij „Generuj needs summary” ponownie.' }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w8-20",
+      "name": "Prepare AI error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3120,
+        570
       ]
     },
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "operation": "create",
-        "workspaceId": "wpgg1mff",
-        "projectId": "p6w78auzu6sjdoo",
-        "table": "mu8d49p6roaxqeu",
+        "version": 2,
+        "operation": "update",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ASSESSMENTS__",
+        "id": "={{ $('Assessment from button').first().json.assessment_id }}",
         "fieldsUi": {
           "fieldValues": [
             {
-              "fieldName": "title",
-              "fieldValue": "={{ $json.task.title }}"
+              "fieldName": "completion_status",
+              "fieldValue": "error"
             },
             {
-              "fieldName": "status",
-              "fieldValue": "={{ $json.task.status }}"
-            },
-            {
-              "fieldName": "priority",
-              "fieldValue": "={{ $json.task.priority }}"
-            },
-            {
-              "fieldName": "assignee",
-              "fieldValue": "={{ $json.task.assignee }}"
-            },
-            {
-              "fieldName": "created_by_flow",
-              "fieldValue": "={{ $json.task.created_by_flow }}"
-            },
-            {
-              "fieldName": "description",
-              "fieldValue": "={{ $json.task.description }}"
+              "fieldName": "needs_summary",
+              "fieldValue": "={{ $json.message }}"
             }
           ]
         }
       },
-      "id": "e394f3a1-984b-45dc-87c7-645b360ea24c",
-      "name": "Task: needs summary - blad generowania",
+      "id": "w8-21",
+      "name": "Write error and set status: error",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        -3440,
-        368
+        3380,
+        570
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
       }
@@ -383,393 +791,407 @@
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "operation": "update",
-        "workspaceId": {
-          "__rl": true,
-          "value": "wpgg1mff",
-          "mode": "list",
-          "cachedResultName": "CoAction Workspace",
-          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff"
-        },
-        "projectId": {
-          "__rl": true,
-          "value": "p6w78auzu6sjdoo",
-          "mode": "list",
-          "cachedResultName": "CRM Base",
-          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo"
-        },
-        "table": {
-          "__rl": true,
-          "value": "m6pfdmple0vitim",
-          "mode": "list",
-          "cachedResultName": "assessments",
-          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo/m6pfdmple0vitim"
-        },
-        "id": "={{ $('Prepare LLM error payload').item.json.assessment_id }}",
-        "fieldsMapper": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "ai_status": "none",
-            "needs_summary": "=<p>Generowanie needs summary nie powiodło się (błąd AI, wyczerpane próby). Szczegóły w nowym tasku: <a href=\"https://back-office.coaction.pl/wpgg1mff/p6w78auzu6sjdoo/mu8d49p6roaxqeu/vw9cf7iashnnd261/tasks-tasks?rowId={{ $json.Id }}\">otwórz task</a></p><p><strong>Skrót:</strong><br>{{ $json.description }}</p>"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "title",
-              "displayName": "title",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "assessed_at",
-              "displayName": "assessed_at",
-              "type": "dateTime",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "position",
-              "displayName": "position",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "cefr_overall",
-              "displayName": "cefr_overall",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "cefr_range",
-              "displayName": "cefr_range",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "cefr_accuracy",
-              "displayName": "cefr_accuracy",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "cefr_fluency",
-              "displayName": "cefr_fluency",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "cefr_communication",
-              "displayName": "cefr_communication",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "strengths",
-              "displayName": "strengths",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "gaps",
-              "displayName": "gaps",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "needs_summary",
-              "displayName": "needs_summary",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false
-            },
-            {
-              "id": "auditor_notes",
-              "displayName": "auditor_notes",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "ai_status",
-              "displayName": "ai_status",
-              "type": "options",
-              "options": [
-                {
-                  "name": "none",
-                  "value": "none"
-                },
-                {
-                  "name": "pending",
-                  "value": "pending"
-                },
-                {
-                  "name": "ai_draft_ready",
-                  "value": "ai_draft_ready"
-                },
-                {
-                  "name": "ai_accepted",
-                  "value": "ai_accepted"
-                },
-                {
-                  "name": "ai_rejected",
-                  "value": "ai_rejected"
-                }
-              ],
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false
-            },
-            {
-              "id": "report_file",
-              "displayName": "report_file",
-              "type": "array",
-              "display": true,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "report_data_json",
-              "displayName": "report_data_json",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "participants",
-              "displayName": "participants",
-              "type": "array",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "options": {},
-              "removed": true
-            },
-            {
-              "id": "meetings",
-              "displayName": "meetings",
-              "type": "array",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "options": {},
-              "removed": true
-            },
-            {
-              "id": "Generuj needs summary",
-              "displayName": "Generuj needs summary",
-              "type": "string",
-              "display": true,
-              "readOnly": true,
-              "removed": true
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
-        }
-      },
-      "type": "n8n-nodes-base.nocoDb",
-      "typeVersion": 4,
-      "position": [
-        -3216,
-        368
-      ],
-      "id": "c8ef26c1-418d-4a05-ab46-86c6b34493e4",
-      "name": "Loguj błąd w polu needs_summary (LLM)",
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ACTIVITIES__",
         "operation": "create",
-        "workspaceId": "wpgg1mff",
-        "projectId": "p6w78auzu6sjdoo",
-        "table": "m2xqxvc3dsfifsn",
+        "dataToSend": "defineBelow",
         "fieldsUi": {
           "fieldValues": [
             {
               "fieldName": "summary",
-              "fieldValue": "={{ $json.activity.summary }}"
+              "fieldValue": "={{ 'Generowanie needs summary nie powiodło się: ' + $('Assessment from button').first().json.title }}"
             },
             {
               "fieldName": "type",
-              "fieldValue": "={{ $json.activity.type }}"
+              "fieldValue": "automation_error"
             },
             {
               "fieldName": "flow",
-              "fieldValue": "={{ $json.activity.flow }}"
+              "fieldValue": "W8"
             },
             {
               "fieldName": "triggered_by",
-              "fieldValue": "={{ $json.activity.triggered_by }}"
+              "fieldValue": "user"
             },
             {
               "fieldName": "payload",
-              "fieldValue": "={{ $json.activity.payload }}"
+              "fieldValue": "={{ JSON.stringify({ assessment_id: $('Assessment from button').first().json.assessment_id, error: $('Prepare AI error').first().json.message }) }}"
             }
           ]
         }
       },
-      "id": "1de1226f-b381-49d1-a315-078804406e07",
-      "name": "Log activity (error)",
+      "id": "w8-22",
+      "name": "Log activity: AI needs summary failed",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        -3216,
-        368
+        3640,
+        570
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "// Brak wypelnionych ocen CEFR - nie wolac LLM na pusto, tylko poprosic o\n// uzupelnienie audytu przed ponownym kliknieciem przycisku.\nconst guard = $('Guard').item.json;\nconst lead = $('Get lead').item.json || {};\nconst methodologist = ''; // lead.lead_type === 'B2B' ? 'dorota@coaction.pl' : 'aleksandra@coaction.pl';\nreturn [{ json: {\n  task: { title: `Uzupelnij oceny CEFR przed generowaniem needs summary (assessment #${guard.assessment_id})`,\n          status: 'todo', priority: 'normal', assignee: methodologist,\n          created_by_flow: 'W11',\n          description: `assessment:${guard.assessment_id} participant:${guard.participant_id}` },\n  activity: { summary: `Needs summary: brak ocen CEFR (assessment #${guard.assessment_id})`,\n              type: 'automation_error', flow: 'W11', triggered_by: 'user',\n              payload: JSON.stringify({ assessment_id: guard.assessment_id }) }\n} }];\n"
+        "authentication": "nocoDbApiToken",
+        "version": 2,
+        "operation": "update",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ASSESSMENTS__",
+        "id": "={{ $('Assessment from button').first().json.assessment_id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "completion_status",
+              "fieldValue": "error"
+            },
+            {
+              "fieldName": "needs_summary",
+              "fieldValue": "Brak ocen CEFR. Uzupełnij pola cefr_* w audycie i kliknij „Generuj needs summary” ponownie."
+            }
+          ]
+        }
       },
-      "id": "9ef324e6-2d47-49cb-aefa-37d38df8e2a6",
-      "name": "Prepare missing-data payload",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "w8-23",
+      "name": "Reject: CEFR scores missing and set status: error",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
       "position": [
-        -4912,
-        560
+        1040,
+        1140
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_ASSESSMENTS__",
+          "mode": "id"
+        },
+        "id": "={{ $('Assessment from button').first().json.assessment_id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_ASSESSMENTS__TASKS__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_TASKS__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_TASKS__TASK_TYPE__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_TASKS__STATUS__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "id": "w8-24",
+      "name": "Get tasks of the assessment",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        1300,
+        1140
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "check-for-open-input-task-has_open_task",
+              "name": "has_open_task",
+              "type": "boolean",
+              "value": "={{ $('Get tasks of the assessment').all().some(i => i.json.fields?.task_type === 'provide_input' && !['done', 'cancelled'].includes(i.json.fields?.status)) }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w8-25",
+      "name": "Check for open input task",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1560,
+        1140
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.has_open_task }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "w8-26",
+      "name": "Is the input task still missing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1820,
+        1140
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "task-details-to-assign-title",
+              "name": "title",
+              "type": "string",
+              "value": "={{ 'Uzupełnij oceny CEFR: ' + $('Assessment from button').first().json.title }}"
+            },
+            {
+              "id": "task-details-to-assign-role",
+              "name": "role",
+              "type": "string",
+              "value": "metodyczka"
+            },
+            {
+              "id": "task-details-to-assign-preferred_employee_id",
+              "name": "preferred_employee_id",
+              "type": "number",
+              "value": "={{ $('Get owner of the audit meeting').first().json.id_fields?.Id ?? null }}"
+            },
+            {
+              "id": "task-details-to-assign-on_date",
+              "name": "on_date",
+              "type": "string",
+              "value": "={{ $now.toFormat('yyyy-MM-dd') }}"
+            },
+            {
+              "id": "task-details-to-assign-due_date",
+              "name": "due_date",
+              "type": "string",
+              "value": "={{ $now.toFormat('yyyy-MM-dd') }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w8-27",
+      "name": "Task details to assign",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2210,
+        1140
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "__W15_WORKFLOW_ID__",
+          "mode": "id"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "w8-28",
+      "name": "Resolve who should fill in the scores",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        2470,
+        1140
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "attach-task-details-to-the-assignee-title",
+              "name": "title",
+              "type": "string",
+              "value": "={{ $('Task details to assign').first().json.title }}"
+            },
+            {
+              "id": "attach-task-details-to-the-assignee-due_date",
+              "name": "due_date",
+              "type": "string",
+              "value": "={{ $('Task details to assign').first().json.due_date }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w8-29",
+      "name": "Attach task details to the assignee",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2730,
+        1140
       ]
     },
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_TASKS__",
         "operation": "create",
-        "workspaceId": "wpgg1mff",
-        "projectId": "p6w78auzu6sjdoo",
-        "table": "mu8d49p6roaxqeu",
+        "dataToSend": "defineBelow",
         "fieldsUi": {
           "fieldValues": [
             {
               "fieldName": "title",
-              "fieldValue": "={{ $json.task.title }}"
+              "fieldValue": "={{ $json.title }}"
+            },
+            {
+              "fieldName": "task_type",
+              "fieldValue": "provide_input"
             },
             {
               "fieldName": "status",
-              "fieldValue": "={{ $json.task.status }}"
+              "fieldValue": "todo"
             },
             {
               "fieldName": "priority",
-              "fieldValue": "={{ $json.task.priority }}"
+              "fieldValue": "normal"
             },
             {
-              "fieldName": "assignee",
-              "fieldValue": "={{ $json.task.assignee }}"
+              "fieldName": "due_date",
+              "fieldValue": "={{ $json.due_date }}"
             },
             {
               "fieldName": "created_by_flow",
-              "fieldValue": "={{ $json.task.created_by_flow }}"
-            },
-            {
-              "fieldName": "description",
-              "fieldValue": "={{ $json.task.description }}"
+              "fieldValue": "W8"
             }
           ]
         }
       },
-      "id": "32d0ae63-5b5d-4c9e-a0d7-03e01a776457",
-      "name": "Task: uzupelnij oceny CEFR",
+      "id": "w8-30",
+      "name": "Task: fill in the CEFR scores",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        -4688,
-        560
+        2990,
+        1140
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
       }
     },
     {
       "parameters": {
-        "authentication": "nocoDbApiToken",
-        "operation": "create",
-        "workspaceId": "wpgg1mff",
-        "projectId": "p6w78auzu6sjdoo",
-        "table": "m2xqxvc3dsfifsn",
-        "fieldsUi": {
-          "fieldValues": [
-            {
-              "fieldName": "summary",
-              "fieldValue": "={{ $json.activity.summary }}"
-            },
-            {
-              "fieldName": "type",
-              "fieldValue": "={{ $json.activity.type }}"
-            },
-            {
-              "fieldName": "flow",
-              "fieldValue": "={{ $json.activity.flow }}"
-            },
-            {
-              "fieldName": "triggered_by",
-              "fieldValue": "={{ $json.activity.triggered_by }}"
-            },
-            {
-              "fieldName": "payload",
-              "fieldValue": "={{ $json.activity.payload }}"
-            }
-          ]
-        }
+        "jsCode": "\n// Jeden nowy task -> trzy linki (przypisany, ocena, osoba); wyjątek od \"Set zamiast Code\":\n// rozwija jeden item na kilka.\nconst FIELD = {\n  'employees': '__COL_EMPLOYEES__TASKS__',\n  'assessments': '__COL_ASSESSMENTS__TASKS__',\n  'persons': '__COL_PERSONS__TASKS__',\n};\nconst TBL = {\n  'employees': '__TBL_EMPLOYEES__',\n  'assessments': '__TBL_ASSESSMENTS__',\n  'persons': '__TBL_PERSONS__',\n};\nconst g = $('Assessment from button').first().json;\nconst a = $('Attach task details to the assignee').first().json;\nconst tid = $input.first().json.Id;\nconst link = (table, recordId) => (recordId && tid)\n  ? { json: { table_id: TBL[table], field_id: FIELD[table], record_id: recordId, body: JSON.stringify([{ Id: tid }]) } }\n  : null;\nreturn [link('employees', a.assignee_id), link('assessments', g.assessment_id), link('persons', g.person_id)].filter(Boolean);\n"
       },
-      "id": "53f919dc-5d3f-4e7b-a1bb-9fdc013ea8c6",
-      "name": "Log activity (missing data)",
-      "type": "n8n-nodes-base.nocoDb",
-      "typeVersion": 3,
+      "id": "w8-31",
+      "name": "Prepare task links",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
-        -4176,
-        560
+        3250,
+        1140
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $json.table_id }}/links/{{ $json.field_id }}/records/{{ $json.record_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "w8-32",
+      "name": "Link the task to assignee, assessment and person",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        3510,
+        1140
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
       }
@@ -777,710 +1199,58 @@
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "operation": "update",
+        "resource": "linkrow",
         "workspaceId": {
           "__rl": true,
-          "value": "wpgg1mff",
-          "mode": "list",
-          "cachedResultName": "CoAction Workspace",
-          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff"
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
         },
         "projectId": {
           "__rl": true,
-          "value": "p6w78auzu6sjdoo",
-          "mode": "list",
-          "cachedResultName": "CRM Base",
-          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo"
+          "value": "__PROJECT_ID__",
+          "mode": "id"
         },
         "table": {
           "__rl": true,
-          "value": "m6pfdmple0vitim",
-          "mode": "list",
-          "cachedResultName": "assessments",
-          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo/m6pfdmple0vitim"
+          "value": "__TBL_MEETINGS__",
+          "mode": "id"
         },
-        "id": "={{ $json.assessment_id }}",
-        "fieldsMapper": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "ai_status": "ai_draft_ready",
-            "needs_summary": "={{ $json.patch.needs_summary }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "title",
-              "displayName": "title",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "assessed_at",
-              "displayName": "assessed_at",
-              "type": "dateTime",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "position",
-              "displayName": "position",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "cefr_overall",
-              "displayName": "cefr_overall",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "cefr_range",
-              "displayName": "cefr_range",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "cefr_accuracy",
-              "displayName": "cefr_accuracy",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "cefr_fluency",
-              "displayName": "cefr_fluency",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "cefr_communication",
-              "displayName": "cefr_communication",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "strengths",
-              "displayName": "strengths",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "gaps",
-              "displayName": "gaps",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "needs_summary",
-              "displayName": "needs_summary",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false
-            },
-            {
-              "id": "auditor_notes",
-              "displayName": "auditor_notes",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "ai_status",
-              "displayName": "ai_status",
-              "type": "options",
-              "options": [
-                {
-                  "name": "none",
-                  "value": "none"
-                },
-                {
-                  "name": "pending",
-                  "value": "pending"
-                },
-                {
-                  "name": "ai_draft_ready",
-                  "value": "ai_draft_ready"
-                },
-                {
-                  "name": "ai_accepted",
-                  "value": "ai_accepted"
-                },
-                {
-                  "name": "ai_rejected",
-                  "value": "ai_rejected"
+        "id": "={{ $('Assessment from button').first().json.meeting_id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_MEETINGS__OWNER__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_EMPLOYEES__ID__",
+                  "mode": "id"
                 }
-              ],
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false
-            },
-            {
-              "id": "report_file",
-              "displayName": "report_file",
-              "type": "array",
-              "display": true,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "report_data_json",
-              "displayName": "report_data_json",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "participants",
-              "displayName": "participants",
-              "type": "array",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "options": {},
-              "removed": true
-            },
-            {
-              "id": "meetings",
-              "displayName": "meetings",
-              "type": "array",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "options": {},
-              "removed": true
-            },
-            {
-              "id": "Generuj needs summary",
-              "displayName": "Generuj needs summary",
-              "type": "string",
-              "display": true,
-              "readOnly": true,
-              "removed": true
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
+              }
+            ]
+          }
         }
       },
+      "id": "w8-33",
+      "name": "Get owner of the audit meeting",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 4,
       "position": [
-        -3664,
-        176
+        1950,
+        1140
       ],
-      "id": "33763a67-450e-4bc8-baad-1210210a399c",
-      "name": "Update a row",
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "authentication": "nocoDbApiToken",
-        "operation": "update",
-        "workspaceId": {
-          "__rl": true,
-          "value": "wpgg1mff",
-          "mode": "list",
-          "cachedResultName": "CoAction Workspace",
-          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff"
-        },
-        "projectId": {
-          "__rl": true,
-          "value": "p6w78auzu6sjdoo",
-          "mode": "list",
-          "cachedResultName": "CRM Base",
-          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo"
-        },
-        "table": {
-          "__rl": true,
-          "value": "m6pfdmple0vitim",
-          "mode": "list",
-          "cachedResultName": "assessments",
-          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo/m6pfdmple0vitim"
-        },
-        "id": "={{ $('Button: Generuj needs summary').item.json.body.data.rows[0].Id }}",
-        "fieldsMapper": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "ai_status": "pending"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "title",
-              "displayName": "title",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "assessed_at",
-              "displayName": "assessed_at",
-              "type": "dateTime",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "position",
-              "displayName": "position",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "cefr_overall",
-              "displayName": "cefr_overall",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "cefr_range",
-              "displayName": "cefr_range",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "cefr_accuracy",
-              "displayName": "cefr_accuracy",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "cefr_fluency",
-              "displayName": "cefr_fluency",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "cefr_communication",
-              "displayName": "cefr_communication",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "strengths",
-              "displayName": "strengths",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "gaps",
-              "displayName": "gaps",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "needs_summary",
-              "displayName": "needs_summary",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "auditor_notes",
-              "displayName": "auditor_notes",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "ai_status",
-              "displayName": "ai_status",
-              "type": "options",
-              "options": [
-                {
-                  "name": "none",
-                  "value": "none"
-                },
-                {
-                  "name": "pending",
-                  "value": "pending"
-                },
-                {
-                  "name": "ai_draft_ready",
-                  "value": "ai_draft_ready"
-                },
-                {
-                  "name": "ai_accepted",
-                  "value": "ai_accepted"
-                },
-                {
-                  "name": "ai_rejected",
-                  "value": "ai_rejected"
-                }
-              ],
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false
-            },
-            {
-              "id": "report_file",
-              "displayName": "report_file",
-              "type": "array",
-              "display": true,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "report_data_json",
-              "displayName": "report_data_json",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "participants",
-              "displayName": "participants",
-              "type": "array",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "options": {},
-              "removed": true
-            },
-            {
-              "id": "meetings",
-              "displayName": "meetings",
-              "type": "array",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "options": {},
-              "removed": true
-            },
-            {
-              "id": "Generuj needs summary",
-              "displayName": "Generuj needs summary",
-              "type": "string",
-              "display": true,
-              "readOnly": true,
-              "removed": true
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
         }
       },
-      "type": "n8n-nodes-base.nocoDb",
-      "typeVersion": 4,
-      "position": [
-        -6032,
-        416
-      ],
-      "id": "3cea5d48-63b5-4d59-b657-8b620adbda09",
-      "name": "Set ai_status = pending",
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "authentication": "nocoDbApiToken",
-        "operation": "update",
-        "workspaceId": {
-          "__rl": true,
-          "value": "wpgg1mff",
-          "mode": "list",
-          "cachedResultName": "CoAction Workspace",
-          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff"
-        },
-        "projectId": {
-          "__rl": true,
-          "value": "p6w78auzu6sjdoo",
-          "mode": "list",
-          "cachedResultName": "CRM Base",
-          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo"
-        },
-        "table": {
-          "__rl": true,
-          "value": "m6pfdmple0vitim",
-          "mode": "list",
-          "cachedResultName": "assessments",
-          "cachedResultUrl": "https://back-office.coaction.pl/#/wpgg1mff/p6w78auzu6sjdoo/m6pfdmple0vitim"
-        },
-        "id": "={{ $('Button: Generuj needs summary').item.json.body.data.rows[0].Id }}",
-        "fieldsMapper": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "ai_status": "ai_rejected",
-            "needs_summary": "=<p>Brakujące pola zostały wylistowane w nowym tasku: <a href=\"https://back-office.coaction.pl/wpgg1mff/p6w78auzu6sjdoo/mu8d49p6roaxqeu/vw9cf7iashnnd261/tasks-tasks?rowId={{ $json.Id }}\">otwórz task</a></p><p><strong>Skrót:</strong><br>{{ $json.description }}</p>"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "title",
-              "displayName": "title",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "assessed_at",
-              "displayName": "assessed_at",
-              "type": "dateTime",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "position",
-              "displayName": "position",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "cefr_overall",
-              "displayName": "cefr_overall",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "cefr_range",
-              "displayName": "cefr_range",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "cefr_accuracy",
-              "displayName": "cefr_accuracy",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "cefr_fluency",
-              "displayName": "cefr_fluency",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "cefr_communication",
-              "displayName": "cefr_communication",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "strengths",
-              "displayName": "strengths",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "gaps",
-              "displayName": "gaps",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "needs_summary",
-              "displayName": "needs_summary",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false
-            },
-            {
-              "id": "auditor_notes",
-              "displayName": "auditor_notes",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "ai_status",
-              "displayName": "ai_status",
-              "type": "options",
-              "options": [
-                {
-                  "name": "none",
-                  "value": "none"
-                },
-                {
-                  "name": "pending",
-                  "value": "pending"
-                },
-                {
-                  "name": "ai_draft_ready",
-                  "value": "ai_draft_ready"
-                },
-                {
-                  "name": "ai_accepted",
-                  "value": "ai_accepted"
-                },
-                {
-                  "name": "ai_rejected",
-                  "value": "ai_rejected"
-                }
-              ],
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false
-            },
-            {
-              "id": "report_file",
-              "displayName": "report_file",
-              "type": "array",
-              "display": true,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "report_data_json",
-              "displayName": "report_data_json",
-              "type": "string",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "removed": true
-            },
-            {
-              "id": "participants",
-              "displayName": "participants",
-              "type": "array",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "options": {},
-              "removed": true
-            },
-            {
-              "id": "meetings",
-              "displayName": "meetings",
-              "type": "array",
-              "display": true,
-              "defaultMatch": false,
-              "readOnly": false,
-              "options": {},
-              "removed": true
-            },
-            {
-              "id": "Generuj needs summary",
-              "displayName": "Generuj needs summary",
-              "type": "string",
-              "display": true,
-              "readOnly": true,
-              "removed": true
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
-        }
-      },
-      "type": "n8n-nodes-base.nocoDb",
-      "typeVersion": 4,
-      "position": [
-        -4464,
-        560
-      ],
-      "id": "8bd572e9-fe83-4a49-8cb3-9f5f40459258",
-      "name": "Loguj błąd w polu needs_summary",
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      }
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
     }
   ],
   "connections": {
@@ -1488,76 +1258,119 @@
       "main": [
         [
           {
-            "node": "Set ai_status = pending",
+            "node": "Assessment from button",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Guard": {
+    "Assessment from button": {
       "main": [
         [
           {
-            "node": "Get participant",
+            "node": "Set status: collecting data",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get participant": {
+    "Set status: collecting data": {
       "main": [
         [
           {
-            "node": "Get lead",
+            "node": "CEFR filled in?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get lead": {
+    "CEFR filled in?": {
       "main": [
         [
           {
-            "node": "CEFR uzupelnione?",
+            "node": "Get person",
             "type": "main",
             "index": 0
-          }
-        ]
-      ]
-    },
-    "CEFR uzupelnione?": {
-      "main": [
-        [
+          },
           {
-            "node": "Get company",
+            "node": "Get company of the person",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get opportunity of the audit meeting",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Prepare missing-data payload",
+            "node": "Reject: CEFR scores missing and set status: error",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get company": {
+    "Get opportunity of the audit meeting": {
       "main": [
         [
           {
-            "node": "Fetch meetings",
+            "node": "Opportunity of the audit",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Fetch meetings": {
+    "Opportunity of the audit": {
+      "main": [
+        [
+          {
+            "node": "Get meetings of the opportunity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get person": {
+      "main": [
+        [
+          {
+            "node": "Wait for person, company and discovery data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get company of the person": {
+      "main": [
+        [
+          {
+            "node": "Wait for person, company and discovery data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Get meetings of the opportunity": {
+      "main": [
+        [
+          {
+            "node": "Wait for person, company and discovery data",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Wait for person, company and discovery data": {
       "main": [
         [
           {
@@ -1572,25 +1385,18 @@
       "main": [
         [
           {
-            "node": "AI Agent",
+            "node": "Set status: generating",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "AI Agent": {
+    "Set status: generating": {
       "main": [
         [
           {
-            "node": "Parse LLM response",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Prepare LLM error payload",
+            "node": "AI Agent",
             "type": "main",
             "index": 0
           }
@@ -1608,110 +1414,201 @@
         ]
       ]
     },
-    "Parse LLM response": {
+    "AI Agent": {
       "main": [
         [
           {
-            "node": "Update a row",
+            "node": "AI output valid?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare AI error",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Task: zweryfikuj needs summary": {
+    "AI output valid?": {
       "main": [
         [
           {
-            "node": "Log activity (draft ready)",
+            "node": "Save needs summary and set status: done",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare AI error",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Prepare LLM error payload": {
+    "Save needs summary and set status: done": {
       "main": [
         [
           {
-            "node": "Task: needs summary - blad generowania",
+            "node": "Log activity: AI needs summary ready",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Task: needs summary - blad generowania": {
+    "Log activity: AI needs summary ready": {
       "main": [
         [
           {
-            "node": "Loguj błąd w polu needs_summary (LLM)",
+            "node": "Is the audit tied to an opportunity?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Loguj błąd w polu needs_summary (LLM)": {
+    "Is the audit tied to an opportunity?": {
       "main": [
         [
           {
-            "node": "Log activity (error)",
+            "node": "Link the activity to the opportunity",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Prepare missing-data payload": {
+    "Prepare AI error": {
       "main": [
         [
           {
-            "node": "Task: uzupelnij oceny CEFR",
+            "node": "Write error and set status: error",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Task: uzupelnij oceny CEFR": {
+    "Write error and set status: error": {
       "main": [
         [
           {
-            "node": "Loguj błąd w polu needs_summary",
+            "node": "Log activity: AI needs summary failed",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Update a row": {
+    "Reject: CEFR scores missing and set status: error": {
       "main": [
         [
           {
-            "node": "Task: zweryfikuj needs summary",
+            "node": "Get tasks of the assessment",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Set ai_status = pending": {
+    "Get tasks of the assessment": {
       "main": [
         [
           {
-            "node": "Guard",
+            "node": "Check for open input task",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Loguj błąd w polu needs_summary": {
+    "Check for open input task": {
       "main": [
         [
           {
-            "node": "Log activity (missing data)",
+            "node": "Is the input task still missing?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is the input task still missing?": {
+      "main": [
+        [
+          {
+            "node": "Get owner of the audit meeting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Task details to assign": {
+      "main": [
+        [
+          {
+            "node": "Resolve who should fill in the scores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve who should fill in the scores": {
+      "main": [
+        [
+          {
+            "node": "Attach task details to the assignee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach task details to the assignee": {
+      "main": [
+        [
+          {
+            "node": "Task: fill in the CEFR scores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Task: fill in the CEFR scores": {
+      "main": [
+        [
+          {
+            "node": "Prepare task links",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare task links": {
+      "main": [
+        [
+          {
+            "node": "Link the task to assignee, assessment and person",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get owner of the audit meeting": {
+      "main": [
+        [
+          {
+            "node": "Task details to assign",
             "type": "main",
             "index": 0
           }
@@ -1720,8 +1617,11 @@
     }
   },
   "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
   "meta": {
-    "templateCredsSetupCompleted": true,
-    "instanceId": "429e202ed2fd6bce58bf2c7e6fd66d0222fa48d863edbdd52b4193bfbb06e11e"
+    "templateCredsSetupCompleted": false
   }
 }

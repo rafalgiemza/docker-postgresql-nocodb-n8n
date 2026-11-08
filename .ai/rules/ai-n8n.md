@@ -55,15 +55,17 @@ Wartości opisują cykl recenzji przez człowieka, nie postęp mechaniki flow:
 
 Jeśli wymagane dane wejściowe są niekompletne (np. brak wypełnionych ocen
 CEFR, brak wybranego wariantu pakietu), NIE wołaj LLM. Ustaw `ai_status` na
-wartość odrzucenia i stwórz task typu "uzupełnij X" — koszt i czas modelu nie
-mogą iść na dane, które i tak nie wystarczą.
+wartość odrzucenia i stwórz task `provide_input` ("uzupełnij X", jedno otwarte
+na rekord; wąski przypadek 4 z `common.md` §6) — koszt i czas modelu nie mogą
+iść na dane, które i tak nie wystarczą.
 
 ## 7. Błąd LLM: reset + komunikat w polu treści, nie tylko log
 
 Gdy wywołanie LLM się nie powiedzie: `ai_status` wraca na stan
-spoczynkowy (żeby przycisk dał się kliknąć ponownie) ORAZ komunikat błędu z
-linkiem do naprawczego taska trafia wprost w pole tekstowe wyjściowe (np.
-`needs_summary`), nie tylko do logów/activities. User nietechniczny czyta
+spoczynkowy (żeby przycisk dał się kliknąć ponownie) ORAZ komunikat błędu
+trafia wprost w pole tekstowe wyjściowe (np. `needs_summary`), nie tylko do
+logów/activities. Zadania naprawczego **nie** tworzymy (schemat v4: błędy
+techniczne nie tworzą zadań, patrz `common.md` §6); ślad zostaje w `activities`. User nietechniczny czyta
 wiersz w NocoDB, nie logi n8n.
 
 ## 8. Render używa tylko zaakceptowanej treści AI

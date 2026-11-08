@@ -1,0 +1,1935 @@
+{
+  "name": "W4v4 - Form intake (person, lead / accountant / client)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "w4v4-form-intake",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "w4v4-01",
+      "name": "Form: contact submission",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        600
+      ],
+      "webhookId": "wh-w4v4-form-intake"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0-body",
+              "name": "body",
+              "type": "object",
+              "value": "={{ $('Form: contact submission').first().json.body ?? $('Form: contact submission').first().json }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w4v4-02",
+      "name": "Form body",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        260,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0-name",
+              "name": "name",
+              "type": "string",
+              "value": "={{ String(($('Form body').first().json.body['your-name'] ?? $('Form body').first().json.body.name) ?? '').trim() }}"
+            },
+            {
+              "id": "1-email",
+              "name": "email",
+              "type": "string",
+              "value": "={{ String(($('Form body').first().json.body['your-email'] ?? $('Form body').first().json.body.email) ?? '').trim().toLowerCase() }}"
+            },
+            {
+              "id": "2-phone_raw",
+              "name": "phone_raw",
+              "type": "string",
+              "value": "={{ String(($('Form body').first().json.body['tel-660'] ?? $('Form body').first().json.body['your-phone'] ?? $('Form body').first().json.body.phone) ?? '').trim() }}"
+            },
+            {
+              "id": "3-phone_core",
+              "name": "phone_core",
+              "type": "string",
+              "value": "={{ (() => { const d = String(($('Form body').first().json.body['tel-660'] ?? $('Form body').first().json.body['your-phone'] ?? $('Form body').first().json.body.phone) ?? '').replace(/\\D/g, ''); return d.length >= 9 ? d.slice(-9) : ''; })() }}"
+            },
+            {
+              "id": "4-notes",
+              "name": "notes",
+              "type": "string",
+              "value": "={{ String(($('Form body').first().json.body['uwagi'] ?? $('Form body').first().json.body['your-message'] ?? $('Form body').first().json.body.notes) ?? '').trim() }}"
+            },
+            {
+              "id": "5-q_email",
+              "name": "q_email",
+              "type": "string",
+              "value": "={{ String(($('Form body').first().json.body['your-email'] ?? $('Form body').first().json.body.email) ?? '').trim().toLowerCase().replace(/[(),]/g, ' ') || 'no-email@none.invalid' }}"
+            },
+            {
+              "id": "6-q_phone",
+              "name": "q_phone",
+              "type": "string",
+              "value": "={{ (() => { const d = String(($('Form body').first().json.body['tel-660'] ?? $('Form body').first().json.body['your-phone'] ?? $('Form body').first().json.body.phone) ?? '').replace(/\\D/g, ''); return d.length >= 9 ? d.slice(-9) : ''; })() || 'no-phone-none' }}"
+            },
+            {
+              "id": "7-received_at",
+              "name": "received_at",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            },
+            {
+              "id": "8-attribution",
+              "name": "attribution",
+              "type": "object",
+              "value": "={{ (() => { const b = $('Form body').first().json.body; return Object.fromEntries([\"utm_source\", \"utm_medium\", \"utm_campaign\", \"utm_term\", \"utm_content\", \"utm_id\", \"utm_source_platform\", \"gbraid\", \"wbraid\", \"referrer\", \"landing_page\", \"device\"].map(k => [k, String(b[k] ?? '').trim().slice(0, ['referrer', 'landing_page'].includes(k) ? 2000 : 255)])); })() }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w4v4-03",
+      "name": "Form data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        520,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_PERSONS__",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 5,
+        "options": {
+          "where": "=(email,eq,{{ $('Form data').first().json.q_email }})"
+        }
+      },
+      "id": "w4v4-04",
+      "name": "Find person by email",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        780,
+        480
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_PERSONS__",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 5,
+        "options": {
+          "where": "=(phone,like,{{ $('Form data').first().json.q_phone }})"
+        }
+      },
+      "id": "w4v4-05",
+      "name": "Find person by phone",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        780,
+        720
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "numberInputs": 2
+      },
+      "id": "w4v4-06",
+      "name": "Wait for person lookups",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1040,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0-person",
+              "name": "person",
+              "type": "object",
+              "value": "={{ (() => { const core = $('Form data').first().json.phone_core; const e = $('Find person by email').all().map(i => i.json).find(r => r.Id); const p = $('Find person by phone').all().map(i => i.json).find(r => r.Id && core && String(r.phone || '').replace(/\\D/g, '').endsWith(core)); return e || p || {}; })() }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w4v4-07",
+      "name": "Matched person",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1300,
+        600
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0-person_id",
+              "name": "person_id",
+              "type": "number",
+              "value": "={{ $json.person.Id ?? 0 }}"
+            },
+            {
+              "id": "1-is_accountant",
+              "name": "is_accountant",
+              "type": "boolean",
+              "value": "={{ $json.person.sales_mode === 'Tylko spotkania' }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w4v4-08",
+      "name": "Person flags",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1560,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Person flags').first().json.person_id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "w4v4-09",
+      "name": "Known person?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1820,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_PERSONS__",
+          "mode": "id"
+        },
+        "id": "={{ $('Person flags').first().json.person_id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_PERSONS__BOUGHT_OPPORTUNITIES__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_SALE_OPPORTUNITIES__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_SALE_OPPORTUNITIES__STATE__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "id": "w4v4-10",
+      "name": "Get opportunities bought by the person",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        2080,
+        300
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_PERSONS__",
+          "mode": "id"
+        },
+        "id": "={{ $('Person flags').first().json.person_id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_PERSONS__PARTICIPANT_IN__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_SALE_OPPORTUNITIES__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_SALE_OPPORTUNITIES__STATE__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "id": "w4v4-11",
+      "name": "Get opportunities the person takes part in",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        2080,
+        480
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_PERSONS__",
+          "mode": "id"
+        },
+        "id": "={{ $('Person flags').first().json.person_id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_PERSONS__COMPANY__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_COMPANIES__ID__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "id": "w4v4-12",
+      "name": "Get company of the person",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        2080,
+        660
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_COMPANIES__",
+          "mode": "id"
+        },
+        "id": "={{ $json.id_fields?.Id ?? 0 }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_COMPANIES__OPPORTUNITIES__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_SALE_OPPORTUNITIES__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_SALE_OPPORTUNITIES__STATE__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "id": "w4v4-13",
+      "name": "Get opportunities of the company",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        2340,
+        660
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "id": "w4v4-14",
+      "name": "Wait for opportunity data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2600,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0-is_client",
+              "name": "is_client",
+              "type": "boolean",
+              "value": "={{ ['Get opportunities bought by the person', 'Get opportunities the person takes part in', 'Get opportunities of the company'].some(n => $(n).all().some(i => i.json.fields?.state === 'won')) }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w4v4-15",
+      "name": "Client check",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2860,
+        480
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0-outcome",
+              "name": "outcome",
+              "type": "string",
+              "value": "={{ $('Person flags').first().json.is_accountant ? 'accountant' : ($('Client check').isExecuted && $('Client check').first().json.is_client ? 'client' : 'new_lead') }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w4v4-16",
+      "name": "Intake outcome",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3120,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0-role",
+              "name": "role",
+              "type": "string",
+              "value": "handlowiec"
+            },
+            {
+              "id": "1-preferred_employee_id",
+              "name": "preferred_employee_id",
+              "type": "number",
+              "value": "={{ null }}"
+            },
+            {
+              "id": "2-on_date",
+              "name": "on_date",
+              "type": "string",
+              "value": "={{ $now.toFormat('yyyy-MM-dd') }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w4v4-17",
+      "name": "Owner request",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3380,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "__W15_WORKFLOW_ID__",
+          "mode": "id"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "w4v4-18",
+      "name": "Resolve who should handle the enquiry",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        3640,
+        600
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0-assignee_id",
+              "name": "assignee_id",
+              "type": "number",
+              "value": "={{ $json.assignee_id ?? 0 }}"
+            },
+            {
+              "id": "1-task_title",
+              "name": "task_title",
+              "type": "string",
+              "value": "={{ $('Intake outcome').first().json.outcome === 'new_lead' ? 'Umów discovery call: ' + ($('Form data').first().json.name || $('Form data').first().json.email || $('Form data').first().json.phone_raw) : ($('Intake outcome').first().json.outcome === 'accountant' ? 'Księgowa napisała: ' : 'Klient napisał ponownie: ') + ($('Form data').first().json.name || $('Form data').first().json.email || $('Form data').first().json.phone_raw) }}"
+            },
+            {
+              "id": "2-task_priority",
+              "name": "task_priority",
+              "type": "string",
+              "value": "={{ $('Intake outcome').first().json.outcome === 'new_lead' ? 'normal' : 'high' }}"
+            },
+            {
+              "id": "3-task_description",
+              "name": "task_description",
+              "type": "string",
+              "value": "={{ [$('Intake outcome').first().json.outcome === 'new_lead' ? 'Nowe zgłoszenie z formularza.' : 'Zgłoszenie z formularza od osoby już w bazie (' + $('Intake outcome').first().json.outcome + ').', 'Email: ' + $('Form data').first().json.email, 'Telefon: ' + $('Form data').first().json.phone_raw, $('Form data').first().json.notes ? 'Uwagi: ' + $('Form data').first().json.notes : ''].filter(Boolean).join('\\n') }}"
+            },
+            {
+              "id": "4-activity_summary",
+              "name": "activity_summary",
+              "type": "string",
+              "value": "={{ ($('Intake outcome').first().json.outcome === 'new_lead' ? 'Nowy lead z formularza: ' : 'Zgłoszenie z formularza (' + $('Intake outcome').first().json.outcome + '): ') + ($('Form data').first().json.name || $('Form data').first().json.email || $('Form data').first().json.phone_raw) }}"
+            },
+            {
+              "id": "5-activity_payload",
+              "name": "activity_payload",
+              "type": "string",
+              "value": "={{ JSON.stringify({ email: $('Form data').first().json.email, phone: $('Form data').first().json.phone_raw, notes: $('Form data').first().json.notes, outcome: $('Intake outcome').first().json.outcome, attribution: Object.fromEntries(Object.entries($('Form data').first().json.attribution).filter(([k, v]) => v)) }) }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w4v4-19",
+      "name": "Intake plan",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3900,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Intake outcome').first().json.outcome === 'new_lead' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "w4v4-20",
+      "name": "New lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4160,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_TASKS__",
+        "operation": "create",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "={{ $('Intake plan').first().json.task_title }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "todo"
+            },
+            {
+              "fieldName": "priority",
+              "fieldValue": "={{ $('Intake plan').first().json.task_priority }}"
+            },
+            {
+              "fieldName": "task_type",
+              "fieldValue": "other"
+            },
+            {
+              "fieldName": "created_by_flow",
+              "fieldValue": "W4v4"
+            },
+            {
+              "fieldName": "description",
+              "fieldValue": "={{ $('Intake plan').first().json.task_description }}"
+            }
+          ]
+        }
+      },
+      "id": "w4v4-21",
+      "name": "Task: existing contact wrote",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        4420,
+        900
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ACTIVITIES__",
+        "operation": "create",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "summary",
+              "fieldValue": "={{ $('Intake plan').first().json.activity_summary }}"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "lead_created"
+            },
+            {
+              "fieldName": "flow",
+              "fieldValue": "W4v4"
+            },
+            {
+              "fieldName": "triggered_by",
+              "fieldValue": "system"
+            },
+            {
+              "fieldName": "payload",
+              "fieldValue": "={{ $('Intake plan').first().json.activity_payload }}"
+            }
+          ]
+        }
+      },
+      "id": "w4v4-24",
+      "name": "Log activity: existing contact wrote",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        4680,
+        1020
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Person flags').first().json.person_id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "w4v4-26",
+      "name": "Person already in the base?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4420,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_PERSONS__",
+        "operation": "create",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "full_name",
+              "fieldValue": "={{ $('Form data').first().json.name }}"
+            },
+            {
+              "fieldName": "email",
+              "fieldValue": "={{ $('Form data').first().json.email }}"
+            },
+            {
+              "fieldName": "phone",
+              "fieldValue": "={{ $('Form data').first().json.phone_raw }}"
+            }
+          ]
+        }
+      },
+      "id": "w4v4-27",
+      "name": "Create person",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        4680,
+        420
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0-person_id",
+              "name": "person_id",
+              "type": "number",
+              "value": "={{ $('Create person').isExecuted ? $('Create person').first().json.Id : $('Person flags').first().json.person_id }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w4v4-28",
+      "name": "Person for the lead",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4940,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_LEADS__",
+        "operation": "create",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "lead_name",
+              "fieldValue": "={{ $('Form data').first().json.name || $('Form data').first().json.email }}"
+            },
+            {
+              "fieldName": "lead_source",
+              "fieldValue": "Google"
+            },
+            {
+              "fieldName": "contact_channel",
+              "fieldValue": "Formularz"
+            },
+            {
+              "fieldName": "qualification",
+              "fieldValue": "unqualified"
+            },
+            {
+              "fieldName": "received_at",
+              "fieldValue": "={{ $('Form data').first().json.received_at }}"
+            },
+            {
+              "fieldName": "notes",
+              "fieldValue": "={{ $('Form data').first().json.notes ? '[' + $now.toFormat('yyyy-MM-dd') + ' formularz] ' + $('Form data').first().json.notes : '' }}"
+            },
+            {
+              "fieldName": "utm_source",
+              "fieldValue": "={{ $('Form data').first().json.attribution.utm_source }}"
+            },
+            {
+              "fieldName": "utm_medium",
+              "fieldValue": "={{ $('Form data').first().json.attribution.utm_medium }}"
+            },
+            {
+              "fieldName": "utm_campaign",
+              "fieldValue": "={{ $('Form data').first().json.attribution.utm_campaign }}"
+            },
+            {
+              "fieldName": "utm_term",
+              "fieldValue": "={{ $('Form data').first().json.attribution.utm_term }}"
+            },
+            {
+              "fieldName": "utm_content",
+              "fieldValue": "={{ $('Form data').first().json.attribution.utm_content }}"
+            },
+            {
+              "fieldName": "utm_id",
+              "fieldValue": "={{ $('Form data').first().json.attribution.utm_id }}"
+            },
+            {
+              "fieldName": "utm_source_platform",
+              "fieldValue": "={{ $('Form data').first().json.attribution.utm_source_platform }}"
+            },
+            {
+              "fieldName": "gbraid",
+              "fieldValue": "={{ $('Form data').first().json.attribution.gbraid }}"
+            },
+            {
+              "fieldName": "wbraid",
+              "fieldValue": "={{ $('Form data').first().json.attribution.wbraid }}"
+            },
+            {
+              "fieldName": "referrer",
+              "fieldValue": "={{ $('Form data').first().json.attribution.referrer }}"
+            },
+            {
+              "fieldName": "landing_page",
+              "fieldValue": "={{ $('Form data').first().json.attribution.landing_page }}"
+            },
+            {
+              "fieldName": "device",
+              "fieldValue": "={{ $('Form data').first().json.attribution.device }}"
+            }
+          ]
+        }
+      },
+      "id": "w4v4-29",
+      "name": "Create lead",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        5200,
+        300
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ACTIVITIES__",
+        "operation": "create",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "summary",
+              "fieldValue": "={{ $('Intake plan').first().json.activity_summary }}"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "lead_created"
+            },
+            {
+              "fieldName": "flow",
+              "fieldValue": "W4v4"
+            },
+            {
+              "fieldName": "triggered_by",
+              "fieldValue": "system"
+            },
+            {
+              "fieldName": "payload",
+              "fieldValue": "={{ $('Intake plan').first().json.activity_payload }}"
+            }
+          ]
+        }
+      },
+      "id": "w4v4-33",
+      "name": "Log activity: lead created",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        5460,
+        420
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_TASKS__",
+        "operation": "create",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "={{ $('Intake plan').first().json.task_title }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "todo"
+            },
+            {
+              "fieldName": "priority",
+              "fieldValue": "={{ $('Intake plan').first().json.task_priority }}"
+            },
+            {
+              "fieldName": "task_type",
+              "fieldValue": "other"
+            },
+            {
+              "fieldName": "created_by_flow",
+              "fieldValue": "W4v4"
+            },
+            {
+              "fieldName": "description",
+              "fieldValue": "={{ $('Intake plan').first().json.task_description }}"
+            }
+          ]
+        }
+      },
+      "id": "w4v4-35",
+      "name": "Task: schedule discovery call",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        5460,
+        560
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0-error_message",
+              "name": "error_message",
+              "type": "string",
+              "value": "={{ $json.error?.message ?? (typeof $json.error === 'string' ? $json.error : JSON.stringify($json).slice(0, 300)) }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w4v4-39",
+      "name": "Intake error details",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        5460,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_TASKS__",
+        "operation": "create",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "={{ 'BŁĄD intake formularza: ' + ($('Form data').first().json.name || $('Form data').first().json.email) }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "todo"
+            },
+            {
+              "fieldName": "priority",
+              "fieldValue": "high"
+            },
+            {
+              "fieldName": "task_type",
+              "fieldValue": "other"
+            },
+            {
+              "fieldName": "created_by_flow",
+              "fieldValue": "W4v4"
+            },
+            {
+              "fieldName": "description",
+              "fieldValue": "={{ 'Zgłoszenie NIE zostało w pełni zapisane - wprowadź ręcznie.\\nEmail: ' + $('Form data').first().json.email + '\\nTelefon: ' + $('Form data').first().json.phone_raw + '\\nUwagi: ' + $('Form data').first().json.notes + '\\nBłąd: ' + $json.error_message }}"
+            }
+          ]
+        }
+      },
+      "id": "w4v4-40",
+      "name": "Task: intake failed",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        5720,
+        1200
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ACTIVITIES__",
+        "operation": "create",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "summary",
+              "fieldValue": "={{ 'Intake formularza nieudany (' + $('Form data').first().json.email + ')' }}"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "automation_error"
+            },
+            {
+              "fieldName": "flow",
+              "fieldValue": "W4v4"
+            },
+            {
+              "fieldName": "triggered_by",
+              "fieldValue": "system"
+            },
+            {
+              "fieldName": "payload",
+              "fieldValue": "={{ JSON.stringify({ email: $('Form data').first().json.email, error: $('Intake error details').first().json.error_message }).slice(0, 800) }}"
+            }
+          ]
+        }
+      },
+      "id": "w4v4-41",
+      "name": "Log activity: intake failed",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        6240,
+        1200
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "w4v4-42-links",
+              "name": "links",
+              "type": "array",
+              "value": "={{ [ { table_id: '__TBL_PERSONS__', field_id: '__COL_PERSONS__TASKS__', record_id: $('Person flags').first().json.person_id, ids: [ $('Task: existing contact wrote').first().json.Id ] }, { table_id: '__TBL_EMPLOYEES__', field_id: '__COL_EMPLOYEES__TASKS__', record_id: $('Intake plan').first().json.assignee_id, ids: [ $('Task: existing contact wrote').first().json.Id ] }, { table_id: '__TBL_TASKS__', field_id: '__COL_TASKS__ACTIVITIES__', record_id: $('Task: existing contact wrote').first().json.Id, ids: [ $('Log activity: existing contact wrote').first().json.Id ] } ].map(l => ({ ...l, ids: l.ids.filter(Boolean) })).filter(l => l.record_id && l.ids.length).map(l => ({ table_id: l.table_id, field_id: l.field_id, record_id: l.record_id, body: JSON.stringify(l.ids.map(x => ({ Id: x }))) })) }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": false
+        }
+      },
+      "id": "w4v4-42",
+      "name": "Links of the existing contact task",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4940,
+        900
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "links",
+        "include": "noOtherFields",
+        "options": {}
+      },
+      "id": "w4v4-43",
+      "name": "Split links of the existing contact task",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        5200,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $json.table_id }}/links/{{ $json.field_id }}/records/{{ $json.record_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "w4v4-44",
+      "name": "Link the task to person, assignee and activity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        5460,
+        900
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "w4v4-45-links",
+              "name": "links",
+              "type": "array",
+              "value": "={{ [ { table_id: '__TBL_LEADS__', field_id: '__COL_LEADS__PERSONS__', record_id: $('Create lead').first().json.Id, ids: [ $('Person for the lead').first().json.person_id ] }, { table_id: '__TBL_LEADS__', field_id: '__COL_LEADS__PRIMARY_PERSON__', record_id: $('Create lead').first().json.Id, ids: [ $('Person for the lead').first().json.person_id ] }, { table_id: '__TBL_LEADS__', field_id: '__COL_LEADS__OWNER__', record_id: $('Create lead').first().json.Id, ids: [ $('Intake plan').first().json.assignee_id ] }, { table_id: '__TBL_LEADS__', field_id: '__COL_LEADS__ACTIVITIES__', record_id: $('Create lead').first().json.Id, ids: [ $('Log activity: lead created').first().json.Id ] }, { table_id: '__TBL_LEADS__', field_id: '__COL_LEADS__TASKS__', record_id: $('Create lead').first().json.Id, ids: [ $('Task: schedule discovery call').first().json.Id ] }, { table_id: '__TBL_PERSONS__', field_id: '__COL_PERSONS__TASKS__', record_id: $('Person for the lead').first().json.person_id, ids: [ $('Task: schedule discovery call').first().json.Id ] }, { table_id: '__TBL_EMPLOYEES__', field_id: '__COL_EMPLOYEES__TASKS__', record_id: $('Intake plan').first().json.assignee_id, ids: [ $('Task: schedule discovery call').first().json.Id ] } ].map(l => ({ ...l, ids: l.ids.filter(Boolean) })).filter(l => l.record_id && l.ids.length).map(l => ({ table_id: l.table_id, field_id: l.field_id, record_id: l.record_id, body: JSON.stringify(l.ids.map(x => ({ Id: x }))) })) }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": false
+        }
+      },
+      "id": "w4v4-45",
+      "name": "Links of the new lead",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        6000,
+        300
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "links",
+        "include": "noOtherFields",
+        "options": {}
+      },
+      "id": "w4v4-46",
+      "name": "Split links of the new lead",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        6260,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $json.table_id }}/links/{{ $json.field_id }}/records/{{ $json.record_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "w4v4-47",
+      "name": "Link the lead and its task to person, owner, assignee and activity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        6520,
+        300
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "={{ 'Intake formularza nieudany: ' + $('Intake error details').first().json.error_message }}"
+      },
+      "id": "w4v4-48",
+      "name": "Fail the intake",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        6500,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/__TBL_EMPLOYEES__/links/__COL_EMPLOYEES__TASKS__/records/{{ $('Intake plan').isExecuted ? $('Intake plan').first().json.assignee_id : 0 }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Task: intake failed').first().json.Id }]) }}",
+        "options": {}
+      },
+      "id": "w4v4-49",
+      "name": "Link the failure task to the assignee",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        5980,
+        1200
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Form: contact submission": {
+      "main": [
+        [
+          {
+            "node": "Form body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form body": {
+      "main": [
+        [
+          {
+            "node": "Form data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form data": {
+      "main": [
+        [
+          {
+            "node": "Find person by email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Find person by phone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find person by email": {
+      "main": [
+        [
+          {
+            "node": "Wait for person lookups",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Intake error details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find person by phone": {
+      "main": [
+        [
+          {
+            "node": "Wait for person lookups",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Intake error details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for person lookups": {
+      "main": [
+        [
+          {
+            "node": "Matched person",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Matched person": {
+      "main": [
+        [
+          {
+            "node": "Person flags",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Person flags": {
+      "main": [
+        [
+          {
+            "node": "Known person?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Known person?": {
+      "main": [
+        [
+          {
+            "node": "Get opportunities bought by the person",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get opportunities the person takes part in",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get company of the person",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Intake outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get company of the person": {
+      "main": [
+        [
+          {
+            "node": "Get opportunities of the company",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get opportunities bought by the person": {
+      "main": [
+        [
+          {
+            "node": "Wait for opportunity data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get opportunities the person takes part in": {
+      "main": [
+        [
+          {
+            "node": "Wait for opportunity data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Get opportunities of the company": {
+      "main": [
+        [
+          {
+            "node": "Wait for opportunity data",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Wait for opportunity data": {
+      "main": [
+        [
+          {
+            "node": "Client check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Client check": {
+      "main": [
+        [
+          {
+            "node": "Intake outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Intake outcome": {
+      "main": [
+        [
+          {
+            "node": "Owner request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Owner request": {
+      "main": [
+        [
+          {
+            "node": "Resolve who should handle the enquiry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve who should handle the enquiry": {
+      "main": [
+        [
+          {
+            "node": "Intake plan",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Intake error details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Intake plan": {
+      "main": [
+        [
+          {
+            "node": "New lead?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New lead?": {
+      "main": [
+        [
+          {
+            "node": "Person already in the base?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Task: existing contact wrote",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Task: existing contact wrote": {
+      "main": [
+        [
+          {
+            "node": "Log activity: existing contact wrote",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Intake error details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log activity: existing contact wrote": {
+      "main": [
+        [
+          {
+            "node": "Links of the existing contact task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Person already in the base?": {
+      "main": [
+        [
+          {
+            "node": "Person for the lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create person",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create person": {
+      "main": [
+        [
+          {
+            "node": "Person for the lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Intake error details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Person for the lead": {
+      "main": [
+        [
+          {
+            "node": "Create lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create lead": {
+      "main": [
+        [
+          {
+            "node": "Task: schedule discovery call",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Intake error details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log activity: lead created": {
+      "main": [
+        [
+          {
+            "node": "Links of the new lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Task: schedule discovery call": {
+      "main": [
+        [
+          {
+            "node": "Log activity: lead created",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Intake error details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Intake error details": {
+      "main": [
+        [
+          {
+            "node": "Task: intake failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Task: intake failed": {
+      "main": [
+        [
+          {
+            "node": "Link the failure task to the assignee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Links of the existing contact task": {
+      "main": [
+        [
+          {
+            "node": "Split links of the existing contact task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split links of the existing contact task": {
+      "main": [
+        [
+          {
+            "node": "Link the task to person, assignee and activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Links of the new lead": {
+      "main": [
+        [
+          {
+            "node": "Split links of the new lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split links of the new lead": {
+      "main": [
+        [
+          {
+            "node": "Link the lead and its task to person, owner, assignee and activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link the failure task to the assignee": {
+      "main": [
+        [
+          {
+            "node": "Log activity: intake failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log activity: intake failed": {
+      "main": [
+        [
+          {
+            "node": "Fail the intake",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

@@ -1,0 +1,369 @@
+{
+  "name": "W16 - Scheduled tasks become due (scheduled -> todo + notification)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      },
+      "id": "every-day-07-00",
+      "name": "Every day 07:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "base",
+        "operation": "get",
+        "workspaceId": {
+          "__rl": true,
+          "value": "wpgg1mff",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "p6w78auzu6sjdoo",
+          "mode": "list",
+          "cachedResultName": "CRM Base"
+        }
+      },
+      "id": "get-one-base",
+      "name": "Get one base",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        260,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'tasks').id }}",
+        "operation": "getAll",
+        "returnAll": true,
+        "options": {
+          "where": "=(status,eq,scheduled)~and(scheduled_for,le,{{ $now.toFormat('yyyy-MM-dd') }})"
+        }
+      },
+      "id": "get-scheduled-tasks-that-are-due",
+      "name": "Get scheduled tasks that are due",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        520,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'tasks').id }}",
+        "operation": "update",
+        "id": "={{ $json.Id }}",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "status",
+              "fieldValue": "todo"
+            }
+          ]
+        }
+      },
+      "id": "set-task-status-to-todo",
+      "name": "Set task status to todo",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        780,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'tasks').id }}/links/cz6hud7pte2kr2l/records/{{ $json.Id }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-task-assignee",
+      "name": "Get task assignee",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1040,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst tasks = $('Get scheduled tasks that are due').all();\nconst res = $input.all();\nconst today = new Date().toISOString().slice(0, 10);\nconst out = [];\nres.forEach((r, i) => {\n  const t = tasks[i].json;\n  const a = ((r.json.list) || [])[0];\n  if (!a) return;   // zadanie bez odpowiedzialnego: tylko zmiana statusu\n  out.push({ json: { task_id: t.Id, title: t.title, scheduled_for: t.scheduled_for,\n                     preferred_employee_id: a.Id, original_name: a.full_name,\n                     original_email: a.email, on_date: today } });\n});\nreturn out;\n"
+      },
+      "id": "prepare-reminder",
+      "name": "Prepare reminder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "__W15_WORKFLOW_ID__",
+          "mode": "id"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "resolve-who-should-be-reminded-absences",
+      "name": "Resolve who should be reminded (absences)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        1560,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst src = $('Prepare reminder').all();\nconst res = $input.all();\nreturn res.map((r, i) => {\n  const s = src[i].json, a = r.json;\n  const to = a.assignee_email || s.original_email;\n  const sub = a.assignee_id && a.assignee_name !== s.original_name\n    ? ` (zastępstwo za ${s.original_name})` : '';\n  return { json: { to, task_id: s.task_id,\n    subject: `Zadanie na dziś: ${s.title}`,\n    text: `Zadanie zaplanowane na ${s.scheduled_for} jest już do zrobienia${sub}:\\n\\n${s.title}\\n\\nSzczegóły w NocoDB.`,\n    summary: `Przypomnienie o zadaniu wysłane do ${to}: ${s.title}` } };\n});\n"
+      },
+      "id": "compose-reminder",
+      "name": "Compose reminder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1820,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "info@coaction-test.pl",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "text": "={{ $json.text }}",
+        "options": {}
+      },
+      "id": "send-due-task-reminder",
+      "name": "Send due-task reminder",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        2080,
+        190
+      ],
+      "credentials": {
+        "smtp": {
+          "id": null,
+          "name": "SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'activities').id }}",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "summary",
+              "fieldValue": "={{ $('Compose reminder').item.json.summary }}"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "notification_sent"
+            },
+            {
+              "fieldName": "flow",
+              "fieldValue": "W16"
+            },
+            {
+              "fieldName": "triggered_by",
+              "fieldValue": "system"
+            },
+            {
+              "fieldName": "payload",
+              "fieldValue": "={{ JSON.stringify({ task_id: $('Compose reminder').item.json.task_id }) }}"
+            }
+          ]
+        }
+      },
+      "id": "log-activity-reminder-sent",
+      "name": "Log activity: reminder sent",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2340,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every day 07:00": {
+      "main": [
+        [
+          {
+            "node": "Get one base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get one base": {
+      "main": [
+        [
+          {
+            "node": "Get scheduled tasks that are due",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get scheduled tasks that are due": {
+      "main": [
+        [
+          {
+            "node": "Set task status to todo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set task status to todo": {
+      "main": [
+        [
+          {
+            "node": "Get task assignee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get task assignee": {
+      "main": [
+        [
+          {
+            "node": "Prepare reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare reminder": {
+      "main": [
+        [
+          {
+            "node": "Resolve who should be reminded (absences)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve who should be reminded (absences)": {
+      "main": [
+        [
+          {
+            "node": "Compose reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose reminder": {
+      "main": [
+        [
+          {
+            "node": "Send due-task reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send due-task reminder": {
+      "main": [
+        [
+          {
+            "node": "Log activity: reminder sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

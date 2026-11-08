@@ -1,0 +1,317 @@
+{
+  "name": "W18 - Assessment saved -> person moves from to_be_audited to audited",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "w18-assessment-saved",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "nocodb-assessment-saved",
+      "name": "NocoDB: assessment saved",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        380
+      ],
+      "webhookId": "wh-w18-assessment-saved"
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "base",
+        "operation": "get",
+        "workspaceId": {
+          "__rl": true,
+          "value": "wpgg1mff",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "p6w78auzu6sjdoo",
+          "mode": "list",
+          "cachedResultName": "CRM Base"
+        }
+      },
+      "id": "get-one-base",
+      "name": "Get one base",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        260,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Webhook tabeli assessments (after insert ORAZ after update, ten sam URL):\n// przy insercie linki moga jeszcze nie byc zapisane, wiec reagujemy tez na\n// aktualizacje. Flow jest idempotentny (brak zmian = brak dzialania).\nconst body = $input.first().json.body || $input.first().json;\nconst row = (body.data && body.data.rows && body.data.rows[0]) || {};\nconst idOf = o => (o && (o.Id || (Array.isArray(o) && o[0] && o[0].Id))) || null;\nconst person_id = idOf(row.person), meeting_id = idOf(row.meeting);\nif (!person_id || !meeting_id) return [];\nreturn [{ json: { person_id, meeting_id } }];\n"
+      },
+      "id": "guard",
+      "name": "Guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'meetings').id }}/links/cyo4kq3xkhyqgez/records/{{ $json.meeting_id }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-opportunity-of-the-audit-meeting",
+      "name": "Get opportunity of the audit meeting",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        780,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst g = $('Guard').first().json;\nconst o = ($input.first().json.list || [])[0];\nreturn o ? [{ json: { ...g, opp_id: o.Id } }] : [];\n"
+      },
+      "id": "opportunity-id",
+      "name": "Opportunity id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'sale_opportunities').id }}/links/c94xps0bfd3tdru/records/{{ $json.opp_id }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-audited-people",
+      "name": "Get audited people",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1300,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'sale_opportunities').id }}/links/c8znfdni0ht0xe7/records/{{ $json.opp_id }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-people-waiting-for-an-audit",
+      "name": "Get people waiting for an audit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1300,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 2
+      },
+      "id": "wait-for-both-lists",
+      "name": "Wait for both lists",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1560,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const FIELD = {\n \"sale_opportunities.audited\": \"c94xps0bfd3tdru\",\n \"sale_opportunities.to_be_audited\": \"c8znfdni0ht0xe7\"\n};\n\nconst TBL = t => $('Get one base').first().json.tables.find(x => x.title === t).id;\nconst o = $('Opportunity id').first().json;\nconst audited = ($('Get audited people').first().json.list || []).map(p => p.Id);\nconst waiting = ($('Get people waiting for an audit').first().json.list || []).map(p => p.Id);\nconst body = JSON.stringify([{ Id: o.person_id }]);\nconst out = [];\nif (!audited.includes(o.person_id))\n  out.push({ json: { method: 'POST', table_id: TBL('sale_opportunities'),\n    field_id: FIELD['sale_opportunities.audited'], record_id: o.opp_id, body } });\nif (waiting.includes(o.person_id))\n  out.push({ json: { method: 'DELETE', table_id: TBL('sale_opportunities'),\n    field_id: FIELD['sale_opportunities.to_be_audited'], record_id: o.opp_id, body } });\nreturn out;\n"
+      },
+      "id": "decide-link-changes",
+      "name": "Decide link changes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1820,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "method": "={{ $json.method || 'POST' }}",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $json.table_id }}/links/{{ $json.field_id }}/records/{{ $json.record_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "apply-link-change",
+      "name": "Apply link change",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        2080,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "NocoDB: assessment saved": {
+      "main": [
+        [
+          {
+            "node": "Get one base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get one base": {
+      "main": [
+        [
+          {
+            "node": "Guard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guard": {
+      "main": [
+        [
+          {
+            "node": "Get opportunity of the audit meeting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get opportunity of the audit meeting": {
+      "main": [
+        [
+          {
+            "node": "Opportunity id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Opportunity id": {
+      "main": [
+        [
+          {
+            "node": "Get audited people",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get people waiting for an audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get audited people": {
+      "main": [
+        [
+          {
+            "node": "Wait for both lists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get people waiting for an audit": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Wait for both lists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for both lists": {
+      "main": [
+        [
+          {
+            "node": "Decide link changes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide link changes": {
+      "main": [
+        [
+          {
+            "node": "Apply link change",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

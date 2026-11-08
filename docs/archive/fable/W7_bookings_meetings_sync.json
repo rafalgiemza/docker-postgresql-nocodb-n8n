@@ -1,189 +1,585 @@
 {
-  "name": "W10 - Meetings calendar sync (MS Bookings)",
+  "name": "W7 - cal.com bookings -> meetings (webhook)",
   "nodes": [
     {
       "parameters": {
-        "rule": {
-          "interval": [
-            {
-              "field": "minutes",
-              "minutesInterval": 15
-            }
-          ]
-        }
+        "httpMethod": "POST",
+        "path": "w7-calcom-booking",
+        "responseMode": "onReceived",
+        "options": {}
       },
-      "id": "w10-01",
-      "name": "Every 15 min",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
-      "position": [
-        -2400,
-        0
-      ]
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForAllItems",
-        "language": "javaScript",
-        "jsCode": "// -7 / +60 dni od teraz - okno synchronizacji kalendarza.\nconst now = new Date();\nconst start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);\nconst end = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);\nreturn [{ json: { startDateTime: start.toISOString(), endDateTime: end.toISOString() } }];"
-      },
-      "id": "w10-02",
-      "name": "Build date window",
-      "type": "n8n-nodes-base.code",
+      "id": "cal-com-booking-event",
+      "name": "cal.com: booking event",
+      "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -2200,
-        0
-      ]
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "=https://graph.microsoft.com/v1.0/me/calendarView?startDateTime={{ $json.startDateTime }}&endDateTime={{ $json.endDateTime }}&$top=999&$orderby=start/dateTime",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "microsoftOutlookOAuth2Api",
-        "options": {},
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Prefer",
-              "value": "outlook.timezone=\"UTC\""
-            }
-          ]
-        }
-      },
-      "id": "w10-03",
-      "name": "Fetch Outlook events",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        -2000,
-        0
+        0,
+        760
       ],
-      "credentials": {
-        "microsoftOutlookOAuth2Api": {
-          "id": null,
-          "name": "Microsoft Outlook OAuth2 API"
-        }
-      },
-      "onError": "continueErrorOutput"
+      "webhookId": "wh-w7-calcom-booking"
     },
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "operation": "getAll",
-        "workspaceId": "ws8amqq9",
-        "projectId": "p0faehtfzhvzfh2",
-        "table": "m8pkrf46jhxi1us",
-        "returnAll": true,
-        "options": {}
+        "resource": "base",
+        "operation": "get",
+        "workspaceId": {
+          "__rl": true,
+          "value": "wpgg1mff",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "p6w78auzu6sjdoo",
+          "mode": "list",
+          "cachedResultName": "CRM Base"
+        }
       },
-      "id": "w10-04",
-      "name": "Fetch existing meetings",
+      "id": "get-one-base",
+      "name": "Get one base",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        260,
+        760
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Webhook cal.com: { triggerEvent, payload: {...} }. Struktura niezweryfikowana na\n// zywej instancji - kod toleruje drobne roznice nazw pol.\nconst b = $input.first().json.body || $input.first().json;\nconst kind = ({ BOOKING_CREATED: 'created', BOOKING_RESCHEDULED: 'rescheduled',\n                BOOKING_CANCELLED: 'cancelled' })[b.triggerEvent];\nif (!kind) return [];\nconst p = b.payload || b;\nconst TYPE_BY_SLUG = {\"discovery\": \"discovery\", \"audyt\": \"audit\", \"audit\": \"audit\", \"demo\": \"demo\"};\nconst TYPE_BY_ID = {};\nconst slug = String(p.type || (p.eventType && p.eventType.slug) || '').toLowerCase();\nconst typeId = p.eventTypeId || (p.eventType && p.eventType.id) || null;\nconst meeting_type = TYPE_BY_ID[String(typeId)] || TYPE_BY_SLUG[slug] || null;\nconst attendees = (p.attendees || []).filter(a => a && a.email)\n  .map(a => ({ email: String(a.email).trim().toLowerCase(), name: a.name || '' }));\nreturn [{ json: { kind, uid: p.uid || null,\n  previous_uid: p.rescheduleUid || p.rescheduledFromUid || null,\n  title: p.title || p.eventTitle || 'Rezerwacja cal.com',\n  starts_at: p.startTime || null, ends_at: p.endTime || null,\n  organizer_email: String((p.organizer && p.organizer.email) || '').trim().toLowerCase(),\n  attendees, meeting_type, event_slug: slug, event_type_id: typeId } }];\n"
+      },
+      "id": "normalize-booking",
+      "name": "Normalize booking",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "numberOutputs": 3,
+        "output": "={{ ['created','rescheduled','cancelled'].indexOf($json.kind) }}"
+      },
+      "id": "route-by-booking-event",
+      "name": "Route by booking event",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        780,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'meetings').id }}",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 1,
+        "options": {
+          "where": "=(external_id,eq,{{ $json.uid }})"
+        }
+      },
+      "id": "find-meeting-by-booking-uid",
+      "name": "Find meeting by booking uid",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        -1800,
+        1040,
         0
       ],
-      "alwaysOutputData": true,
       "credentials": {
         "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
+          "id": "9gq205HbXOk9D3Jm",
           "name": "NocoDB Token account"
         }
-      }
+      },
+      "alwaysOutputData": true
     },
     {
       "parameters": {
-        "mode": "runOnceForAllItems",
-        "language": "javaScript",
-        "jsCode": "// Nowe wydarzenia z kalendarza MS Bookings: odsiej anulowane i juz zsynchronizowane\n// (po external_id = Graph event id). Znany uproszczenie: nie obslugujemy tu odswiezania\n// juz zsynchronizowanych spotkan przy zmianie godziny/tytulu w kalendarzu ani propagacji\n// anulowania - patrz README sekcja \"Znane uproszczenia\".\nconst events = ($('Fetch Outlook events').first().json.value) || [];\nconst existingIds = new Set($input.all().map(i => i.json.external_id).filter(Boolean));\n\nconst out = [];\nfor (const ev of events) {\n  if (ev.isCancelled) continue;\n  if (!ev.id || existingIds.has(ev.id)) continue;\n\n  const attendee = (ev.attendees || [])[0] || {};\n  const email = String((attendee.emailAddress && attendee.emailAddress.address) || '').trim().toLowerCase();\n  const name = (attendee.emailAddress && attendee.emailAddress.name) || email || '';\n  const location = ev.location && ev.location.displayName ? `\\nLokalizacja: ${ev.location.displayName}` : '';\n  const teamsLink = ev.onlineMeeting && ev.onlineMeeting.joinUrl ? `\\nLink: ${ev.onlineMeeting.joinUrl}` : '';\n\n  out.push({ json: {\n    external_id: ev.id,\n    title: ev.subject || `Spotkanie z ${name || 'nieznanym kontaktem'}`,\n    starts_at: ev.start && ev.start.dateTime ? ev.start.dateTime + 'Z' : null,\n    ends_at: ev.end && ev.end.dateTime ? ev.end.dateTime + 'Z' : null,\n    customer_name: name,\n    customer_email: email,\n    notes: `Zsynchronizowano z MS Bookings (kalendarz p.fidzina@coaction.com).\\n` +\n           `Klient: ${name}${email ? ' <' + email + '>' : ''}${location}${teamsLink}\\n\\n` +\n           `${ev.bodyPreview || ''}`,\n  } });\n}\nreturn out;"
+        "jsCode": "\nconst n = $('Normalize booking').first().json;\nconst found = $input.all().some(i => i.json && i.json.Id);\nreturn found || !n.uid ? [] : [{ json: n }];\n"
       },
-      "id": "w10-05",
-      "name": "Filter new events",
+      "id": "is-it-a-new-booking",
+      "name": "Is it a new booking?",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1600,
+        1300,
         0
       ]
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/m8dyut5qe47dda8/records?where=(contact_email,eq,{{ $json.customer_email }})&limit=5",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "nocoDbApiToken",
-        "options": {}
+        "jsCode": "\nconst n = $input.first().json;\nreturn n.attendees.map(a => ({ json: { ...a } }));\n"
       },
-      "id": "w10-06",
-      "name": "Find matching lead",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        -1400,
-        0
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/ma2cve4ke7aetig/records?where=(email,eq,{{ $('Filter new events').item.json.customer_email }})&limit=5",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "nocoDbApiToken",
-        "options": {}
-      },
-      "id": "w10-07",
-      "name": "Find matching participant",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        -1200,
-        0
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForEachItem",
-        "language": "javaScript",
-        "jsCode": "// Laczenie zdarzenia kalendarza z ewentualnym dopasowaniem w leads/participants.\n// Przy kilku trafieniach bierzemy najnowszy rekord (najwyzsze Id), tak jak w W9/W5.\nconst ev = $('Filter new events').item.json;\nconst leadMatches = ($('Find matching lead').item.json.list) || [];\nconst participantMatches = ($('Find matching participant').item.json.list) || [];\n\nconst lead = leadMatches.slice().sort((a, b) => b.Id - a.Id)[0] || null;\nconst participant = participantMatches.slice().sort((a, b) => b.Id - a.Id)[0] || null;\n\nreturn { json: {\n  ...ev,\n  lead_id: lead ? lead.Id : null,\n  lead_name: lead ? lead.lead_name : null,\n  participant_id: participant ? participant.Id : null,\n  participant_name: participant ? participant.full_name : null,\n  has_lead: !!lead,\n  has_participant: !!participant,\n} };"
-      },
-      "id": "w10-08",
-      "name": "Assemble meeting payload",
+      "id": "split-attendees",
+      "name": "Split attendees",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1000,
+        1560,
         0
       ]
     },
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'persons').id }}",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 1,
+        "options": {
+          "where": "=(email,eq,{{ $json.email }})"
+        }
+      },
+      "id": "find-person-by-email",
+      "name": "Find person by email",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        1820,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst att = $('Split attendees').all();\nreturn $input.all().map((r, i) => {\n  const p = r.json && r.json.Id ? r.json : null;\n  return { json: { ...att[i].json, person_id: p ? p.Id : null,\n                   sales_mode: p ? (p.sales_mode || null) : null } };\n});\n"
+      },
+      "id": "match-person",
+      "name": "Match person",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ !!$json.person_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "person-already-exists",
+      "name": "Person already exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2340,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'persons').id }}",
         "operation": "create",
-        "workspaceId": "ws8amqq9",
-        "projectId": "p0faehtfzhvzfh2",
-        "table": "m8pkrf46jhxi1us",
+        "dataToSend": "defineBelow",
         "fieldsUi": {
           "fieldValues": [
             {
-              "fieldName": "title",
-              "fieldValue": "={{ $json.title }}"
+              "fieldName": "full_name",
+              "fieldValue": "={{ $json.name || $json.email }}"
             },
+            {
+              "fieldName": "email",
+              "fieldValue": "={{ $json.email }}"
+            }
+          ]
+        }
+      },
+      "id": "create-person-from-booking",
+      "name": "Create person from booking",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2600,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst src = $('Match person').all().filter(i => !i.json.person_id);\nreturn $input.all().map((r, i) => ({ json: { ...src[i].json, person_id: r.json.Id } }));\n"
+      },
+      "id": "attach-created-person-id",
+      "name": "Attach created person id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "numberInputs": 2
+      },
+      "id": "join-existing-and-new-persons",
+      "name": "Join existing and new persons",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        3120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst n = $('Is it a new booking?').first().json;\nreturn [{ json: { ...n, people: $input.all().map(i => i.json) } }];\n"
+      },
+      "id": "collect-attendees",
+      "name": "Collect attendees",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3380,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'employees').id }}",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 1,
+        "options": {
+          "where": "=(email,eq,{{ $json.organizer_email }})"
+        }
+      },
+      "id": "find-organizer-employee",
+      "name": "Find organizer employee",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        3640,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst c = $('Collect attendees').first().json;\nconst emp = $input.first().json && $input.first().json.Id ? $input.first().json : null;\nconst record = { title: c.title, starts_at: c.starts_at, ends_at: c.ends_at,\n                 status: 'scheduled', external_id: c.uid };\nif (c.meeting_type) record.meeting_type = c.meeting_type;   // pole puste, gdy typ spoza mapowania\nreturn [{ json: { record, owner_id: emp ? emp.Id : null,\n                  person_ids: c.people.map(p => p.person_id).filter(Boolean),\n                  title: c.title } }];\n"
+      },
+      "id": "prepare-meeting-record",
+      "name": "Prepare meeting record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3900,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'meetings').id }}/records",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.record) }}",
+        "options": {}
+      },
+      "id": "create-meeting-variable-field-set",
+      "name": "Create meeting (variable field set)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        4160,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'activities').id }}",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "summary",
+              "fieldValue": "={{ 'Spotkanie z rezerwacji cal.com: ' + $('Prepare meeting record').first().json.title }}"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "meeting_created"
+            },
+            {
+              "fieldName": "flow",
+              "fieldValue": "W7"
+            },
+            {
+              "fieldName": "triggered_by",
+              "fieldValue": "system"
+            },
+            {
+              "fieldName": "payload",
+              "fieldValue": "={{ JSON.stringify({ meeting_id: $('Create meeting (variable field set)').first().json.Id }) }}"
+            }
+          ]
+        }
+      },
+      "id": "log-activity-meeting-created",
+      "name": "Log activity: meeting created",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        4420,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const FIELD = {\n \"meetings.attendees\": \"cmrv13ovsp3m1zt\",\n \"meetings.activities\": \"c71do1waarrshby\",\n \"employees.meetings\": \"cyv312ldy13ehgf\",\n \"sale_opportunities.meetings\": \"c19mj9hutepy4kx\",\n \"sale_opportunities.activities\": \"co11vdft4h2hp2h\"\n};\n\nconst TBL = t => $('Get one base').first().json.tables.find(x => x.title === t).id;\nconst link = (table, field, recordId, targetIds) => {\n  const ids = (Array.isArray(targetIds) ? targetIds : [targetIds]).filter(Boolean);\n  if (!recordId || !ids.length) return null;\n  return { json: { table_id: TBL(table), field_id: FIELD[table + '.' + field],\n                   record_id: recordId, body: JSON.stringify(ids.map(Id => ({ Id }))) } };\n};\n\nconst m = $('Create meeting (variable field set)').first().json.Id;\nconst p = $('Prepare meeting record').first().json;\nconst a = $('Log activity: meeting created').first().json.Id;\nreturn [link('employees', 'meetings', p.owner_id, m),\n        link('meetings', 'attendees', m, p.person_ids),\n        link('meetings', 'activities', m, a)].filter(Boolean);\n"
+      },
+      "id": "prepare-links-to-owner-and-attendees",
+      "name": "Prepare links to owner and attendees",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $json.table_id }}/links/{{ $json.field_id }}/records/{{ $json.record_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "link-the-meeting-to-owner-attendees-and-activity",
+      "name": "Link the meeting to owner, attendees and activity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        4940,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const LOOKUPS = [[\"bought_opportunities\", \"ck5jkdn5f4dadnp\"], [\"to_be_audited_in\", \"cohrtxvpioyqdg5\"], [\"participant_in\", \"c8ymi91pyv7n9b8\"]];\n\n// Dla osob w trybie \"Tylko spotkania\" nie szukamy szans (nigdy nie sa linkowane).\nconst c = $('Collect attendees').first().json;\nconst out = [];\nfor (const p of c.people) {\n  if (!p.person_id || p.sales_mode === 'Tylko spotkania') continue;\n  for (const [name, field_id] of LOOKUPS)\n    out.push({ json: { person_id: p.person_id, field_id } });\n}\nreturn out;\n"
+      },
+      "id": "build-opportunity-lookups",
+      "name": "Build opportunity lookups",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4420,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'persons').id }}/links/{{ $json.field_id }}/records/{{ $json.person_id }}?limit=200",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "options": {}
+      },
+      "id": "get-opportunities-of-the-person",
+      "name": "Get opportunities of the person",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        4680,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst open = new Map();\nfor (const r of $input.all())\n  for (const o of (r.json.list || [])) if (o.state === 'open') open.set(o.Id, o);\nif (open.size !== 1) return [];   // 0 lub wiele: spotkanie zostaje bez szansy\nreturn [{ json: { opp_id: [...open.keys()][0] } }];\n"
+      },
+      "id": "pick-the-only-open-opportunity",
+      "name": "Pick the only open opportunity",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4940,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const FIELD = {\n \"meetings.attendees\": \"cmrv13ovsp3m1zt\",\n \"meetings.activities\": \"c71do1waarrshby\",\n \"employees.meetings\": \"cyv312ldy13ehgf\",\n \"sale_opportunities.meetings\": \"c19mj9hutepy4kx\",\n \"sale_opportunities.activities\": \"co11vdft4h2hp2h\"\n};\n\nconst TBL = t => $('Get one base').first().json.tables.find(x => x.title === t).id;\nconst link = (table, field, recordId, targetIds) => {\n  const ids = (Array.isArray(targetIds) ? targetIds : [targetIds]).filter(Boolean);\n  if (!recordId || !ids.length) return null;\n  return { json: { table_id: TBL(table), field_id: FIELD[table + '.' + field],\n                   record_id: recordId, body: JSON.stringify(ids.map(Id => ({ Id }))) } };\n};\n\nconst opp = $input.first().json.opp_id;\nconst m = $('Create meeting (variable field set)').first().json.Id;\nconst a = $('Log activity: meeting created').first().json.Id;\nreturn [link('sale_opportunities', 'meetings', opp, m),\n        link('sale_opportunities', 'activities', opp, a)].filter(Boolean);\n"
+      },
+      "id": "prepare-opportunity-links",
+      "name": "Prepare opportunity links",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5200,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $json.table_id }}/links/{{ $json.field_id }}/records/{{ $json.record_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "link-the-meeting-to-the-opportunity",
+      "name": "Link the meeting to the opportunity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        5460,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'meetings').id }}",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 1,
+        "options": {
+          "where": "=(external_id,eq,{{ $json.previous_uid || $json.uid }})"
+        }
+      },
+      "id": "find-meeting-of-the-previous-booking",
+      "name": "Find meeting of the previous booking",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        1040,
+        760
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst n = $('Normalize booking').first().json;\nconst m = $input.first().json;\nreturn m && m.Id ? [{ json: { meeting_id: m.Id, ...n } }] : [];\n"
+      },
+      "id": "is-the-rescheduled-meeting-known",
+      "name": "Is the rescheduled meeting known?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'meetings').id }}",
+        "operation": "update",
+        "id": "={{ $json.meeting_id }}",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
             {
               "fieldName": "starts_at",
               "fieldValue": "={{ $json.starts_at }}"
@@ -193,332 +589,27 @@
               "fieldValue": "={{ $json.ends_at }}"
             },
             {
-              "fieldName": "notes",
-              "fieldValue": "={{ $json.notes }}"
-            },
-            {
               "fieldName": "external_id",
-              "fieldValue": "={{ $json.external_id }}"
-            }
-          ]
-        }
-      },
-      "id": "w10-09",
-      "name": "Create meeting",
-      "type": "n8n-nodes-base.nocoDb",
-      "typeVersion": 3,
-      "position": [
-        -800,
-        0
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose"
-          },
-          "combinator": "and",
-          "conditions": [
-            {
-              "id": "c1",
-              "leftValue": "={{ $('Assemble meeting payload').item.json.has_lead }}",
-              "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "w10-10",
-      "name": "Has lead match?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        -600,
-        0
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/m8pkrf46jhxi1us/links/cxtknj0fa4whm1w/records/{{ $('Create meeting').item.json.Id }}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "nocoDbApiToken",
-        "options": {},
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify([{ Id: $('Assemble meeting payload').item.json.lead_id }]) }}"
-      },
-      "id": "w10-11",
-      "name": "Link meeting -> lead",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        -400,
-        -150
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
-          "name": "NocoDB Token account"
-        }
-      },
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose"
-          },
-          "combinator": "and",
-          "conditions": [
-            {
-              "id": "c1",
-              "leftValue": "={{ $('Assemble meeting payload').item.json.has_participant }}",
-              "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "w10-12",
-      "name": "Has participant match?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        -200,
-        0
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/m8pkrf46jhxi1us/links/c2kp7f968ob22p8/records/{{ $('Create meeting').item.json.Id }}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "nocoDbApiToken",
-        "options": {},
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify([{ Id: $('Assemble meeting payload').item.json.participant_id }]) }}"
-      },
-      "id": "w10-13",
-      "name": "Link meeting -> participant",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        0,
-        -150
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
-          "name": "NocoDB Token account"
-        }
-      },
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "authentication": "nocoDbApiToken",
-        "operation": "create",
-        "workspaceId": "ws8amqq9",
-        "projectId": "p0faehtfzhvzfh2",
-        "table": "mt8hbqxcj1vx1lx",
-        "fieldsUi": {
-          "fieldValues": [
-            {
-              "fieldName": "summary",
-              "fieldValue": "={{ 'Spotkanie zsynchronizowane z MS Bookings: ' + $('Assemble meeting payload').item.json.title }}"
-            },
-            {
-              "fieldName": "type",
-              "fieldValue": "meeting_created"
-            },
-            {
-              "fieldName": "flow",
-              "fieldValue": "W10"
-            },
-            {
-              "fieldName": "triggered_by",
-              "fieldValue": "system"
-            },
-            {
-              "fieldName": "payload",
-              "fieldValue": "={{ JSON.stringify({ meeting_id: $('Create meeting').item.json.Id, external_id: $('Assemble meeting payload').item.json.external_id, lead_id: $('Assemble meeting payload').item.json.lead_id, participant_id: $('Assemble meeting payload').item.json.participant_id }) }}"
-            }
-          ]
-        }
-      },
-      "id": "w10-14",
-      "name": "Log activity",
-      "type": "n8n-nodes-base.nocoDb",
-      "typeVersion": 3,
-      "position": [
-        200,
-        0
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/mt8hbqxcj1vx1lx/links/cizounak7t19peo/records/{{ $json.Id }}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "nocoDbApiToken",
-        "options": {},
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify([{ Id: $('Create meeting').item.json.Id }]) }}"
-      },
-      "id": "w10-15",
-      "name": "Link activity -> meeting",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        400,
-        0
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
-          "name": "NocoDB Token account"
-        }
-      },
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose"
-          },
-          "combinator": "and",
-          "conditions": [
-            {
-              "id": "c1",
-              "leftValue": "={{ $('Assemble meeting payload').item.json.has_lead }}",
-              "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "w10-16",
-      "name": "Link activity to lead?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        600,
-        0
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "=https://back-office-coaction-test.giemza.dev/api/v2/tables/mt8hbqxcj1vx1lx/links/c34sla5hxlrxyuq/records/{{ $('Log activity').item.json.Id }}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "nocoDbApiToken",
-        "options": {},
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify([{ Id: $('Assemble meeting payload').item.json.lead_id }]) }}"
-      },
-      "id": "w10-17",
-      "name": "Link activity -> lead",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        800,
-        -150
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
-          "name": "NocoDB Token account"
-        }
-      },
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "authentication": "nocoDbApiToken",
-        "operation": "create",
-        "workspaceId": "ws8amqq9",
-        "projectId": "p0faehtfzhvzfh2",
-        "table": "mapceobgbrx9ir3",
-        "fieldsUi": {
-          "fieldValues": [
-            {
-              "fieldName": "title",
-              "fieldValue": "BŁĄD synchronizacji kalendarza MS Bookings (W10)"
+              "fieldValue": "={{ $json.uid }}"
             },
             {
               "fieldName": "status",
-              "fieldValue": "todo"
-            },
-            {
-              "fieldName": "priority",
-              "fieldValue": "high"
-            },
-            {
-              "fieldName": "assignee",
-              "fieldValue": "rafalgiemza@gmail.com"
-            },
-            {
-              "fieldName": "created_by_flow",
-              "fieldValue": "W10"
-            },
-            {
-              "fieldName": "description",
-              "fieldValue": "={{ 'Błąd pobierania wydarzeń z Microsoft Graph (kalendarz p.fidzina@coaction.com).\\n' + JSON.stringify($json).slice(0,500) }}"
+              "fieldValue": "scheduled"
             }
           ]
         }
       },
-      "id": "w10-18",
-      "name": "Task: sync failed",
+      "id": "move-the-meeting-to-the-new-time",
+      "name": "Move the meeting to the new time",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        -2000,
-        250
+        1560,
+        760
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
+          "id": "9gq205HbXOk9D3Jm",
           "name": "NocoDB Token account"
         }
       }
@@ -526,254 +617,404 @@
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "operation": "create",
-        "workspaceId": "ws8amqq9",
-        "projectId": "p0faehtfzhvzfh2",
-        "table": "mt8hbqxcj1vx1lx",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'meetings').id }}",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 1,
+        "options": {
+          "where": "=(external_id,eq,{{ $json.uid }})"
+        }
+      },
+      "id": "find-meeting-of-the-cancelled-booking",
+      "name": "Find meeting of the cancelled booking",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        1040,
+        1140
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst m = $input.first().json;\nreturn m && m.Id ? [{ json: { meeting_id: m.Id } }] : [];\n"
+      },
+      "id": "is-the-cancelled-meeting-known",
+      "name": "Is the cancelled meeting known?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        1140
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'meetings').id }}",
+        "operation": "update",
+        "id": "={{ $json.meeting_id }}",
+        "dataToSend": "defineBelow",
         "fieldsUi": {
           "fieldValues": [
             {
-              "fieldName": "summary",
-              "fieldValue": "Synchronizacja kalendarza MS Bookings nieudana (W10)"
-            },
-            {
-              "fieldName": "type",
-              "fieldValue": "automation_error"
-            },
-            {
-              "fieldName": "flow",
-              "fieldValue": "W10"
-            },
-            {
-              "fieldName": "triggered_by",
-              "fieldValue": "system"
-            },
-            {
-              "fieldName": "payload",
-              "fieldValue": "={{ JSON.stringify({ task_id: $json.Id }) }}"
+              "fieldName": "status",
+              "fieldValue": "cancelled"
             }
           ]
         }
       },
-      "id": "w10-19",
-      "name": "Log error activity",
+      "id": "mark-the-meeting-as-cancelled",
+      "name": "Mark the meeting as cancelled",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        -1800,
-        250
+        1560,
+        1140
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "fuKl7juoVU9L7ZqE",
+          "id": "9gq205HbXOk9D3Jm",
           "name": "NocoDB Token account"
         }
       }
     }
   ],
   "connections": {
-    "Every 15 min": {
+    "cal.com: booking event": {
       "main": [
         [
           {
-            "node": "Build date window",
+            "node": "Get one base",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Build date window": {
+    "Get one base": {
       "main": [
         [
           {
-            "node": "Fetch Outlook events",
+            "node": "Normalize booking",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Fetch existing meetings": {
+    "Normalize booking": {
       "main": [
         [
           {
-            "node": "Filter new events",
+            "node": "Route by booking event",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Filter new events": {
+    "Route by booking event": {
       "main": [
         [
           {
-            "node": "Find matching lead",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Find matching lead": {
-      "main": [
-        [
-          {
-            "node": "Find matching participant",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Find matching participant": {
-      "main": [
-        [
-          {
-            "node": "Assemble meeting payload",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Assemble meeting payload": {
-      "main": [
-        [
-          {
-            "node": "Create meeting",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Create meeting": {
-      "main": [
-        [
-          {
-            "node": "Has lead match?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Has lead match?": {
-      "main": [
-        [
-          {
-            "node": "Link meeting -> lead",
+            "node": "Find meeting by booking uid",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Has participant match?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Link meeting -> lead": {
-      "main": [
-        [
-          {
-            "node": "Has participant match?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Has participant match?": {
-      "main": [
-        [
-          {
-            "node": "Link meeting -> participant",
+            "node": "Find meeting of the previous booking",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Log activity",
+            "node": "Find meeting of the cancelled booking",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Link meeting -> participant": {
+    "Find meeting by booking uid": {
       "main": [
         [
           {
-            "node": "Log activity",
+            "node": "Is it a new booking?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Log activity": {
+    "Is it a new booking?": {
       "main": [
         [
           {
-            "node": "Link activity -> meeting",
+            "node": "Split attendees",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Link activity -> meeting": {
+    "Split attendees": {
       "main": [
         [
           {
-            "node": "Link activity to lead?",
+            "node": "Find person by email",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Task: sync failed": {
+    "Find person by email": {
       "main": [
         [
           {
-            "node": "Log error activity",
+            "node": "Match person",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Fetch Outlook events": {
+    "Match person": {
       "main": [
         [
           {
-            "node": "Fetch existing meetings",
+            "node": "Person already exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Person already exists?": {
+      "main": [
+        [
+          {
+            "node": "Join existing and new persons",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Task: sync failed",
+            "node": "Create person from booking",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Link activity to lead?": {
+    "Create person from booking": {
       "main": [
         [
           {
-            "node": "Link activity -> lead",
+            "node": "Attach created person id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach created person id": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Join existing and new persons",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Join existing and new persons": {
+      "main": [
+        [
+          {
+            "node": "Collect attendees",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect attendees": {
+      "main": [
+        [
+          {
+            "node": "Find organizer employee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find organizer employee": {
+      "main": [
+        [
+          {
+            "node": "Prepare meeting record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare meeting record": {
+      "main": [
+        [
+          {
+            "node": "Create meeting (variable field set)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create meeting (variable field set)": {
+      "main": [
+        [
+          {
+            "node": "Log activity: meeting created",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log activity: meeting created": {
+      "main": [
+        [
+          {
+            "node": "Prepare links to owner and attendees",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare links to owner and attendees": {
+      "main": [
+        [
+          {
+            "node": "Link the meeting to owner, attendees and activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link the meeting to owner, attendees and activity": {
+      "main": [
+        [
+          {
+            "node": "Build opportunity lookups",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build opportunity lookups": {
+      "main": [
+        [
+          {
+            "node": "Get opportunities of the person",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get opportunities of the person": {
+      "main": [
+        [
+          {
+            "node": "Pick the only open opportunity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick the only open opportunity": {
+      "main": [
+        [
+          {
+            "node": "Prepare opportunity links",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare opportunity links": {
+      "main": [
+        [
+          {
+            "node": "Link the meeting to the opportunity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find meeting of the previous booking": {
+      "main": [
+        [
+          {
+            "node": "Is the rescheduled meeting known?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is the rescheduled meeting known?": {
+      "main": [
+        [
+          {
+            "node": "Move the meeting to the new time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find meeting of the cancelled booking": {
+      "main": [
+        [
+          {
+            "node": "Is the cancelled meeting known?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is the cancelled meeting known?": {
+      "main": [
+        [
+          {
+            "node": "Mark the meeting as cancelled",
             "type": "main",
             "index": 0
           }
@@ -781,8 +1022,12 @@
       ]
     }
   },
+  "pinData": {},
   "settings": {
     "executionOrder": "v1"
   },
-  "active": false
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
 }

@@ -1,0 +1,280 @@
+{
+  "name": "W15 - Resolve assignee (preferred employee or default salesperson)",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "resolve-assignee-input",
+      "name": "Resolve assignee: input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "base",
+        "operation": "get",
+        "workspaceId": {
+          "__rl": true,
+          "value": "wpgg1mff",
+          "mode": "list",
+          "cachedResultName": "CoAction Workspace"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "p6w78auzu6sjdoo",
+          "mode": "list",
+          "cachedResultName": "CRM Base"
+        }
+      },
+      "id": "get-one-base",
+      "name": "Get one base",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        260,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "w15-title",
+              "name": "title",
+              "value": "={{ $('Resolve assignee: input').item.json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "w15-role",
+              "name": "role",
+              "value": "={{ $('Resolve assignee: input').item.json.role }}",
+              "type": "string"
+            },
+            {
+              "id": "w15-preferred_employee_id",
+              "name": "preferred_employee_id",
+              "value": "={{ $('Resolve assignee: input').item.json.preferred_employee_id }}",
+              "type": "number"
+            },
+            {
+              "id": "w15-on_date",
+              "name": "on_date",
+              "value": "={{ $('Resolve assignee: input').item.json.on_date }}",
+              "type": "string"
+            },
+            {
+              "id": "w15-due_date",
+              "name": "due_date",
+              "value": "={{ $('Resolve assignee: input').item.json.due_date }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        520,
+        380
+      ],
+      "id": "edit-fields",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ !!$json.preferred_employee_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "preferred-employee-given",
+      "name": "Preferred employee given?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        780,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "version": 2,
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'employees').id }}",
+        "id": "={{ $json.preferred_employee_id }}"
+      },
+      "id": "get-preferred-employee",
+      "name": "Get preferred employee",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        1040,
+        280
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "operation": "getAll",
+        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
+        "projectId": "={{ $('Get one base').first().json.id }}",
+        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'employees').id }}",
+        "limit": 20,
+        "options": {
+          "where": "=(role,eq,{{ $json.role || 'handlowiec' }})~and(is_active,eq,true)"
+        }
+      },
+      "id": "get-active-employees-with-role",
+      "name": "Get active employees with role",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        1040,
+        480
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "9gq205HbXOk9D3Jm",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Wejscie: wynik \"Get preferred employee\" albo lista handlowcow (fallback).\nconst rows = $input.all().map(i => i.json).filter(e => e && e.Id);\nrows.sort((a, b) => a.Id - b.Id);\nconst e = rows[0];\nconst preferred = !!$('Edit Fields').first().json.preferred_employee_id;\nif (!e) return [{ json: { assignee_id: null, assignee_email: null, assignee_name: null, reason: 'no available employee' } }];\nreturn [{ json: { assignee_id: e.Id, assignee_email: e.email, assignee_name: e.full_name,\n                  reason: preferred ? 'preferred employee' : 'default for role' } }];\n"
+      },
+      "id": "return-assignee",
+      "name": "Return assignee",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        380
+      ]
+    }
+  ],
+  "connections": {
+    "Resolve assignee: input": {
+      "main": [
+        [
+          {
+            "node": "Get one base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get one base": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Preferred employee given?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preferred employee given?": {
+      "main": [
+        [
+          {
+            "node": "Get preferred employee",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get active employees with role",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get preferred employee": {
+      "main": [
+        [
+          {
+            "node": "Return assignee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get active employees with role": {
+      "main": [
+        [
+          {
+            "node": "Return assignee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

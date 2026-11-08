@@ -1,0 +1,25 @@
+# Import/eksport historycznych danych CRM prosto do PostgreSQL (schemat crm).
+# Wyjatek od "dane przez NocoDB": NocoDB nie ustawi created_at - patrz
+# .ai/rules/nocodb.md sekcja 6 i crm-legacy-service/README.md. Woła go tylko
+# n8n (W22) z sieci wewnetrznej, wiec brak portow na zewnatrz.
+services:
+  crm-legacy-service:
+    build: ../crm-legacy-service
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      APP_DB: ${APP_DB}
+      CRM_LEGACY_USER: ${CRM_LEGACY_USER}
+      CRM_LEGACY_PASSWORD: ${CRM_LEGACY_PASSWORD}
+      CRM_LEGACY_TOKEN: ${CRM_LEGACY_TOKEN}
+      SCHEMA_MAP_PATH: /data/schema_map.json
+    volumes:
+      # dump z `make dump-crm-schema` - nazwy tabel laczacych _nc_m2m_*
+      - ../docs/archive/fable/schema_map.json:/data/schema_map.json:ro
+    depends_on:
+      - postgres
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
