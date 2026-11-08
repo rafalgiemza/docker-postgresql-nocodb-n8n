@@ -179,3 +179,11 @@ def test_industry_follows_company_edit_when_company_present():
     assert r[C["industry"]] == "IT"
     r = row(c_updated="2026-11-10T09:00:00+01:00", **base)
     assert r[C["industry"]] == "Law"
+
+
+def test_naive_updated_at_is_utc():
+    # UAT: import 21:10:21+00, edycja updated_at 22:01:15 (bez strefy = UTC)
+    base = dict(p_email="new@example.com", p_phone="1", imported_at="2026-11-08T21:10:21.671237+00:00",
+                received_at="2026-10-19T00:00:00+02:00", orig={"email": "old@example.com"})
+    assert row(p_updated="2026-11-08T22:01:15", **base)[C["email"]] == "new@example.com"
+    assert row(p_updated="2026-11-08T21:10:21", **base)[C["email"]] == "old@example.com"

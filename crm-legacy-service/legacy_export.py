@@ -19,7 +19,7 @@ import csv
 import io
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 
 import legacy_import as li
@@ -161,6 +161,15 @@ SELECT coalesce(jsonb_agg(to_jsonb(x) ORDER BY x.export_id DESC), '[]'::jsonb)::
 EDIT_SLACK = 60
 
 
+def _utc(v):
+    """Pola systemowe NocoDB (updated_at): timestamp bez strefy = UTC (inaczej niz
+    created_at/received_at, ktore zapisuje import jako czas scienny Warszawy)."""
+    if not v:
+        return None
+    t = datetime.fromisoformat(v)
+    return t.replace(tzinfo=timezone.utc) if t.tzinfo is None else t
+
+
 def _ts(v):
     """Czas z bazy -> Europe/Warsaw. Wartosc bez strefy (kolumna timestamp) to czas
     scienny Warszawy (tak go zapisuje import) - NIE czas lokalny maszyny, bo kontener
@@ -255,10 +264,10 @@ def to_row(x, export_id, sellers=None):
         # bo import skleja powracajacych klientow (jedna osoba/firma na kilka
         # wierszy) i wartosc z CRM nalezalaby do innego wiersza. Wyjatek: rekord
         # edytowany w CRM po imporcie - wtedy wartosc z CRM (swiadoma zmiana).
-        imported = _ts(x.get("imported_at"))
+        imported = _utc(x.get("imported_at"))
 
         def edited(key):
-            t = _ts(x.get(key))
+            t = _utc(x.get(key))
             return bool(t and imported and (t - imported).total_seconds() > EDIT_SLACK)
         p_edit = edited("p_updated")
         i_edit = edited("c_updated") if x.get("c_name") else p_edit
