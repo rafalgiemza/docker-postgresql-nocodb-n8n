@@ -1,5 +1,6 @@
 """Testy czystej logiki importu (bez bazy): daty, mapowanie, generowany SQL."""
 import json
+import re
 from datetime import date
 from pathlib import Path
 
@@ -243,3 +244,20 @@ def test_recent_mdy_date_is_not_flipped_when_cutoff_is_today():
     # 11/5/2026 przy granicy 30.10.2026 bylo czytane jako 11 maja
     assert li.parse_date("11/5/2026", date(2026, 11, 6), [].append, "t") == date(2026, 11, 5)
     assert li.parse_date("11/5/2026", EXPORT, [].append, "t") == date(2026, 5, 11)  # stara granica
+
+
+def test_anonymous_drops_personal_columns():
+    rows = li.read_rows(li.decode(SAMPLE.read_bytes()))
+    full = li.build(rows, fake_links(), [(1, "Przemek Giemza")], EXPORT, lambda m: None)
+    anon = li.build(rows, fake_links(), [(1, "Przemek Giemza")], EXPORT, lambda m: None,
+                    anonymous=True)
+    ids = set(re.findall(r"Nieznany kontakt \(stary CRM #(\d+)\)", anon))
+    assert len(ids) == 10 and len(set(re.findall(
+        r"Nieznany kontakt \(stary CRM #(\d+)\)", full))) < 10
+    assert "@" in full and "@" not in anon
+    assert anon.count("INSERT INTO crm.leads") == 10      # reszta bez zmian
+
+
+def test_digest_depends_on_mode():
+    assert li.digest(b"x") != li.digest(b"x", True)
+    assert li.digest(b"x") == li.digest(b"x", False)
