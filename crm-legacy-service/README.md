@@ -107,3 +107,13 @@ nazwą firmy). Powstają placeholdery `Nieznany kontakt (stary CRM #ID)`, które
 zamienia z powrotem na puste komórki. Skrót pliku zależy od trybu, więc „Importuj"
 działa tylko w tym samym trybie, w którym zrobiono „Sprawdź import". Notatki i
 „Folder klienta" są przepisywane bez zmian.
+
+## Eksport: powracający klienci
+
+Import skleja osoby (po e-mailu/telefonie) i firmy (po nazwie), więc kilka wierszy
+pliku może wskazywać tę samą osobę. Dla wierszy z importu (`legacy.rows.orig` niepuste)
+eksport odtwarza **telefon, e-mail, branżę i datę utworzenia klienta** z komórek pliku
+źródłowego, a nie z rekordu osoby/firmy. Wiersze utworzone w CRM (`orig` puste) biorą
+wartości z bazy. Wyjątek: rekord osoby (albo firmy dla branży)
+edytowany w CRM po imporcie (`updated_at` > czas importu z rejestru + 60 s) eksportuje
+wartości z CRM.

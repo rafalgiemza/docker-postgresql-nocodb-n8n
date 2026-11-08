@@ -134,6 +134,8 @@ SELECT coalesce(jsonb_agg(to_jsonb(x) ORDER BY x.export_id DESC), '[]'::jsonb)::
          l.qualification, l.disqualify_note, l.received_at, l.notes,
          p.full_name AS p_name, p.email AS p_email, p.phone AS p_phone,
          p.industry AS p_industry, p.created_at AS p_created,
+         p.updated_at AS p_updated, c.updated_at AS c_updated,
+         r.created_at AS imported_at,
          c.name AS c_name, c.industry AS c_industry,
          e.id AS seller_id, e.full_name AS seller_name,
          o.id AS opp_id, o.name AS opp_name, o.segment AS opp_segment,
@@ -155,6 +157,10 @@ SELECT coalesce(jsonb_agg(to_jsonb(x) ORDER BY x.export_id DESC), '[]'::jsonb)::
 
 
 # ------------------------------------------------------------- formatting
+# sekundy po imporcie, po ktorych updated_at liczy sie jako edycja w CRM
+EDIT_SLACK = 60
+
+
 def _ts(v):
     """Czas z bazy -> Europe/Warsaw. Wartosc bez strefy (kolumna timestamp) to czas
     scienny Warszawy (tak go zapisuje import) - NIE czas lokalny maszyny, bo kontener
@@ -244,6 +250,26 @@ def to_row(x, export_id, sellers=None):
     show_client = p_created and (bool(orig.get("client_created")) or not recv
                                  or p_created.date() != recv.date())
     r[C["client_created"]] = _d(p_created) if show_client else extra.get("client_created", "")
+    if orig:
+        # Wiersze z importu: kolumny osoby/firmy odtwarzane z pliku zrodlowego,
+        # bo import skleja powracajacych klientow (jedna osoba/firma na kilka
+        # wierszy) i wartosc z CRM nalezalaby do innego wiersza. Wyjatek: rekord
+        # edytowany w CRM po imporcie - wtedy wartosc z CRM (swiadoma zmiana).
+        imported = _ts(x.get("imported_at"))
+
+        def edited(key):
+            t = _ts(x.get(key))
+            return bool(t and imported and (t - imported).total_seconds() > EDIT_SLACK)
+        p_edit = edited("p_updated")
+        i_edit = edited("c_updated") if x.get("c_name") else p_edit
+        if not p_edit:
+            for key in ("phone", "email"):
+                r[C[key]] = orig.get(key, "").strip()
+            cc = orig.get("client_created", "").strip()
+            d = li.parse_date(cc, datetime.now(TZ).date(), lambda m: None, "") if cc else None
+            r[C["client_created"]] = f"{d.month}/{d.day}/{d.year}" if d else cc
+        if not i_edit:
+            r[C["industry"]] = orig.get("industry", "").strip()
 
     hist = x.get("hist") or {}
     if opp:

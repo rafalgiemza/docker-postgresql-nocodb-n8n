@@ -141,3 +141,41 @@ def test_ts_naive_is_warsaw_wall_time_regardless_of_machine_tz(monkeypatch):
     t = le._ts("2026-10-21T14:09:00")
     assert (t.hour, t.minute) == (14, 9)
     assert le._ts("2026-10-21T12:09:00+00:00").hour == 14   # z offsetem: przeliczenie
+
+
+def test_repeat_client_columns_come_from_the_source_row():
+    # osoba sklejona z wczesniejszym wierszem: w CRM ma e-mail/telefon/branze/date
+    # utworzenia z pierwszego wiersza, ale ten wiersz w pliku mial inne wartosci
+    r = row(p_email="first@example.com", p_phone="+48 600 000 001", p_industry="IT",
+            p_created="2022-05-04T00:00:00+02:00", received_at="2026-10-19T00:00:00+02:00",
+            orig={"email": "", "phone": "+48 600 000 009", "client_created": "04.07.2026",
+                  "segment": "B2C"})
+    assert r[C["email"]] == "" and r[C["phone"]] == "+48 600 000 009"
+    assert r[C["industry"]] == "" and r[C["client_created"]] == "7/4/2026"
+
+
+def test_rows_created_in_crm_keep_values_from_the_database():
+    r = row(p_email="a@example.com", p_phone="123", p_industry="IT", orig={})
+    assert (r[C["email"]], r[C["phone"]], r[C["industry"]]) == ("a@example.com", "123", "IT")
+
+
+def test_person_edited_after_import_exports_the_crm_values():
+    base = dict(p_email="new@example.com", p_phone="+48 1", p_industry="IT",
+                p_created="2022-05-04T00:00:00+02:00", received_at="2026-10-19T00:00:00+02:00",
+                imported_at="2026-11-08T10:00:00+01:00",
+                orig={"email": "old@example.com", "phone": "+48 9", "segment": "B2C"})
+    r = row(p_updated="2026-11-08T10:00:00+01:00", **base)      # tylko import
+    assert (r[C["email"]], r[C["phone"]]) == ("old@example.com", "+48 9")
+    r = row(p_updated="2026-11-09T09:00:00+01:00", **base)      # edycja w CRM
+    assert (r[C["email"]], r[C["phone"]], r[C["industry"]]) == ("new@example.com", "+48 1", "IT")
+    assert r[C["client_created"]] == "5/4/2022"
+
+
+def test_industry_follows_company_edit_when_company_present():
+    base = dict(lead_type="B2B", c_name="Alfa", c_industry="Law", p_industry="IT",
+                imported_at="2026-11-08T10:00:00+01:00", p_updated="2026-11-09T09:00:00+01:00",
+                orig={"industry": "IT", "segment": "B2B"})
+    r = row(c_updated="2026-11-08T10:00:00+01:00", **base)      # firma nietknieta
+    assert r[C["industry"]] == "IT"
+    r = row(c_updated="2026-11-10T09:00:00+01:00", **base)
+    assert r[C["industry"]] == "Law"
