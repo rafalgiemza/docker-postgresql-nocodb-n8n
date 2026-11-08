@@ -5,7 +5,7 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "w8-assessment-needs-summary",
-        "responseMode": "onReceived",
+        "responseMode": "lastNode",
         "options": {}
       },
       "id": "w8-01",
@@ -142,11 +142,11 @@
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "workspaceId": "__WORKSPACE_ID__",
         "projectId": "__PROJECT_ID__",
         "table": "__TBL_PERSONS__",
         "operation": "get",
-        "id": "={{ $('Assessment from button').first().json.person_id }}"
+        "id": "={{ $('Assessment from button').first().json.person_id }}",
+        "version": 2
       },
       "id": "w8-05",
       "name": "Get person",
@@ -464,7 +464,7 @@
     },
     {
       "parameters": {
-        "jsCode": "\n// Sklada dane z CRM w jeden tekst dla AI Agenta; prompt metodyczny siedzi w\n// System Message noda \"AI Agent\" (edytowalny bez znajomosci JS).\nconst g = $('Assessment from button').first().json;\nconst a = g.assessment;\nconst person = $('Get person').first().json || {};\nconst company = ($('Get company of the person').first().json || {}).fields || {};\nconst opp = $('Opportunity of the audit').first().json;\nconst meetings = $('Get meetings of the opportunity').all().map(i => i.json.fields).filter(Boolean);\nconst latest = meetings.filter(m => m.meeting_type === 'discovery')\n  .sort((x, y) => String(y.starts_at || '').localeCompare(String(x.starts_at || '')))[0] || {};\nconst accepted = latest.ai_status === 'ai_accepted';\nconst lines = [\n  '## Wyniki audytu (ocena CEFR)',\n  `Ogolny: ${a.cefr_overall || 'brak'}`,\n  `Zakres jezyka: ${a.cefr_range || 'brak'}`,\n  `Poprawnosc: ${a.cefr_accuracy || 'brak'}`,\n  `Plynnosc: ${a.cefr_fluency || 'brak'}`,\n  `Komunikatywnosc: ${a.cefr_communication || 'brak'}`,\n  `Mocne strony: ${a.strengths || 'brak danych'}`,\n  `Luki: ${a.gaps || 'brak danych'}`,\n  '',\n  '## Notatki metodyka po demo/audycie',\n  a.auditor_notes || 'brak notatek',\n  '',\n  '## Kontekst uczestnika',\n  `Imie i nazwisko: ${person.full_name || 'brak'}`,\n  `Stanowisko: ${person.position || 'brak'}`,\n  `Kontekst roli (z kim/o czym rozmawia po angielsku): ${person.role_context || 'brak'}`,\n  `Czestotliwosc uzywania angielskiego: ${person.frequency || 'brak'}`,\n  `Samoocena uczestnika: ${a.self_assessment || 'brak'}`,\n  `Potrzeby wg managera/HR: ${a.manager_needs || 'brak'}`,\n  '',\n  '## Kontekst biznesowy',\n  `Typ klienta: ${opp.segment || 'brak'}`,\n  `Branza: ${person.industry || company.industry || 'brak'}`,\n  company.name ? `Firma: ${company.name}` : null,\n  company.communication_processes ? `Procesy komunikacyjne w firmie: ${company.communication_processes}` : null,\n  company.business_impact ? `Wplyw jezyka na biznes: ${company.business_impact}` : null,\n  '',\n  '## Notatki z discovery call',\n  latest.notes || 'brak notatek z discovery call (lub brak spotkania typu discovery dla tej szansy)',\n  accepted && latest.goals ? `\\nCele klienta (zaakceptowana analiza): ${latest.goals}` : null,\n  accepted && latest.challenges ? `Wyzwania (zaakceptowana analiza): ${latest.challenges}` : null,\n  accepted && latest.communication_situations ? `Sytuacje komunikacyjne (zaakceptowana analiza): ${latest.communication_situations}` : null,\n];\nreturn [{ json: { user: lines.filter(l => l !== null).join('\\n') } }];\n"
+        "jsCode": "\n// Sklada dane z CRM w jeden tekst dla AI Agenta; prompt metodyczny siedzi w\n// System Message noda \"AI Agent\" (edytowalny bez znajomosci JS).\nconst g = $('Assessment from button').first().json;\nconst a = g.assessment;\nconst person = $('Get person').first().json || {};\nconst company = $('Company of the person').first().json.company || {};\nconst opp = $('Opportunity of the audit').first().json;\nconst latest = $('Latest discovery meeting').first().json.discovery || {};\nconst accepted = $('Latest discovery meeting').first().json.accepted;\nconst lines = [\n  '## Wyniki audytu (ocena CEFR)',\n  `Ogolny: ${a.cefr_overall || 'brak'}`,\n  `Zakres jezyka: ${a.cefr_range || 'brak'}`,\n  `Poprawnosc: ${a.cefr_accuracy || 'brak'}`,\n  `Plynnosc: ${a.cefr_fluency || 'brak'}`,\n  `Komunikatywnosc: ${a.cefr_communication || 'brak'}`,\n  `Mocne strony: ${a.strengths || 'brak danych'}`,\n  `Luki: ${a.gaps || 'brak danych'}`,\n  '',\n  '## Notatki metodyka po demo/audycie',\n  a.auditor_notes || 'brak notatek',\n  '',\n  '## Kontekst uczestnika',\n  `Imie i nazwisko: ${person.full_name || 'brak'}`,\n  `Stanowisko: ${person.position || 'brak'}`,\n  `Kontekst roli (z kim/o czym rozmawia po angielsku): ${person.role_context || 'brak'}`,\n  `Czestotliwosc uzywania angielskiego: ${person.frequency || 'brak'}`,\n  `Samoocena uczestnika: ${a.self_assessment || 'brak'}`,\n  `Potrzeby wg managera/HR: ${a.manager_needs || 'brak'}`,\n  '',\n  '## Kontekst biznesowy',\n  `Typ klienta: ${opp.segment || 'brak'}`,\n  `Branza: ${person.industry || company.industry || 'brak'}`,\n  company.name ? `Firma: ${company.name}` : null,\n  company.communication_processes ? `Procesy komunikacyjne w firmie: ${company.communication_processes}` : null,\n  company.business_impact ? `Wplyw jezyka na biznes: ${company.business_impact}` : null,\n  '',\n  '## Notatki z discovery call',\n  latest.notes || 'brak notatek z discovery call (lub brak spotkania typu discovery dla tej szansy)',\n  accepted && latest.goals ? `\\nCele klienta (zaakceptowana analiza): ${latest.goals}` : null,\n  accepted && latest.challenges ? `Wyzwania (zaakceptowana analiza): ${latest.challenges}` : null,\n  accepted && latest.communication_situations ? `Sytuacje komunikacyjne (zaakceptowana analiza): ${latest.communication_situations}` : null,\n];\nreturn [{ json: { user: lines.filter(l => l !== null).join('\\n') } }];\n"
       },
       "id": "w8-11",
       "name": "Assemble context",
@@ -769,6 +769,10 @@
             {
               "fieldName": "needs_summary",
               "fieldValue": "={{ $json.message }}"
+            },
+            {
+              "fieldName": "ai_status",
+              "fieldValue": "none"
             }
           ]
         }
@@ -853,6 +857,10 @@
             {
               "fieldName": "needs_summary",
               "fieldValue": "Brak ocen CEFR. Uzupełnij pola cefr_* w audycie i kliknij „Generuj needs summary” ponownie."
+            },
+            {
+              "fieldName": "ai_status",
+              "fieldValue": "ai_rejected"
             }
           ]
         }
@@ -1251,6 +1259,66 @@
       },
       "onError": "continueRegularOutput",
       "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "company-of-the-person-company",
+              "name": "company",
+              "type": "object",
+              "value": "={{ $('Get company of the person').first().json.fields ?? {} }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w8-34",
+      "name": "Company of the person",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1300,
+        380
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "latest-discovery-meeting-discovery",
+              "name": "discovery",
+              "type": "object",
+              "value": "={{ $('Get meetings of the opportunity').all().map(i => i.json.fields).filter(Boolean).filter(m => m.meeting_type === 'discovery').sort((x, y) => String(y.starts_at || '').localeCompare(String(x.starts_at || '')))[0] ?? {} }}"
+            },
+            {
+              "id": "latest-discovery-meeting-accepted",
+              "name": "accepted",
+              "type": "boolean",
+              "value": "={{ ( $('Get meetings of the opportunity').all().map(i => i.json.fields).filter(Boolean).filter(m => m.meeting_type === 'discovery').sort((x, y) => String(y.starts_at || '').localeCompare(String(x.starts_at || '')))[0] ?? {}).ai_status === 'ai_accepted' }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w8-35",
+      "name": "Latest discovery meeting",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2080,
+        570
+      ],
+      "executeOnce": true
     }
   ],
   "connections": {
@@ -1352,9 +1420,9 @@
       "main": [
         [
           {
-            "node": "Wait for person, company and discovery data",
+            "node": "Company of the person",
             "type": "main",
-            "index": 1
+            "index": 0
           }
         ]
       ]
@@ -1363,9 +1431,9 @@
       "main": [
         [
           {
-            "node": "Wait for person, company and discovery data",
+            "node": "Latest discovery meeting",
             "type": "main",
-            "index": 2
+            "index": 0
           }
         ]
       ]
@@ -1611,6 +1679,28 @@
             "node": "Task details to assign",
             "type": "main",
             "index": 0
+          }
+        ]
+      ]
+    },
+    "Company of the person": {
+      "main": [
+        [
+          {
+            "node": "Wait for person, company and discovery data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Latest discovery meeting": {
+      "main": [
+        [
+          {
+            "node": "Wait for person, company and discovery data",
+            "type": "main",
+            "index": 2
           }
         ]
       ]

@@ -59,7 +59,7 @@ init-schema: ## Create the CRM schema v4 in NocoDB, incl. links v3 upgrade and r
 # `make seed-test-data STAGE=2` seeduje etapy 1..2 (etap juz seedowany jest
 # pomijany). Wymaga tabel z `make init-schema STAGE=N`. NIE uruchamiac
 # `init-data` ani `seed-extra` na bazie v4 - pisza do starych tabel.
-seed-test-data: ## Seed CRM v4 test data up to STAGE=1..4 (default 4); needs matching init-schema STAGE
+seed-test-data: ## Seed CRM v4 test data up to STAGE=1..5 (default 4; 5 = W8 test scenarios); needs matching init-schema STAGE
 	python3 scripts/seed-test-data.py --stage $(or $(STAGE),4)
 
 # DEMO koncepcji schematu v4 (docs/crm-schema-v4-proposal.md): 8 tabel demo_*

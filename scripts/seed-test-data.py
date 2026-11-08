@@ -17,6 +17,10 @@ Zestaw danych rośnie z etapami:
      approved_total). Katalogi (cennik, pakiety, szablony) wgrywają osobne
      skrypty importu; seed podpina pierwsze znalezione wiersze, a brak
      katalogu tylko ostrzega.
+  5  (opcjonalny, nie jest domyślny) 7 scenariuszy testowych W8 "Generuj needs
+     summary": pełne dane B2B i B2C, discovery niezaakceptowane, brak discovery,
+     audyt bez szansy, brak ocen CEFR (z otwartym zadaniem i bez). Wymaga
+     etapu 1; każdy scenariusz ma własną osobę, szansę i ocenę ("W8 #n – ...").
 
 Etapy są POWTARZALNE: każdy ma rekord kontrolny (osoba / spotkanie /
 ocena / oferta o znanym kluczu) i jest pomijany, jeśli już był seedowany.
@@ -496,13 +500,137 @@ def seed_stage4():
     offer(K["opp_acme"], "Oferta – Acme v2", 2, "accepted", r2, total=9600, sent=-4)
 
 
-STAGES = {1: seed_stage1, 2: seed_stage2, 3: seed_stage3, 4: seed_stage4}
+# ------------------------------------------------------------------ etap 5
+W8_CTRL_EMAIL = "w8.b2b.pelny@nordwind.example"
+
+
+def seed_stage5():
+    """Scenariusze testowe W8 (przycisk "Generuj needs summary" na assessments).
+    Każdy scenariusz ma własną osobę, szansę, spotkanie audytu i ocenę, żeby nie
+    mieszać się z danymi etapów 1-4. Wymaga etapu 1 (zespół). Tytuły zaczynają
+    się od "W8 #n", żeby dało się je znaleźć w widoku assessments."""
+    need_tables("assessments", "meetings", "tasks", "companies", "persons",
+                "sale_opportunities")
+    if find_id("persons", "email", W8_CTRL_EMAIL):
+        print("\n=== Etap 5: już seedowany, pomijam ===")
+        return
+    lookup_stage1()
+    if not DRY and not K.get("dorota"):
+        sys.exit("Brak danych etapu 1: najpierw `seed-test-data --stage 1`.")
+    print("\n=== Etap 5: scenariusze testowe W8 ===")
+
+    nordwind = rec(
+        "companies", name="Nordwind Logistics Sp. z o.o.", nip="5252000003",
+        industry="Transport/Logistics", size="51-250",
+        communication_processes="Dyspozytorzy i account managerowie codziennie "
+        "rozmawiają po angielsku z przewoźnikami z Niemiec i Skandynawii "
+        "(telefon, Teams) oraz negocjują stawki z klientami z UK.",
+        business_impact="Nieprecyzyjne ustalenia z przewoźnikami kończą się "
+        "reklamacjami i opóźnionymi dostawami; część przetargów zagranicznych "
+        "przechodzi do konkurencji.")
+
+    def scenario(n, key, name, position, email, *, company=None, segment="B2B",
+                 role_context=None, frequency=None, industry=None, opp=True,
+                 discovery=None, cefr=True, open_input_task=False, note=""):
+        """discovery: None | "accepted" | "draft" (notatki + cele z discovery)."""
+        pid = rec("persons", full_name=name, email=email, position=position,
+                  role_context=role_context, frequency=frequency, industry=industry)
+        K[key] = pid
+        if company:
+            lnk("companies", "persons", company, pid)
+        oid = None
+        if opp:
+            oid = rec("sale_opportunities", name=f"W8 #{n} – {name}", segment=segment,
+                      stage="Audyt", state="open", opportunity_type="Nowy klient",
+                      stage_changed_at=dt(-2))
+            lnk("persons", "bought_opportunities", pid, oid)
+            lnk("employees", "opportunities", K["przemek"], oid)
+            if company:
+                lnk("companies", "opportunities", company, oid)
+        if discovery:
+            accepted = discovery == "accepted"
+            mid = rec("meetings", title=f"Discovery call: {name}",
+                      meeting_type="discovery", external_id=f"seed-w8-{n}-discovery",
+                      starts_at=dt(-14, 10), status="done",
+                      notes=f"Rozmowa z {name} ({position}). Angielski potrzebny "
+                            "głównie do rozmów telefonicznych i spotkań online; "
+                            "największy stres przy negocjacjach i reklamacjach.",
+                      goals="Pewne prowadzenie negocjacji i reklamacji po angielsku.",
+                      challenges="Gubi wątek przy szybkiej wymianie zdań, "
+                                 "unika telefonów.",
+                      communication_situations="Negocjacje stawek, reklamacje, "
+                                               "cotygodniowe spotkania z zespołem UK.",
+                      ai_status="ai_accepted" if accepted else "ai_draft_ready")
+            lnk("employees", "meetings", K["przemek"], mid)
+            lnk("sale_opportunities", "meetings", oid, mid)
+            lnk("meetings", "attendees", mid, pid)
+        audit_mid = rec("meetings", title=f"Audyt: {name}", meeting_type="audit",
+                        external_id=f"seed-w8-{n}-audit", starts_at=dt(-2, 9),
+                        status="done")
+        lnk("employees", "meetings", K["dorota"], audit_mid)
+        lnk("sale_opportunities", "meetings", oid, audit_mid)
+        lnk("meetings", "attendees", audit_mid, pid)
+        fields = dict(
+            title=f"W8 #{n} – {name} ({note})", assessed_at=d(-2),
+            self_assessment="Dobrze czytam i piszę, w mowie brakuje mi pewności.",
+            manager_needs="Samodzielne prowadzenie rozmów z partnerami zagranicznymi.",
+            auditor_notes="Role play: negocjacja stawki. Klient zaczął od „How can I "
+                          "help you?” zamiast small talku, zabrakło signpostingu i "
+                          "języka parafrazy; przy pytaniu doprecyzowującym zamilkł "
+                          "na kilka sekund.")
+        if cefr:
+            fields.update(cefr_overall="B2", cefr_range="B2.5", cefr_accuracy="B1.8",
+                          cefr_fluency="B2.2", cefr_communication="B2.4",
+                          strengths="Szeroki zakres słownictwa branżowego, dobra wymowa.",
+                          gaps="Czasy złożone, język perswazji, doprecyzowywanie.")
+        aid = rec("assessments", **fields)
+        lnk("persons", "assessments", pid, aid)
+        lnk("meetings", "assessments", audit_mid, aid)
+        if open_input_task:
+            task(f"Uzupełnij oceny CEFR: W8 #{n} – {name}", "provide_input", "todo",
+                 K["dorota"], person=pid, opp=oid, assessment=aid, due=0)
+        return aid
+
+    scenario(1, "w8_1", "Magdalena Wrońska", "Head of Sales", W8_CTRL_EMAIL,
+             company=nordwind, role_context="Prowadzi zespół 6 account managerów, "
+             "sama negocjuje kontrakty z przewoźnikami z DACH.",
+             frequency="codziennie", discovery="accepted",
+             note="B2B pełne dane, discovery zaakceptowane")
+    scenario(2, "w8_2", "Tomasz Kruk", "Architekt IT (freelancer)",
+             "w8.b2c.pelny@example.com", segment="B2C", industry="IT",
+             role_context="Pracuje zdalnie dla klientów z Holandii i Irlandii, "
+             "prowadzi code review i demo po angielsku.",
+             frequency="kilka_razy_w_tyg", discovery="accepted",
+             note="B2C, bez firmy")
+    scenario(3, "w8_3", "Karolina Dudek", "Account Manager",
+             "w8.discovery.szkic@nordwind.example", company=nordwind,
+             frequency="codziennie", discovery="draft",
+             note="discovery niezaakceptowane: bez celów i wyzwań w kontekście")
+    scenario(4, "w8_4", "Michał Sowa", "Specjalista ds. zakupów",
+             "w8.bez.discovery@example.com", segment="B2C", frequency="rzadko",
+             note="szansa bez spotkania discovery")
+    scenario(5, "w8_5", "Agnieszka Pola", "Konsultantka", "w8.bez.szansy@example.com",
+             segment="B2C", opp=False, discovery=None,
+             note="audyt bez szansy: activity bez linku do szansy")
+    scenario(6, "w8_6", "Rafał Górski", "Kierownik projektu",
+             "w8.brak.cefr@example.com", segment="B2C", cefr=False,
+             note="brak CEFR, bez zadania: powstaje provide_input")
+    scenario(7, "w8_7", "Natalia Bielak", "Analityczka",
+             "w8.brak.cefr.zadanie@example.com", segment="B2C", cefr=False,
+             open_input_task=True,
+             note="brak CEFR, otwarte zadanie: bez duplikatu")
+    print("\nPrzypadek 8 (błąd LLM) nie da się zasiać: podaj tymczasowo zły klucz "
+          "w credentialu OpenRouter i kliknij na dowolnej ocenie z W8 #1-5.")
+
+
+STAGES = {1: seed_stage1, 2: seed_stage2, 3: seed_stage3, 4: seed_stage4,
+          5: seed_stage5}
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", type=int, choices=range(1, 5), metavar="N", default=4,
+    ap.add_argument("--stage", type=int, choices=range(1, 6), metavar="N", default=4,
                     help="seeduj etapy 1..N (etap już seedowany jest pomijany); "
-                         "domyślnie 4")
+                         "domyślnie 4; etap 5 = scenariusze W8")
     ap.add_argument("--dry-run", action="store_true", help="pokaż plan, nie wywołuj API")
     args = ap.parse_args()
     DRY = args.dry_run
