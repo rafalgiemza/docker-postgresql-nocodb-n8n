@@ -5,6 +5,7 @@ i zwraca JSON z licznikami/ostrzezeniami. ZERO integracji z NocoDB (decyzja:
 .ai/rules/nocodb.md, sekcja 6 - NocoDB nie ustawi created_at).
 Brak portow na zewnatrz; woła go tylko n8n z sieci wewnetrznej.
 """
+import hashlib
 import json
 import os
 from datetime import date
@@ -67,7 +68,6 @@ def health():
 @app.post("/import")
 async def import_csv(request: Request, dry_run: bool = True,
                      export_date: str = "", expect_sha256: str = "",
-                     anonymous: bool = False,
                      x_token: str = Header(default="")):
     """Plik CSV jako SUROWE cialo zadania (nie multipart - multipart z n8n
     wisial); parametry w adresie. dry_run=true (domyslnie): pelny import w
@@ -78,17 +78,16 @@ async def import_csv(request: Request, dry_run: bool = True,
     data = await request.body()
     if not data:
         raise HTTPException(422, "Puste ciało zadania - brak pliku CSV.")
-    if not dry_run and expect_sha256 != li.digest(data, anonymous):
+    if not dry_run and expect_sha256 != hashlib.sha256(data).hexdigest():
         raise HTTPException(
             409, "Plik nie byl sprawdzony - najpierw kliknij \"Sprawdz import\" "
-                 "dla tego pliku i w tym samym trybie (anonim) - skrot sie nie zgadza.")
+                 "dla tego pliku (skrot sie nie zgadza).")
     with open(SCHEMA_MAP_PATH, encoding="utf-8") as f:
         schema_map = json.load(f)
     db = get_db()
     try:
         return li.run_import(db, data, schema_map, apply=not dry_run,
-                             export_date=date.fromisoformat(export_date) if export_date else None,
-                             anonymous=anonymous)
+                             export_date=date.fromisoformat(export_date) if export_date else None)
     except li.LegacyError as e:
         # 422: n8n pokazuje komunikat userowi w polu raportu
         raise HTTPException(422, str(e))

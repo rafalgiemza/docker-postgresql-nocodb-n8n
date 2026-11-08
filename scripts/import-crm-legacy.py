@@ -75,8 +75,6 @@ def main():
                     help="COMMIT (domyslnie dry-run = ROLLBACK)")
     ap.add_argument("--export-date", default="",
                     help="data eksportu CSV (YYYY-MM-DD)")
-    ap.add_argument("--anonymous", action="store_true",
-                    help="pomin dane osobowe (kontakt, telefon, e-mail, nazwa klienta B2C)")
     ap.add_argument("--container", default=os.environ.get("PG_CONTAINER", "docker-postgres-1"))
     ap.add_argument("--user", default=os.environ.get("POSTGRES_USER", "postgres"))
     ap.add_argument("--db", default=os.environ.get("APP_DB", "appdata"))
@@ -92,7 +90,7 @@ def main():
     try:
         res = li.run_import(DockerPg(a.container, a.user, a.db), data, schema_map,
                             apply=a.apply, export_date=date.fromisoformat(a.export_date) if a.export_date else None,
-                            sql_out=a.sql_out, anonymous=a.anonymous)
+                            sql_out=a.sql_out)
     except li.LegacyError as e:
         print(f"❌ {e}", file=sys.stderr)
         sys.exit(1)

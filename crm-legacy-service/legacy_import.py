@@ -471,17 +471,7 @@ def read_rows(text):
 
 
 # ---------------------------------------------------------------- generator
-def digest(data, anonymous=False):
-    """Skrot zatwierdzany dry-runem: tryb 'anonim' zmienia skrot, wiec sprawdzony
-    w jednym trybie plik nie przejdzie w drugim."""
-    return hashlib.sha256(data + (b"\0anonim" if anonymous else b"")).hexdigest()
-
-
-PERSONAL = ("contact", "phone", "email")
-
-
-def build(rows, links, employees, export_date, warn, skip=None, options=None,
-          anonymous=False):
+def build(rows, links, employees, export_date, warn, skip=None, options=None):
     """SQL dla wierszy pliku. Dwie kategorie problemow: (a) da sie sensownie
     zastapic - wiersz jest importowany, ostrzezenie `warn`; (b) wartosc
     nieczytelna (data, godzina) albo brak danych do utworzenia leada - wiersz
@@ -496,11 +486,6 @@ def build(rows, links, employees, export_date, warn, skip=None, options=None,
     for r in rows:
         r = [x.strip() for x in r] + [""] * (N_ROW - len(r))
         lid = int(r[C["id"]])
-        if anonymous:  # dane osobowe pomijane = jak puste komorki w pliku
-            for k in PERSONAL:
-                r[C[k]] = ""
-            if r[C["segment"]].upper() != "B2B":  # B2C: nazwa klienta to osoba
-                r[C["client"]] = r[C["org"]] = ""
         ctx = f"#{lid}"
         rwl, bad = [], []   # ostrzezenia wiersza (tylko gdy wiersz zostaje) / powody pominiecia
         rw = rwl.append
@@ -795,8 +780,7 @@ def group_warnings(warnings, examples=3, expand_up_to=10):
     return out
 
 
-def run_import(db, data, schema_map, apply=False, export_date=None, sql_out=None,
-               anonymous=False):
+def run_import(db, data, schema_map, apply=False, export_date=None, sql_out=None):
     """Importuje CSV (bytes). Zwraca dict z licznikami i ostrzezeniami."""
     warnings, skipped = [], []
     warn = warnings.append
@@ -814,8 +798,7 @@ def run_import(db, data, schema_map, apply=False, export_date=None, sql_out=None
         table_notes.append(
             "schema_map.json bez list opcji dla: " + ", ".join(missing)
             + " - użyto wbudowanych słowników (uruchom `make dump-crm-schema`)")
-    body = build(rows, links, employees, export_date, warn, skipped.append, options,
-                 anonymous)
+    body = build(rows, links, employees, export_date, warn, skipped.append, options)
     # Paczki po BATCH wierszy, kazda we wlasnym bloku DO (w jednej transakcji):
     # PL/pgSQL trzyma plany WSZYSTKICH instrukcji bloku do jego konca - jeden blok
     # na caly plik przekroczyl 512 MB kontenera Postgresa (OOM, restart bazy).
@@ -861,4 +844,4 @@ def run_import(db, data, schema_map, apply=False, export_date=None, sql_out=None
            + [f"  {m}" for m in skipped] if skipped else [])
         + group_warnings(warnings),
         warnings_total=len(warnings), links=list(links),
-        sha256=digest(data, anonymous), anonymous=anonymous)
+        sha256=hashlib.sha256(data).hexdigest())

@@ -849,12 +849,6 @@ TABLES = [
             {"title": "title", "type": "SingleLineText"},
             {"title": "old_crm", "type": "Attachment",
              "description": "Plik CSV ze starego CRM (UTF-8 lub Windows-1252)."},
-            {"title": "anonymous", "type": "Checkbox", "default_value": False,
-             "description": "Anonim: import POMIJA dane osobowe (osoba kontaktowa, "
-                            "telefon, e-mail, nazwa klienta B2C) - powstaja "
-                            "placeholdery \"Nieznany kontakt (stary CRM #ID)\". "
-                            "Ten sam tryb musi byc zaznaczony przy \"Sprawdz "
-                            "import\" i \"Importuj\"."},
             {"title": "import_result", "type": "SingleSelect",
              "options": select("none", "dry_run_ok", "imported"),
              "description": "Ostatni zakonczony krok: dry_run_ok = sprawdzone, "

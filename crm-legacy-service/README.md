@@ -98,16 +98,6 @@ Import i eksport historycznych danych CRM **prosto do PostgreSQL**
 cd crm-legacy-service && python3 -m pytest test_legacy_import.py
 ```
 
-## Tryb „anonim"
-
-Pole `anonymous` (checkbox) w `crm_imports` → parametr `anonymous=true` w `/import`
-(CLI: `--anonymous`). Importer traktuje wtedy kolumny osobowe jak puste: osoba
-kontaktowa, telefon, e-mail oraz nazwa klienta/organizacja dla B2C (B2B zostaje z
-nazwą firmy). Powstają placeholdery `Nieznany kontakt (stary CRM #ID)`, które eksport
-zamienia z powrotem na puste komórki. Skrót pliku zależy od trybu, więc „Importuj"
-działa tylko w tym samym trybie, w którym zrobiono „Sprawdź import". Notatki i
-„Folder klienta" są przepisywane bez zmian.
-
 ## Eksport: powracający klienci
 
 Import skleja osoby (po e-mailu/telefonie) i firmy (po nazwie), więc kilka wierszy
