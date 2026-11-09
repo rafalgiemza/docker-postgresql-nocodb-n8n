@@ -791,6 +791,10 @@ TABLES = [
              "description": "uid rezerwacji z cal.com - klucz dedupu flow "
                             "rezerwacji i powiazania przy zmianie terminu / "
                             "anulowaniu. Zapisywane AUTOMATYCZNIE."},
+            {"title": "link_to_cal_com", "type": "URL",
+             "description": "Link do strony rezerwacji w cal.com (zmiana "
+                            "terminu / anulowanie). Zapisywane AUTOMATYCZNIE "
+                            "przez W7, przy zmianie terminu nadpisywane."},
             {"title": "status", "type": "SingleSelect",
              "options": select("scheduled", "done", "no_show", "cancelled")},
             # brudnopis

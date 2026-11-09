@@ -1793,7 +1793,9 @@ FLOWS = {
     "W16_scheduled_tasks.json": build_w16,
     "W0_recurring_tasks.json": build_w0,
     "W6a_meeting_ai_pipeline.json": build_w6a,
-    "W7_bookings_meetings_sync.json": build_w7,
+    # W7 przepisany recznie wg nowych zasad n8n-flow (placeholdery zamiast "Get one base",
+    # Set/SplitOut zamiast Code, node NocoDB zamiast HTTP); generator by go nadpisal.
+    # "W7_bookings_meetings_sync.json": build_w7,
     "W17_generate_audit_tasks.json": build_w17,
     "W18_assessment_saved.json": build_w18,
     "W19_ai_draft_reminders.json": build_w19,

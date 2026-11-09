@@ -5,7 +5,7 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "w7-calcom-booking",
-        "responseMode": "onReceived",
+        "responseMode": "lastNode",
         "options": {}
       },
       "id": "cal-com-booking-event",
@@ -14,61 +14,198 @@
       "typeVersion": 2,
       "position": [
         0,
-        760
+        0
       ],
       "webhookId": "wh-w7-calcom-booking"
     },
     {
       "parameters": {
-        "authentication": "nocoDbApiToken",
-        "resource": "base",
-        "operation": "get",
-        "workspaceId": {
-          "__rl": true,
-          "value": "wpgg1mff",
-          "mode": "list",
-          "cachedResultName": "CoAction Workspace"
+        "assignments": {
+          "assignments": [
+            {
+              "id": "booking-from-cal-com-booking",
+              "name": "booking",
+              "type": "object",
+              "value": "={{ $json.body.payload ?? $json.body }}"
+            },
+            {
+              "id": "booking-from-cal-com-trigger_event",
+              "name": "trigger_event",
+              "type": "string",
+              "value": "={{ $json.body.triggerEvent ?? '' }}"
+            }
+          ]
         },
-        "projectId": {
-          "__rl": true,
-          "value": "p6w78auzu6sjdoo",
-          "mode": "list",
-          "cachedResultName": "CRM Base"
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
         }
       },
-      "id": "get-one-base",
-      "name": "Get one base",
-      "type": "n8n-nodes-base.nocoDb",
-      "typeVersion": 4,
+      "id": "booking-from-cal-com",
+      "name": "Booking from cal.com",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
         260,
-        760
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "\n// Webhook cal.com: { triggerEvent, payload: {...} }. Struktura niezweryfikowana na\n// zywej instancji - kod toleruje drobne roznice nazw pol.\nconst b = $input.first().json.body || $input.first().json;\nconst kind = ({ BOOKING_CREATED: 'created', BOOKING_RESCHEDULED: 'rescheduled',\n                BOOKING_CANCELLED: 'cancelled' })[b.triggerEvent];\nif (!kind) return [];\nconst p = b.payload || b;\nconst TYPE_BY_SLUG = {\"discovery\": \"discovery\", \"audyt\": \"audit\", \"audit\": \"audit\", \"demo\": \"demo\"};\nconst TYPE_BY_ID = {};\nconst slug = String(p.type || (p.eventType && p.eventType.slug) || '').toLowerCase();\nconst typeId = p.eventTypeId || (p.eventType && p.eventType.id) || null;\nconst meeting_type = TYPE_BY_ID[String(typeId)] || TYPE_BY_SLUG[slug] || null;\nconst attendees = (p.attendees || []).filter(a => a && a.email)\n  .map(a => ({ email: String(a.email).trim().toLowerCase(), name: a.name || '' }));\nreturn [{ json: { kind, uid: p.uid || null,\n  previous_uid: p.rescheduleUid || p.rescheduledFromUid || null,\n  title: p.title || p.eventTitle || 'Rezerwacja cal.com',\n  starts_at: p.startTime || null, ends_at: p.endTime || null,\n  organizer_email: String((p.organizer && p.organizer.email) || '').trim().toLowerCase(),\n  attendees, meeting_type, event_slug: slug, event_type_id: typeId } }];\n"
-      },
-      "id": "normalize-booking",
-      "name": "Normalize booking",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        520,
-        760
+        0
       ]
     },
     {
       "parameters": {
-        "mode": "expression",
-        "numberOutputs": 3,
-        "output": "={{ ['created','rescheduled','cancelled'].indexOf($json.kind) }}"
+        "assignments": {
+          "assignments": [
+            {
+              "id": "booking-details-kind",
+              "name": "kind",
+              "type": "string",
+              "value": "={{ ({\"BOOKING_CREATED\": \"created\", \"BOOKING_RESCHEDULED\": \"rescheduled\", \"BOOKING_CANCELLED\": \"cancelled\"})[$json.trigger_event] ?? '' }}"
+            },
+            {
+              "id": "booking-details-uid",
+              "name": "uid",
+              "type": "string",
+              "value": "={{ $json.booking.uid ?? '' }}"
+            },
+            {
+              "id": "booking-details-previous_uid",
+              "name": "previous_uid",
+              "type": "string",
+              "value": "={{ $json.booking.rescheduleUid ?? $json.booking.rescheduledFromUid ?? '' }}"
+            },
+            {
+              "id": "booking-details-title",
+              "name": "title",
+              "type": "string",
+              "value": "={{ $json.booking.title ?? $json.booking.eventTitle ?? 'Rezerwacja cal.com' }}"
+            },
+            {
+              "id": "booking-details-starts_at",
+              "name": "starts_at",
+              "type": "string",
+              "value": "={{ $json.booking.startTime ?? '' }}"
+            },
+            {
+              "id": "booking-details-ends_at",
+              "name": "ends_at",
+              "type": "string",
+              "value": "={{ $json.booking.endTime ?? '' }}"
+            },
+            {
+              "id": "booking-details-organizer_email",
+              "name": "organizer_email",
+              "type": "string",
+              "value": "={{ String($json.booking.organizer?.email ?? '').trim().toLowerCase() }}"
+            },
+            {
+              "id": "booking-details-attendees",
+              "name": "attendees",
+              "type": "array",
+              "value": "={{ ($json.booking.attendees ?? []).filter(a => a?.email).map(a => ({ email: String(a.email).trim().toLowerCase(), name: a.name ?? '' })) }}"
+            },
+            {
+              "id": "booking-details-meeting_type",
+              "name": "meeting_type",
+              "type": "string",
+              "value": "={{ ({})[String($json.booking.eventTypeId ?? $json.booking.eventType?.id ?? '')] ?? ({\"discovery\": \"discovery\", \"audyt\": \"audit\", \"audit\": \"audit\", \"demo\": \"demo\"})[String($json.booking.type ?? $json.booking.eventType?.slug ?? '').toLowerCase()] ?? '' }}"
+            },
+            {
+              "id": "booking-details-booking_url",
+              "name": "booking_url",
+              "type": "string",
+              "value": "={{ $json.booking.uid ? String($json.booking.bookerUrl ?? 'https://cal.com').replace(/\\/$/, '') + '/booking/' + $json.booking.uid : '' }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "booking-details",
+      "name": "Booking details",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "c1",
+                    "leftValue": "={{ $json.kind }}",
+                    "rightValue": "created",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "Created"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "c1",
+                    "leftValue": "={{ $json.kind }}",
+                    "rightValue": "rescheduled",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "Rescheduled"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "id": "c1",
+                    "leftValue": "={{ $json.kind }}",
+                    "rightValue": "cancelled",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "Cancelled"
+            }
+          ]
+        },
+        "options": {}
       },
       "id": "route-by-booking-event",
       "name": "Route by booking event",
@@ -76,59 +213,92 @@
       "typeVersion": 3.2,
       "position": [
         780,
-        760
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "prepare-booking-error-message",
+              "name": "message",
+              "type": "string",
+              "value": "={{ 'Synchronizacja rezerwacji cal.com nie powiodła się (' + ($json.error?.message ?? 'nieznany błąd') + ').' }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "prepare-booking-error",
+      "name": "Prepare booking error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1040,
+        0
       ]
     },
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
-        "projectId": "={{ $('Get one base').first().json.id }}",
-        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'meetings').id }}",
-        "operation": "getAll",
-        "returnAll": false,
-        "limit": 1,
-        "options": {
-          "where": "=(external_id,eq,{{ $json.uid }})"
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ACTIVITIES__",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "summary",
+              "fieldValue": "={{ 'Nie udało się zsynchronizować rezerwacji cal.com: ' + $('Booking details').first().json.title }}"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "automation_error"
+            },
+            {
+              "fieldName": "flow",
+              "fieldValue": "W7"
+            },
+            {
+              "fieldName": "triggered_by",
+              "fieldValue": "system"
+            },
+            {
+              "fieldName": "payload",
+              "fieldValue": "={{ JSON.stringify({ uid: $('Booking details').first().json.uid, kind: $('Booking details').first().json.kind, error: $('Prepare booking error').first().json.message }) }}"
+            }
+          ]
         }
       },
-      "id": "find-meeting-by-booking-uid",
-      "name": "Find meeting by booking uid",
+      "id": "log-activity-booking-sync-failed",
+      "name": "Log activity: booking sync failed",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        1040,
+        1300,
         0
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
-      },
-      "alwaysOutputData": true
+      }
     },
     {
       "parameters": {
-        "jsCode": "\nconst n = $('Normalize booking').first().json;\nconst found = $input.all().some(i => i.json && i.json.Id);\nreturn found || !n.uid ? [] : [{ json: n }];\n"
+        "errorType": "errorMessage",
+        "errorMessage": "={{ $('Prepare booking error').first().json.message }}"
       },
-      "id": "is-it-a-new-booking",
-      "name": "Is it a new booking?",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1300,
-        0
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "\nconst n = $input.first().json;\nreturn n.attendees.map(a => ({ json: { ...a } }));\n"
-      },
-      "id": "split-attendees",
-      "name": "Split attendees",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "fail-the-booking-sync",
+      "name": "Fail the booking sync",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
       "position": [
         1560,
         0
@@ -137,18 +307,18 @@
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
-        "projectId": "={{ $('Get one base').first().json.id }}",
-        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'persons').id }}",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_MEETINGS__",
         "operation": "getAll",
         "returnAll": false,
         "limit": 1,
         "options": {
-          "where": "=(email,eq,{{ $json.email }})"
+          "where": "=(external_id,eq,{{ $('Booking details').first().json.uid }})"
         }
       },
-      "id": "find-person-by-email",
-      "name": "Find person by email",
+      "id": "find-meeting-by-booking-uid",
+      "name": "Find meeting by booking uid",
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
@@ -157,24 +327,11 @@
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
       },
       "alwaysOutputData": true
-    },
-    {
-      "parameters": {
-        "jsCode": "\nconst att = $('Split attendees').all();\nreturn $input.all().map((r, i) => {\n  const p = r.json && r.json.Id ? r.json : null;\n  return { json: { ...att[i].json, person_id: p ? p.Id : null,\n                   sales_mode: p ? (p.sales_mode || null) : null } };\n});\n"
-      },
-      "id": "match-person",
-      "name": "Match person",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        2080,
-        0
-      ]
     },
     {
       "parameters": {
@@ -188,7 +345,7 @@
           "conditions": [
             {
               "id": "c1",
-              "leftValue": "={{ !!$json.person_id }}",
+              "leftValue": "={{ !$json.Id && !!$('Booking details').first().json.uid }}",
               "rightValue": "",
               "operator": {
                 "type": "boolean",
@@ -200,10 +357,36 @@
         },
         "options": {}
       },
-      "id": "person-already-exists",
-      "name": "Person already exists?",
+      "id": "is-it-a-new-booking",
+      "name": "Is it a new booking?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
+      "position": [
+        2080,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "attendees-of-the-booking-attendees",
+              "name": "attendees",
+              "type": "array",
+              "value": "={{ $('Booking details').first().json.attendees }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "attendees-of-the-booking",
+      "name": "Attendees of the booking",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
         2340,
         0
@@ -211,10 +394,155 @@
     },
     {
       "parameters": {
+        "fieldToSplitOut": "attendees",
+        "include": "noOtherFields",
+        "options": {}
+      },
+      "id": "split-attendees",
+      "name": "Split attendees",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        2600,
+        0
+      ]
+    },
+    {
+      "parameters": {
         "authentication": "nocoDbApiToken",
-        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
-        "projectId": "={{ $('Get one base').first().json.id }}",
-        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'persons').id }}",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_PERSONS__",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 1,
+        "options": {
+          "where": "=(email,eq,{{ $json.email }})"
+        }
+      },
+      "id": "find-person-by-email",
+      "name": "Find person by email",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2860,
+        0
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "attendees-matched-with-persons-people",
+              "name": "people",
+              "type": "array",
+              "value": "={{ $('Booking details').first().json.attendees.map(a => { const p = $('Find person by email').all().find(r => String(r.json.email ?? '').toLowerCase() === a.email); return { ...a, person_id: p?.json.Id ?? null, sales_mode: p?.json.sales_mode ?? '' }; }) }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "attendees-matched-with-persons",
+      "name": "Attendees matched with persons",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        190
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.people.some(p => !p.person_id) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "any-new-person-to-create",
+      "name": "Any new person to create?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        260,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "people-to-create-to_create",
+              "name": "to_create",
+              "type": "array",
+              "value": "={{ $json.people.filter(p => !p.person_id) }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "people-to-create",
+      "name": "People to create",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        520,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "to_create",
+        "include": "noOtherFields",
+        "options": {}
+      },
+      "id": "split-people-to-create",
+      "name": "Split people to create",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        780,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_PERSONS__",
         "operation": "create",
         "dataToSend": "defineBelow",
         "fieldsUi": {
@@ -235,66 +563,54 @@
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        2600,
+        1040,
         190
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "\nconst src = $('Match person').all().filter(i => !i.json.person_id);\nreturn $input.all().map((r, i) => ({ json: { ...src[i].json, person_id: r.json.Id } }));\n"
+        "assignments": {
+          "assignments": [
+            {
+              "id": "attendees-with-person-ids-people",
+              "name": "people",
+              "type": "array",
+              "value": "={{ (() => { const made = $('Create person from booking').isExecuted ? $('Create person from booking').all() : []; let i = 0; return $('Attendees matched with persons').first().json.people.map(p => p.person_id ? p : { ...p, person_id: made[i++]?.json.Id ?? null }); })() }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
       },
-      "id": "attach-created-person-id",
-      "name": "Attach created person id",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "attendees-with-person-ids",
+      "name": "Attendees with person ids",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
-        2860,
+        1300,
         190
-      ]
-    },
-    {
-      "parameters": {
-        "numberInputs": 2
-      },
-      "id": "join-existing-and-new-persons",
-      "name": "Join existing and new persons",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3,
-      "position": [
-        3120,
-        0
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "\nconst n = $('Is it a new booking?').first().json;\nreturn [{ json: { ...n, people: $input.all().map(i => i.json) } }];\n"
-      },
-      "id": "collect-attendees",
-      "name": "Collect attendees",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        3380,
-        0
-      ]
+      ],
+      "executeOnce": true
     },
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
-        "projectId": "={{ $('Get one base').first().json.id }}",
-        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'employees').id }}",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_EMPLOYEES__",
         "operation": "getAll",
         "returnAll": false,
         "limit": 1,
         "options": {
-          "where": "=(email,eq,{{ $json.organizer_email }})"
+          "where": "=(email,eq,{{ $('Booking details').first().json.organizer_email }})"
         }
       },
       "id": "find-organizer-employee",
@@ -302,12 +618,12 @@
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        3640,
-        0
+        1560,
+        190
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
       },
@@ -315,56 +631,230 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst c = $('Collect attendees').first().json;\nconst emp = $input.first().json && $input.first().json.Id ? $input.first().json : null;\nconst record = { title: c.title, starts_at: c.starts_at, ends_at: c.ends_at,\n                 status: 'scheduled', external_id: c.uid };\nif (c.meeting_type) record.meeting_type = c.meeting_type;   // pole puste, gdy typ spoza mapowania\nreturn [{ json: { record, owner_id: emp ? emp.Id : null,\n                  person_ids: c.people.map(p => p.person_id).filter(Boolean),\n                  title: c.title } }];\n"
+        "assignments": {
+          "assignments": [
+            {
+              "id": "organizer-of-the-meeting-owner_id",
+              "name": "owner_id",
+              "type": "number",
+              "value": "={{ $json.Id ?? 0 }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
       },
-      "id": "prepare-meeting-record",
-      "name": "Prepare meeting record",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "organizer-of-the-meeting",
+      "name": "Organizer of the meeting",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
-        3900,
-        0
+        1820,
+        190
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 2,
+        "options": {}
+      },
+      "id": "wait-for-attendees-and-organizer",
+      "name": "Wait for attendees and organizer",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2080,
+        190
       ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'meetings').id }}/records",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "nocoDbApiToken",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.record) }}",
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ !!$('Booking details').first().json.meeting_type }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
         "options": {}
       },
-      "id": "create-meeting-variable-field-set",
-      "name": "Create meeting (variable field set)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "id": "is-the-meeting-type-known",
+      "name": "Is the meeting type known?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
       "position": [
-        4160,
-        0
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      }
+        2340,
+        190
+      ]
     },
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
-        "projectId": "={{ $('Get one base').first().json.id }}",
-        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'activities').id }}",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_MEETINGS__",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "={{ $('Booking details').first().json.title }}"
+            },
+            {
+              "fieldName": "starts_at",
+              "fieldValue": "={{ $('Booking details').first().json.starts_at }}"
+            },
+            {
+              "fieldName": "ends_at",
+              "fieldValue": "={{ $('Booking details').first().json.ends_at }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "scheduled"
+            },
+            {
+              "fieldName": "external_id",
+              "fieldValue": "={{ $('Booking details').first().json.uid }}"
+            },
+            {
+              "fieldName": "meeting_type",
+              "fieldValue": "={{ $('Booking details').first().json.meeting_type }}"
+            },
+            {
+              "fieldName": "link_to_cal_com",
+              "fieldValue": "={{ $('Booking details').first().json.booking_url }}"
+            }
+          ]
+        }
+      },
+      "id": "create-meeting",
+      "name": "Create meeting",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2600,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_MEETINGS__",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "title",
+              "fieldValue": "={{ $('Booking details').first().json.title }}"
+            },
+            {
+              "fieldName": "starts_at",
+              "fieldValue": "={{ $('Booking details').first().json.starts_at }}"
+            },
+            {
+              "fieldName": "ends_at",
+              "fieldValue": "={{ $('Booking details').first().json.ends_at }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "scheduled"
+            },
+            {
+              "fieldName": "external_id",
+              "fieldValue": "={{ $('Booking details').first().json.uid }}"
+            },
+            {
+              "fieldName": "link_to_cal_com",
+              "fieldValue": "={{ $('Booking details').first().json.booking_url }}"
+            }
+          ]
+        }
+      },
+      "id": "create-meeting-without-type",
+      "name": "Create meeting without type",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2860,
+        190
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "created-meeting-meeting_id",
+              "name": "meeting_id",
+              "type": "number",
+              "value": "={{ $json.Id }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "created-meeting",
+      "name": "Created meeting",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        380
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ACTIVITIES__",
         "operation": "create",
         "dataToSend": "defineBelow",
         "fieldsUi": {
           "fieldValues": [
             {
               "fieldName": "summary",
-              "fieldValue": "={{ 'Spotkanie z rezerwacji cal.com: ' + $('Prepare meeting record').first().json.title }}"
+              "fieldValue": "={{ 'Spotkanie z rezerwacji cal.com: ' + $('Booking details').first().json.title }}"
             },
             {
               "fieldName": "type",
@@ -380,7 +870,7 @@
             },
             {
               "fieldName": "payload",
-              "fieldValue": "={{ JSON.stringify({ meeting_id: $('Create meeting (variable field set)').first().json.Id }) }}"
+              "fieldValue": "={{ JSON.stringify({ meeting_id: $('Created meeting').first().json.meeting_id }) }}"
             }
           ]
         }
@@ -390,126 +880,352 @@
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        4420,
-        0
+        260,
+        380
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "const FIELD = {\n \"meetings.attendees\": \"cmrv13ovsp3m1zt\",\n \"meetings.activities\": \"c71do1waarrshby\",\n \"employees.meetings\": \"cyv312ldy13ehgf\",\n \"sale_opportunities.meetings\": \"c19mj9hutepy4kx\",\n \"sale_opportunities.activities\": \"co11vdft4h2hp2h\"\n};\n\nconst TBL = t => $('Get one base').first().json.tables.find(x => x.title === t).id;\nconst link = (table, field, recordId, targetIds) => {\n  const ids = (Array.isArray(targetIds) ? targetIds : [targetIds]).filter(Boolean);\n  if (!recordId || !ids.length) return null;\n  return { json: { table_id: TBL(table), field_id: FIELD[table + '.' + field],\n                   record_id: recordId, body: JSON.stringify(ids.map(Id => ({ Id }))) } };\n};\n\nconst m = $('Create meeting (variable field set)').first().json.Id;\nconst p = $('Prepare meeting record').first().json;\nconst a = $('Log activity: meeting created').first().json.Id;\nreturn [link('employees', 'meetings', p.owner_id, m),\n        link('meetings', 'attendees', m, p.person_ids),\n        link('meetings', 'activities', m, a)].filter(Boolean);\n"
+        "assignments": {
+          "assignments": [
+            {
+              "id": "attendees-to-look-up-opportunities-for-eligible",
+              "name": "eligible",
+              "type": "array",
+              "value": "={{ $('Attendees with person ids').first().json.people.filter(p => p.person_id && p.sales_mode !== 'Tylko spotkania') }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
       },
-      "id": "prepare-links-to-owner-and-attendees",
-      "name": "Prepare links to owner and attendees",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "attendees-to-look-up-opportunities-for",
+      "name": "Attendees to look up opportunities for",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
       "position": [
-        4680,
-        0
+        1300,
+        380
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "eligible",
+        "include": "noOtherFields",
+        "options": {}
+      },
+      "id": "split-attendees-to-look-up",
+      "name": "Split attendees to look up",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1560,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_PERSONS__",
+          "mode": "id"
+        },
+        "id": "={{ $json.person_id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_PERSONS__BOUGHT_OPPORTUNITIES__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_SALE_OPPORTUNITIES__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_SALE_OPPORTUNITIES__STATE__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "id": "get-bought-opportunities",
+      "name": "Get bought opportunities",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        1820,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_PERSONS__",
+          "mode": "id"
+        },
+        "id": "={{ $json.person_id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_PERSONS__TO_BE_AUDITED_IN__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_SALE_OPPORTUNITIES__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_SALE_OPPORTUNITIES__STATE__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "id": "get-opportunities-to-be-audited",
+      "name": "Get opportunities to be audited",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        2080,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "resource": "linkrow",
+        "workspaceId": {
+          "__rl": true,
+          "value": "__WORKSPACE_ID__",
+          "mode": "id"
+        },
+        "projectId": {
+          "__rl": true,
+          "value": "__PROJECT_ID__",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "__TBL_PERSONS__",
+          "mode": "id"
+        },
+        "id": "={{ $json.person_id }}",
+        "linkFieldName": {
+          "__rl": true,
+          "value": "__COL_PERSONS__PARTICIPANT_IN__",
+          "mode": "id"
+        },
+        "options": {
+          "fields": {
+            "items": [
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_SALE_OPPORTUNITIES__ID__",
+                  "mode": "id"
+                }
+              },
+              {
+                "field": {
+                  "__rl": true,
+                  "value": "__COL_SALE_OPPORTUNITIES__STATE__",
+                  "mode": "id"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "id": "get-opportunities-as-participant",
+      "name": "Get opportunities as participant",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 4,
+      "position": [
+        2340,
+        380
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "id": "wait-for-opportunities-of-attendees",
+      "name": "Wait for opportunities of attendees",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2600,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "open-opportunities-of-attendees-opp_ids",
+              "name": "opp_ids",
+              "type": "array",
+              "value": "={{ [ ...new Set([ ...$('Get bought opportunities').all(), ...$('Get opportunities to be audited').all(), ...$('Get opportunities as participant').all() ].filter(i => i.json.fields?.state === 'open').map(i => i.json.id_fields.Id)) ] }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "open-opportunities-of-attendees",
+      "name": "Open opportunities of attendees",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2860,
+        380
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.opp_ids.length === 1 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "exactly-one-open-opportunity",
+      "name": "Exactly one open opportunity?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "opportunity-of-the-meeting-opp_id",
+              "name": "opp_id",
+              "type": "number",
+              "value": "={{ $json.opp_ids[0] }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "opportunity-of-the-meeting",
+      "name": "Opportunity of the meeting",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        260,
+        570
       ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $json.table_id }}/links/{{ $json.field_id }}/records/{{ $json.record_id }}",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/__TBL_SALE_OPPORTUNITIES__/links/__COL_SALE_OPPORTUNITIES__MEETINGS__/records/{{ $json.opp_id }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "nocoDbApiToken",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ $json.body }}",
-        "options": {}
-      },
-      "id": "link-the-meeting-to-owner-attendees-and-activity",
-      "name": "Link the meeting to owner, attendees and activity",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        4940,
-        0
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "const LOOKUPS = [[\"bought_opportunities\", \"ck5jkdn5f4dadnp\"], [\"to_be_audited_in\", \"cohrtxvpioyqdg5\"], [\"participant_in\", \"c8ymi91pyv7n9b8\"]];\n\n// Dla osob w trybie \"Tylko spotkania\" nie szukamy szans (nigdy nie sa linkowane).\nconst c = $('Collect attendees').first().json;\nconst out = [];\nfor (const p of c.people) {\n  if (!p.person_id || p.sales_mode === 'Tylko spotkania') continue;\n  for (const [name, field_id] of LOOKUPS)\n    out.push({ json: { person_id: p.person_id, field_id } });\n}\nreturn out;\n"
-      },
-      "id": "build-opportunity-lookups",
-      "name": "Build opportunity lookups",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        4420,
-        570
-      ]
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $('Get one base').first().json.tables.find(t => t.title === 'persons').id }}/links/{{ $json.field_id }}/records/{{ $json.person_id }}?limit=200",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "nocoDbApiToken",
-        "options": {}
-      },
-      "id": "get-opportunities-of-the-person",
-      "name": "Get opportunities of the person",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        4680,
-        570
-      ],
-      "credentials": {
-        "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
-          "name": "NocoDB Token account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "\nconst open = new Map();\nfor (const r of $input.all())\n  for (const o of (r.json.list || [])) if (o.state === 'open') open.set(o.Id, o);\nif (open.size !== 1) return [];   // 0 lub wiele: spotkanie zostaje bez szansy\nreturn [{ json: { opp_id: [...open.keys()][0] } }];\n"
-      },
-      "id": "pick-the-only-open-opportunity",
-      "name": "Pick the only open opportunity",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        4940,
-        570
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const FIELD = {\n \"meetings.attendees\": \"cmrv13ovsp3m1zt\",\n \"meetings.activities\": \"c71do1waarrshby\",\n \"employees.meetings\": \"cyv312ldy13ehgf\",\n \"sale_opportunities.meetings\": \"c19mj9hutepy4kx\",\n \"sale_opportunities.activities\": \"co11vdft4h2hp2h\"\n};\n\nconst TBL = t => $('Get one base').first().json.tables.find(x => x.title === t).id;\nconst link = (table, field, recordId, targetIds) => {\n  const ids = (Array.isArray(targetIds) ? targetIds : [targetIds]).filter(Boolean);\n  if (!recordId || !ids.length) return null;\n  return { json: { table_id: TBL(table), field_id: FIELD[table + '.' + field],\n                   record_id: recordId, body: JSON.stringify(ids.map(Id => ({ Id }))) } };\n};\n\nconst opp = $input.first().json.opp_id;\nconst m = $('Create meeting (variable field set)').first().json.Id;\nconst a = $('Log activity: meeting created').first().json.Id;\nreturn [link('sale_opportunities', 'meetings', opp, m),\n        link('sale_opportunities', 'activities', opp, a)].filter(Boolean);\n"
-      },
-      "id": "prepare-opportunity-links",
-      "name": "Prepare opportunity links",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        5200,
-        570
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "=__NOCODB_BASE_URL__/api/v2/tables/{{ $json.table_id }}/links/{{ $json.field_id }}/records/{{ $json.record_id }}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "nocoDbApiToken",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ $json.body }}",
+        "jsonBody": "={{ JSON.stringify([ { Id: $('Created meeting').first().json.meeting_id } ]) }}",
         "options": {}
       },
       "id": "link-the-meeting-to-the-opportunity",
@@ -517,12 +1233,38 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
-        5460,
+        520,
         570
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/__TBL_SALE_OPPORTUNITIES__/links/__COL_SALE_OPPORTUNITIES__ACTIVITIES__/records/{{ $('Opportunity of the meeting').first().json.opp_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([ { Id: $('Log activity: meeting created').first().json.Id } ]) }}",
+        "options": {}
+      },
+      "id": "link-the-activity-to-the-opportunity",
+      "name": "Link the activity to the opportunity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        780,
+        570
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
       }
@@ -530,14 +1272,14 @@
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
-        "projectId": "={{ $('Get one base').first().json.id }}",
-        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'meetings').id }}",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_MEETINGS__",
         "operation": "getAll",
         "returnAll": false,
         "limit": 1,
         "options": {
-          "where": "=(external_id,eq,{{ $json.previous_uid || $json.uid }})"
+          "where": "=(external_id,eq,{{ $('Booking details').first().json.previous_uid || $('Booking details').first().json.uid }})"
         }
       },
       "id": "find-meeting-of-the-previous-booking",
@@ -546,11 +1288,11 @@
       "typeVersion": 3,
       "position": [
         1040,
-        760
+        570
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
       },
@@ -558,43 +1300,92 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst n = $('Normalize booking').first().json;\nconst m = $input.first().json;\nreturn m && m.Id ? [{ json: { meeting_id: m.Id, ...n } }] : [];\n"
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ !!$json.Id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
       },
       "id": "is-the-rescheduled-meeting-known",
       "name": "Is the rescheduled meeting known?",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
       "position": [
         1300,
-        760
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "meeting-to-reschedule-meeting_id",
+              "name": "meeting_id",
+              "type": "number",
+              "value": "={{ $json.Id }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "meeting-to-reschedule",
+      "name": "Meeting to reschedule",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1560,
+        570
       ]
     },
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
-        "projectId": "={{ $('Get one base').first().json.id }}",
-        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'meetings').id }}",
+        "version": 2,
         "operation": "update",
-        "id": "={{ $json.meeting_id }}",
-        "dataToSend": "defineBelow",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_MEETINGS__",
+        "id": "={{ $('Meeting to reschedule').first().json.meeting_id }}",
         "fieldsUi": {
           "fieldValues": [
             {
               "fieldName": "starts_at",
-              "fieldValue": "={{ $json.starts_at }}"
+              "fieldValue": "={{ $('Booking details').first().json.starts_at }}"
             },
             {
               "fieldName": "ends_at",
-              "fieldValue": "={{ $json.ends_at }}"
+              "fieldValue": "={{ $('Booking details').first().json.ends_at }}"
             },
             {
               "fieldName": "external_id",
-              "fieldValue": "={{ $json.uid }}"
+              "fieldValue": "={{ $('Booking details').first().json.uid }}"
             },
             {
               "fieldName": "status",
               "fieldValue": "scheduled"
+            },
+            {
+              "fieldName": "link_to_cal_com",
+              "fieldValue": "={{ $('Booking details').first().json.booking_url }}"
             }
           ]
         }
@@ -604,27 +1395,28 @@
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        1560,
-        760
+        1820,
+        570
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
-        "projectId": "={{ $('Get one base').first().json.id }}",
-        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'meetings').id }}",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_MEETINGS__",
         "operation": "getAll",
         "returnAll": false,
         "limit": 1,
         "options": {
-          "where": "=(external_id,eq,{{ $json.uid }})"
+          "where": "=(external_id,eq,{{ $('Booking details').first().json.uid }})"
         }
       },
       "id": "find-meeting-of-the-cancelled-booking",
@@ -632,12 +1424,12 @@
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        1040,
-        1140
+        2080,
+        570
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
       },
@@ -645,26 +1437,71 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst m = $input.first().json;\nreturn m && m.Id ? [{ json: { meeting_id: m.Id } }] : [];\n"
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ !!$json.Id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
       },
       "id": "is-the-cancelled-meeting-known",
       "name": "Is the cancelled meeting known?",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
       "position": [
-        1300,
-        1140
+        2340,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "meeting-to-cancel-meeting_id",
+              "name": "meeting_id",
+              "type": "number",
+              "value": "={{ $json.Id }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "meeting-to-cancel",
+      "name": "Meeting to cancel",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2600,
+        570
       ]
     },
     {
       "parameters": {
         "authentication": "nocoDbApiToken",
-        "workspaceId": "={{ $('Get one base').first().json.workspace_id }}",
-        "projectId": "={{ $('Get one base').first().json.id }}",
-        "table": "={{ $('Get one base').first().json.tables.find(t => t.title === 'meetings').id }}",
+        "version": 2,
         "operation": "update",
-        "id": "={{ $json.meeting_id }}",
-        "dataToSend": "defineBelow",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_MEETINGS__",
+        "id": "={{ $('Meeting to cancel').first().json.meeting_id }}",
         "fieldsUi": {
           "fieldValues": [
             {
@@ -679,12 +1516,166 @@
       "type": "n8n-nodes-base.nocoDb",
       "typeVersion": 3,
       "position": [
-        1560,
-        1140
+        2860,
+        570
       ],
       "credentials": {
         "nocoDbApiToken": {
-          "id": "9gq205HbXOk9D3Jm",
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/__TBL_MEETINGS__/links/__COL_MEETINGS__ACTIVITIES__/records/{{ $('Created meeting').first().json.meeting_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([ { Id: $('Log activity: meeting created').first().json.Id } ]) }}",
+        "options": {}
+      },
+      "id": "link-the-activity-to-the-meeting",
+      "name": "Link the activity to the meeting",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        0,
+        760
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Organizer of the meeting').first().json.owner_id > 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "is-the-organizer-known",
+      "name": "Is the organizer known?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        260,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/__TBL_EMPLOYEES__/links/__COL_EMPLOYEES__MEETINGS__/records/{{ $('Organizer of the meeting').first().json.owner_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([ { Id: $('Created meeting').first().json.meeting_id } ]) }}",
+        "options": {}
+      },
+      "id": "link-the-meeting-to-the-organizer",
+      "name": "Link the meeting to the organizer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        0,
+        760
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "attendees-to-link-people",
+              "name": "people",
+              "type": "array",
+              "value": "={{ $('Attendees with person ids').first().json.people.filter(p => p.person_id) }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": false
+        }
+      },
+      "id": "attendees-to-link",
+      "name": "Attendees to link",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        520,
+        760
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "people",
+        "include": "noOtherFields",
+        "options": {}
+      },
+      "id": "split-attendees-to-link",
+      "name": "Split attendees to link",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        780,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/__TBL_MEETINGS__/links/__COL_MEETINGS__ATTENDEES__/records/{{ $('Created meeting').first().json.meeting_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([ { Id: $json.person_id } ]) }}",
+        "options": {}
+      },
+      "id": "link-the-attendee-to-the-meeting",
+      "name": "Link the attendee to the meeting",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        0,
+        760
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
       }
@@ -695,29 +1686,51 @@
       "main": [
         [
           {
-            "node": "Get one base",
+            "node": "Booking from cal.com",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get one base": {
+    "Booking from cal.com": {
       "main": [
         [
           {
-            "node": "Normalize booking",
+            "node": "Booking details",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Normalize booking": {
+    "Booking details": {
       "main": [
         [
           {
             "node": "Route by booking event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare booking error": {
+      "main": [
+        [
+          {
+            "node": "Log activity: booking sync failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log activity: booking sync failed": {
+      "main": [
+        [
+          {
+            "node": "Fail the booking sync",
             "type": "main",
             "index": 0
           }
@@ -760,7 +1773,7 @@
         ]
       ]
     },
-    "Is it a new booking?": {
+    "Attendees of the booking": {
       "main": [
         [
           {
@@ -786,33 +1799,71 @@
       "main": [
         [
           {
-            "node": "Match person",
+            "node": "Attendees matched with persons",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Match person": {
+    "Attendees matched with persons": {
       "main": [
         [
           {
-            "node": "Person already exists?",
+            "node": "Any new person to create?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Person already exists?": {
+    "Is it a new booking?": {
       "main": [
         [
           {
-            "node": "Join existing and new persons",
+            "node": "Attendees of the booking",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Find organizer employee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any new person to create?": {
+      "main": [
+        [
+          {
+            "node": "People to create",
             "type": "main",
             "index": 0
           }
         ],
+        [
+          {
+            "node": "Attendees with person ids",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "People to create": {
+      "main": [
+        [
+          {
+            "node": "Split people to create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split people to create": {
+      "main": [
         [
           {
             "node": "Create person from booking",
@@ -826,41 +1877,7 @@
       "main": [
         [
           {
-            "node": "Attach created person id",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Attach created person id": {
-      "main": [
-        [],
-        [
-          {
-            "node": "Join existing and new persons",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Join existing and new persons": {
-      "main": [
-        [
-          {
-            "node": "Collect attendees",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Collect attendees": {
-      "main": [
-        [
-          {
-            "node": "Find organizer employee",
+            "node": "Attendees with person ids",
             "type": "main",
             "index": 0
           }
@@ -871,25 +1888,101 @@
       "main": [
         [
           {
-            "node": "Prepare meeting record",
+            "node": "Organizer of the meeting",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Prepare meeting record": {
+    "Attendees with person ids": {
       "main": [
         [
           {
-            "node": "Create meeting (variable field set)",
+            "node": "Wait for attendees and organizer",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Create meeting (variable field set)": {
+    "Organizer of the meeting": {
+      "main": [
+        [
+          {
+            "node": "Wait for attendees and organizer",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Wait for attendees and organizer": {
+      "main": [
+        [
+          {
+            "node": "Is the meeting type known?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is the meeting type known?": {
+      "main": [
+        [
+          {
+            "node": "Create meeting",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create meeting without type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create meeting": {
+      "main": [
+        [
+          {
+            "node": "Created meeting",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare booking error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create meeting without type": {
+      "main": [
+        [
+          {
+            "node": "Created meeting",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare booking error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Created meeting": {
       "main": [
         [
           {
@@ -904,73 +1997,127 @@
       "main": [
         [
           {
-            "node": "Prepare links to owner and attendees",
+            "node": "Link the activity to the meeting",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Prepare links to owner and attendees": {
+    "Attendees to look up opportunities for": {
       "main": [
         [
           {
-            "node": "Link the meeting to owner, attendees and activity",
+            "node": "Split attendees to look up",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Link the meeting to owner, attendees and activity": {
+    "Split attendees to look up": {
       "main": [
         [
           {
-            "node": "Build opportunity lookups",
+            "node": "Get bought opportunities",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get opportunities to be audited",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get opportunities as participant",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Build opportunity lookups": {
+    "Get bought opportunities": {
       "main": [
         [
           {
-            "node": "Get opportunities of the person",
+            "node": "Wait for opportunities of attendees",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get opportunities of the person": {
+    "Get opportunities to be audited": {
       "main": [
         [
           {
-            "node": "Pick the only open opportunity",
+            "node": "Wait for opportunities of attendees",
             "type": "main",
-            "index": 0
+            "index": 1
           }
         ]
       ]
     },
-    "Pick the only open opportunity": {
+    "Get opportunities as participant": {
       "main": [
         [
           {
-            "node": "Prepare opportunity links",
+            "node": "Wait for opportunities of attendees",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Wait for opportunities of attendees": {
+      "main": [
+        [
+          {
+            "node": "Open opportunities of attendees",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Prepare opportunity links": {
+    "Open opportunities of attendees": {
+      "main": [
+        [
+          {
+            "node": "Exactly one open opportunity?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exactly one open opportunity?": {
+      "main": [
+        [
+          {
+            "node": "Opportunity of the meeting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Opportunity of the meeting": {
       "main": [
         [
           {
             "node": "Link the meeting to the opportunity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link the meeting to the opportunity": {
+      "main": [
+        [
+          {
+            "node": "Link the activity to the opportunity",
             "type": "main",
             "index": 0
           }
@@ -992,7 +2139,30 @@
       "main": [
         [
           {
+            "node": "Meeting to reschedule",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Meeting to reschedule": {
+      "main": [
+        [
+          {
             "node": "Move the meeting to the new time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Move the meeting to the new time": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Prepare booking error",
             "type": "main",
             "index": 0
           }
@@ -1014,7 +2184,103 @@
       "main": [
         [
           {
+            "node": "Meeting to cancel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Meeting to cancel": {
+      "main": [
+        [
+          {
             "node": "Mark the meeting as cancelled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark the meeting as cancelled": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Prepare booking error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link the activity to the meeting": {
+      "main": [
+        [
+          {
+            "node": "Is the organizer known?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is the organizer known?": {
+      "main": [
+        [
+          {
+            "node": "Link the meeting to the organizer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Attendees to link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link the meeting to the organizer": {
+      "main": [
+        [
+          {
+            "node": "Attendees to link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attendees to link": {
+      "main": [
+        [
+          {
+            "node": "Split attendees to link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split attendees to link": {
+      "main": [
+        [
+          {
+            "node": "Link the attendee to the meeting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link the attendee to the meeting": {
+      "main": [
+        [
+          {
+            "node": "Attendees to look up opportunities for",
             "type": "main",
             "index": 0
           }
