@@ -559,11 +559,21 @@
           "conditions": [
             {
               "id": "c1",
-              "leftValue": "={{ $json.output }}",
+              "leftValue": "={{ $json.text }}",
               "rightValue": "",
               "operator": {
                 "type": "string",
                 "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.ai_error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
                 "singleValue": true
               }
             }
@@ -592,7 +602,7 @@
           "fieldValues": [
             {
               "fieldName": "needs_summary",
-              "fieldValue": "={{ String($json.output).trim() }}"
+              "fieldValue": "={{ $json.text }}"
             },
             {
               "fieldName": "ai_status",
@@ -734,7 +744,7 @@
               "id": "prepare-ai-error-message",
               "name": "message",
               "type": "string",
-              "value": "={{ 'Generowanie needs summary nie powiodło się (' + ($json.error?.message ?? (typeof $json.error === 'string' ? $json.error : null) ?? 'model zwrócił pustą odpowiedź') + '). Kliknij „Generuj needs summary” ponownie.' }}"
+              "value": "={{ 'Generowanie needs summary nie powiodło się (' + ($json.ai_error || $json.error?.message || (typeof $json.error === 'string' ? $json.error : '') || 'model zwrócił pustą odpowiedź') + '). Kliknij „Generuj needs summary” ponownie.' }}"
             }
           ]
         },
@@ -1319,6 +1329,70 @@
         570
       ],
       "executeOnce": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "parse-ai-answer-parsed",
+              "name": "parsed",
+              "type": "object",
+              "value": "={{ (() => { try { const o = JSON.parse(String($json.output ?? '').trim().replace(/^```(?:json)?\\s*|\\s*```$/g, '')); return (o && typeof o === 'object' && !Array.isArray(o) && 'error' in o && 'message' in o) ? o : {}; } catch (e) { return {}; } })() }}"
+            },
+            {
+              "id": "parse-ai-answer-output",
+              "name": "output",
+              "type": "string",
+              "value": "={{ String($json.output ?? '') }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w8-36",
+      "name": "Parse AI answer",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2730,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "read-ai-answer-ai_error",
+              "name": "ai_error",
+              "type": "string",
+              "value": "={{ String($json.parsed.error ?? '').trim() }}"
+            },
+            {
+              "id": "read-ai-answer-text",
+              "name": "text",
+              "type": "string",
+              "value": "={{ 'message' in $json.parsed ? String($json.parsed.message ?? '').trim() : $json.output.trim() }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": true
+        }
+      },
+      "id": "w8-37",
+      "name": "Read AI answer",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2800,
+        190
+      ]
     }
   ],
   "connections": {
@@ -1486,7 +1560,7 @@
       "main": [
         [
           {
-            "node": "AI output valid?",
+            "node": "Parse AI answer",
             "type": "main",
             "index": 0
           }
@@ -1701,6 +1775,28 @@
             "node": "Wait for person, company and discovery data",
             "type": "main",
             "index": 2
+          }
+        ]
+      ]
+    },
+    "Parse AI answer": {
+      "main": [
+        [
+          {
+            "node": "Read AI answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read AI answer": {
+      "main": [
+        [
+          {
+            "node": "AI output valid?",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
