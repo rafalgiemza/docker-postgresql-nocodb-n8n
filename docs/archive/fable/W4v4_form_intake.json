@@ -199,7 +199,7 @@
               "id": "0-person",
               "name": "person",
               "type": "object",
-              "value": "={{ (() => { const core = $('Form data').first().json.phone_core; const e = $('Find person by email').all().map(i => i.json).find(r => r.Id); const p = $('Find person by phone').all().map(i => i.json).find(r => r.Id && core && String(r.phone || '').replace(/\\D/g, '').endsWith(core)); return e || p || {}; })() }}"
+              "value": "={{ (() => { const core = $('Form data').first().json.phone_core; const e = $('Find person by email').all().map(i => i.json).find(r => r.Id); const p = $('Find person by phone').all().map(i => i.json).find(r => r.Id && core && String(r.phone || '').split(/[,;]/).some(x => x.replace(/\\D/g, '').endsWith(core))); return e || p || {}; })() }}"
             }
           ]
         },
@@ -575,7 +575,7 @@
               "id": "0-outcome",
               "name": "outcome",
               "type": "string",
-              "value": "={{ $('Person flags').first().json.is_accountant ? 'accountant' : ($('Client check').isExecuted && $('Client check').first().json.is_client ? 'client' : 'new_lead') }}"
+              "value": "={{ $('Person flags').first().json.is_accountant ? 'accountant' : ($('Client check').isExecuted && $('Client check').first().json.is_client ? 'client' : ($('Find recent lead of the contact').all().some(i => i.json.Id && i.json.received_at && Date.now() - new Date(i.json.received_at).getTime() < 300000) ? 'recent_lead' : 'new_lead')) }}"
             }
           ]
         },
@@ -591,7 +591,8 @@
       "position": [
         3120,
         600
-      ]
+      ],
+      "executeOnce": true
     },
     {
       "parameters": {
@@ -668,7 +669,7 @@
               "id": "1-task_title",
               "name": "task_title",
               "type": "string",
-              "value": "={{ $('Intake outcome').first().json.outcome === 'new_lead' ? 'Umów discovery call: ' + ($('Form data').first().json.name || $('Form data').first().json.email || $('Form data').first().json.phone_raw) : ($('Intake outcome').first().json.outcome === 'accountant' ? 'Księgowa napisała: ' : 'Klient napisał ponownie: ') + ($('Form data').first().json.name || $('Form data').first().json.email || $('Form data').first().json.phone_raw) }}"
+              "value": "={{ $('Intake outcome').first().json.outcome === 'new_lead' ? 'Umów discovery call: ' + ($('Form data').first().json.name || $('Form data').first().json.email || $('Form data').first().json.phone_raw) : ($('Intake outcome').first().json.outcome === 'accountant' ? 'Księgowa napisała: ' : ($('Intake outcome').first().json.outcome === 'recent_lead' ? 'Ponowne zgłoszenie (lead z ostatnich 5 min): ' : 'Klient napisał ponownie: ')) + ($('Form data').first().json.name || $('Form data').first().json.email || $('Form data').first().json.phone_raw) }}"
             },
             {
               "id": "2-task_priority",
@@ -1163,7 +1164,8 @@
       "position": [
         5460,
         1200
-      ]
+      ],
+      "executeOnce": true
     },
     {
       "parameters": {
@@ -1314,12 +1316,19 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ $json.body }}",
-        "options": {}
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 400
+            }
+          }
+        }
       },
       "id": "w4v4-44",
       "name": "Link the task to person, assignee and activity",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "typeVersion": 4.2,
       "position": [
         5460,
         900
@@ -1329,7 +1338,8 @@
           "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -1382,12 +1392,19 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ $json.body }}",
-        "options": {}
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 400
+            }
+          }
+        }
       },
       "id": "w4v4-47",
       "name": "Link the lead and its task to person, owner, assignee and activity",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "typeVersion": 4.2,
       "position": [
         6520,
         300
@@ -1397,7 +1414,8 @@
           "id": "__NOCODB_CRED_ID__",
           "name": "NocoDB Token account"
         }
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -1439,6 +1457,101 @@
         }
       },
       "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ (() => { const f = $('Form data').first().json; const nd = f.phone_raw.replace(/\\D/g, ''); if (!nd || !$('Person flags').first().json.person_id) return false; return !String($('Matched person').first().json.person.phone ?? '').split(/[,;]/).some(x => { const xd = x.replace(/\\D/g, ''); return xd === nd || (f.phone_core && xd.endsWith(f.phone_core)); }); })() }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "w4v4-50",
+      "name": "Is it a new number of the person?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3900,
+        840
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "version": 2,
+        "operation": "update",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_PERSONS__",
+        "id": "={{ $('Person flags').first().json.person_id }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "phone",
+              "fieldValue": "={{ [ String($('Matched person').first().json.person.phone ?? '').trim(), $('Form data').first().json.phone_raw ].filter(Boolean).join(', ') }}"
+            }
+          ]
+        }
+      },
+      "id": "w4v4-51",
+      "name": "Add the number to the person",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        4160,
+        840
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_LEADS__",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 20,
+        "options": {
+          "where": "=(lead_name,eq,{{ $('Form data').first().json.name || $('Form data').first().json.email }})~and(received_at,gt,exactDate,{{ $now.minus({ days: 1 }).toFormat('yyyy-MM-dd') }})"
+        }
+      },
+      "id": "w4v4-52",
+      "name": "Find recent lead of the contact",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        2860,
+        720
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "alwaysOutputData": true
     }
   ],
   "connections": {
@@ -1570,7 +1683,7 @@
         ],
         [
           {
-            "node": "Intake outcome",
+            "node": "Find recent lead of the contact",
             "type": "main",
             "index": 0
           }
@@ -1636,7 +1749,7 @@
       "main": [
         [
           {
-            "node": "Intake outcome",
+            "node": "Find recent lead of the contact",
             "type": "main",
             "index": 0
           }
@@ -1687,7 +1800,7 @@
       "main": [
         [
           {
-            "node": "New lead?",
+            "node": "Is it a new number of the person?",
             "type": "main",
             "index": 0
           }
@@ -1917,6 +2030,70 @@
         [
           {
             "node": "Fail the intake",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link the task to person, assignee and activity": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Intake error details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link the lead and its task to person, owner, assignee and activity": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Intake error details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is it a new number of the person?": {
+      "main": [
+        [
+          {
+            "node": "Add the number to the person",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "New lead?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add the number to the person": {
+      "main": [
+        [
+          {
+            "node": "New lead?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find recent lead of the contact": {
+      "main": [
+        [
+          {
+            "node": "Intake outcome",
             "type": "main",
             "index": 0
           }
