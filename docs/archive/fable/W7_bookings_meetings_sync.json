@@ -581,13 +581,13 @@
               "id": "attendees-with-person-ids-people",
               "name": "people",
               "type": "array",
-              "value": "={{ (() => { const made = $('Create person from booking').isExecuted ? $('Create person from booking').all() : []; let i = 0; return $('Attendees matched with persons').first().json.people.map(p => p.person_id ? p : { ...p, person_id: made[i++]?.json.Id ?? null }); })() }}"
+              "value": "={{ (() => { const base = $('Attendees matched with persons').first().json.people; const missing = base.filter(p => !p.person_id); const created = $json.created ?? []; return base.map(p => p.person_id ? p : { ...p, person_id: created[missing.indexOf(p)] ?? null }); })() }}"
             }
           ]
         },
         "includeOtherFields": false,
         "options": {
-          "ignoreConversionErrors": true
+          "ignoreConversionErrors": false
         }
       },
       "id": "attendees-with-person-ids",
@@ -1679,6 +1679,33 @@
           "name": "NocoDB Token account"
         }
       }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "created-persons-created",
+              "name": "created",
+              "type": "array",
+              "value": "={{ $input.all().map(i => i.json.Id) }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": false
+        }
+      },
+      "id": "created-persons",
+      "name": "Created persons",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1040,
+        380
+      ],
+      "executeOnce": true
     }
   ],
   "connections": {
@@ -1877,7 +1904,7 @@
       "main": [
         [
           {
-            "node": "Attendees with person ids",
+            "node": "Created persons",
             "type": "main",
             "index": 0
           }
@@ -2281,6 +2308,17 @@
         [
           {
             "node": "Attendees to look up opportunities for",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Created persons": {
+      "main": [
+        [
+          {
+            "node": "Attendees with person ids",
             "type": "main",
             "index": 0
           }
