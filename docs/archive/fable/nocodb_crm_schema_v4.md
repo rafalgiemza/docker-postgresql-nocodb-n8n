@@ -599,6 +599,13 @@ anulowania. Nowy flow startuje z webhooków cal.com i nie ma tych ograniczeń:
 - **Uczestnicy:** wszyscy uczestnicy rezerwacji → `persons` po e-mailu i link
   `attendees`; nieznany e-mail → minimalny wiersz `persons` (imię, e-mail)
   oznaczony jako możliwy duplikat.
+- **Lead dla nowych osób:** jeśli rezerwacja utworzyła choć jedną nową osobę,
+  flow tworzy jednego leada dla wszystkich nowych osób z tej rezerwacji
+  (`lead_name` = pierwsza osoba, przy kilku „(+N)"; `contact_channel` =
+  „Bookings"; `qualification` = `unqualified`), linkuje `persons`,
+  `primary_person` (pierwsza nowa osoba), `owner` (organizator, jeśli jest w
+  `employees`) i wpis `lead_created` w `activities`. Osoby już znane nie dostają
+  nowego leada. Zadania `qualify_lead` flow nie tworzy.
 - **Właściciel spotkania:** `meetings.owner` z e-maila organizatora rezerwacji
   dopasowanego do `employees.email`.
 - **`meeting_type`** z `eventTypeId` rezerwacji przez stałe mapowanie w flow

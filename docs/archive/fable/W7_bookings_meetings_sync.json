@@ -1706,6 +1706,323 @@
         380
       ],
       "executeOnce": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "new-attendees-without-a-lead-new_people",
+              "name": "new_people",
+              "type": "array",
+              "value": "={{ $('Attendees with person ids').first().json.people.filter((p, i) => !$('Attendees matched with persons').first().json.people[i].person_id) }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": false
+        }
+      },
+      "id": "new-attendees-without-a-lead",
+      "name": "New attendees without a lead",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        950
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.new_people.length > 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "any-new-attendee",
+      "name": "Any new attendee?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        950
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_LEADS__",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "lead_name",
+              "fieldValue": "={{ ($json.new_people[0].name || $json.new_people[0].email) + ($json.new_people.length > 1 ? ' (+' + ($json.new_people.length - 1) + ')' : '') }}"
+            },
+            {
+              "fieldName": "contact_channel",
+              "fieldValue": "Bookings"
+            },
+            {
+              "fieldName": "qualification",
+              "fieldValue": "unqualified"
+            },
+            {
+              "fieldName": "received_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "id": "create-lead-from-booking",
+      "name": "Create lead from booking",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        0,
+        950
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "created-lead-lead_id",
+              "name": "lead_id",
+              "type": "number",
+              "value": "={{ $json.Id }}"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {
+          "ignoreConversionErrors": false
+        }
+      },
+      "id": "created-lead",
+      "name": "Created lead",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        950
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "authentication": "nocoDbApiToken",
+        "workspaceId": "__WORKSPACE_ID__",
+        "projectId": "__PROJECT_ID__",
+        "table": "__TBL_ACTIVITIES__",
+        "operation": "create",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldName": "summary",
+              "fieldValue": "={{ 'Lead z rezerwacji cal.com: ' + $('Booking details').first().json.title }}"
+            },
+            {
+              "fieldName": "type",
+              "fieldValue": "lead_created"
+            },
+            {
+              "fieldName": "flow",
+              "fieldValue": "W7"
+            },
+            {
+              "fieldName": "triggered_by",
+              "fieldValue": "system"
+            },
+            {
+              "fieldName": "payload",
+              "fieldValue": "={{ JSON.stringify({ lead_id: $('Created lead').first().json.lead_id, meeting_id: $('Created meeting').first().json.meeting_id }) }}"
+            }
+          ]
+        }
+      },
+      "id": "log-activity-lead-created-from-booking",
+      "name": "Log activity: lead created from booking",
+      "type": "n8n-nodes-base.nocoDb",
+      "typeVersion": 3,
+      "position": [
+        0,
+        950
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/__TBL_LEADS__/links/__COL_LEADS__PERSONS__/records/{{ $('Created lead').first().json.lead_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('New attendees without a lead').first().json.new_people.map(p => ({ Id: p.person_id }))) }}",
+        "options": {}
+      },
+      "id": "link-the-persons-to-the-lead",
+      "name": "Link the persons to the lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        0,
+        950
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/__TBL_LEADS__/links/__COL_LEADS__PRIMARY_PERSON__/records/{{ $('Created lead').first().json.lead_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([ { Id: $('New attendees without a lead').first().json.new_people[0].person_id } ]) }}",
+        "options": {}
+      },
+      "id": "set-the-main-person-of-the-lead",
+      "name": "Set the main person of the lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        0,
+        950
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Organizer of the meeting').first().json.owner_id > 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "is-the-organizer-known-for-the-lead",
+      "name": "Is the organizer known for the lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        950
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/__TBL_LEADS__/links/__COL_LEADS__OWNER__/records/{{ $('Created lead').first().json.lead_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([ { Id: $('Organizer of the meeting').first().json.owner_id } ]) }}",
+        "options": {}
+      },
+      "id": "link-the-lead-to-the-owner",
+      "name": "Link the lead to the owner",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        0,
+        950
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=__NOCODB_BASE_URL__/api/v2/tables/__TBL_LEADS__/links/__COL_LEADS__ACTIVITIES__/records/{{ $('Created lead').first().json.lead_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "nocoDbApiToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify([ { Id: $('Log activity: lead created from booking').first().json.Id } ]) }}",
+        "options": {}
+      },
+      "id": "link-the-activity-to-the-lead",
+      "name": "Link the activity to the lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        0,
+        950
+      ],
+      "credentials": {
+        "nocoDbApiToken": {
+          "id": "__NOCODB_CRED_ID__",
+          "name": "NocoDB Token account"
+        }
+      }
     }
   ],
   "connections": {
@@ -2310,6 +2627,11 @@
             "node": "Attendees to look up opportunities for",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "New attendees without a lead",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -2319,6 +2641,119 @@
         [
           {
             "node": "Attendees with person ids",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New attendees without a lead": {
+      "main": [
+        [
+          {
+            "node": "Any new attendee?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any new attendee?": {
+      "main": [
+        [
+          {
+            "node": "Create lead from booking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create lead from booking": {
+      "main": [
+        [
+          {
+            "node": "Created lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare booking error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Created lead": {
+      "main": [
+        [
+          {
+            "node": "Log activity: lead created from booking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log activity: lead created from booking": {
+      "main": [
+        [
+          {
+            "node": "Link the persons to the lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link the persons to the lead": {
+      "main": [
+        [
+          {
+            "node": "Set the main person of the lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set the main person of the lead": {
+      "main": [
+        [
+          {
+            "node": "Is the organizer known for the lead?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link the lead to the owner": {
+      "main": [
+        [
+          {
+            "node": "Link the activity to the lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is the organizer known for the lead?": {
+      "main": [
+        [
+          {
+            "node": "Link the lead to the owner",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Link the activity to the lead",
             "type": "main",
             "index": 0
           }
