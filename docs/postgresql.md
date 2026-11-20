@@ -52,6 +52,12 @@ docker compose stop n8n nocodb
 docker exec -it docker-postgres-1 dropdb -U postgres appdata
 ```
 
+lub force
+
+```bash
+docker exec -it docker-postgres-1 dropdb -U postgres --force appdata
+```
+
 #### Opcja B: Z poziomu konsoli psql
 Połącz się z inną bazą danych (np. domyślną `postgres`), aby nie usuwać bazy, na której aktualnie stoisz:
 ```bash
