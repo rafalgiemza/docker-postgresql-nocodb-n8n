@@ -15,6 +15,16 @@ services:
       - NC_S3_ACCESS_SECRET=${NOCODB_MINIO_SECRET_KEY}
       - NC_S3_ENDPOINT=${MINIO_ENDPOINT}
       - NC_S3_FORCE_PATH_STYLE=true
+      # Links in reset-password / invite emails are built from this.
+      - NC_PUBLIC_URL=https://${NC_HOST}
+      # SMTP via Resend (password reset, invites). Resend's SMTP user is literally "resend",
+      # the password is the API key.
+      - NC_SMTP_FROM=${NC_SMTP_FROM}
+      - NC_SMTP_HOST=smtp.resend.com
+      - NC_SMTP_PORT=465
+      - NC_SMTP_SECURE=true
+      - NC_SMTP_USERNAME=resend
+      - NC_SMTP_PASSWORD=${RESEND_API_KEY}
     ports:
       # Loopback-only (see fragments/postgres-compose.yml). Host port 8081 (not 8080)
       # to avoid clashing with other local services on 8080.
