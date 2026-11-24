@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 from datetime import date
+from typing import Literal
 
 from fastapi import FastAPI, Header, HTTPException, Request, Response
 
@@ -95,22 +96,28 @@ async def import_csv(request: Request, dry_run: bool = True,
         db.close()
 
 
+MEDIA_TYPES = {
+    "csv": "text/csv; charset=utf-8",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
+
+
 @app.post("/export")
-def export_csv(x_token: str = Header(default="")):
-    """Caly CRM z Postgresa -> CSV w ukladzie ostatnio zaimportowanego pliku
-    (ID z rejestru legacy.rows, daty M/D/YYYY, UTF-8 z BOM). Nie zmienia danych
-    CRM; zapisuje tylko numery ID nowych rekordow w rejestrze."""
+def export_crm(format: Literal["csv", "xlsx"] = "csv", x_token: str = Header(default="")):
+    """Caly CRM z Postgresa -> plik w ukladzie ostatnio zaimportowanego pliku
+    (ID z rejestru legacy.rows). csv: daty M/D/YYYY, UTF-8 z BOM; xlsx: te same
+    dane, daty/kwoty jako wartosci Excela. Nie zmienia danych CRM; zapisuje tylko
+    numery ID nowych rekordow w rejestrze."""
     check_token(x_token)
     with open(SCHEMA_MAP_PATH, encoding="utf-8") as f:
         schema_map = json.load(f)
     db = get_db()
     try:
-        data, n = le.run_export(db, schema_map)
+        data, n = le.run_export(db, schema_map, format)
     except li.LegacyError as e:
         raise HTTPException(422, str(e))
     finally:
         db.close()
-    name = f"crm-export-{date.today().isoformat()}.csv"
-    return Response(content=data, media_type="text/csv; charset=utf-8",
+    name = f"crm-export-{date.today().isoformat()}.{format}"
+    return Response(content=data, media_type=MEDIA_TYPES[format],
                     headers={"Content-Disposition": f'attachment; filename="{name}"',
                              "X-Rows": str(n)})

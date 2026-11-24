@@ -878,12 +878,18 @@ TABLES = [
         # wola W23 -> crm-legacy-service czyta PROSTO z Postgresa.
         "title": "crm_exports",
         "icon": "📤",
-        "description": "Eksport CRM do pliku CSV w formacie starego CRM. "
-                       "Kliknij \"Eksportuj\" - plik pojawi sie w `new_crm`.",
+        "description": "Eksport CRM do pliku CSV lub XLSX w ukladzie starego CRM. "
+                       "Wybierz `file_format`, kliknij \"Eksportuj\" - plik "
+                       "pojawi sie w `new_crm`.",
         "fields": [
             {"title": "title", "type": "SingleLineText"},
+            {"title": "file_format", "type": "SingleSelect",
+             "options": select("csv", "xlsx"),
+             "description": "Format pliku. xlsx = wygodny w Excelu; csv = "
+                            "jedyny format, ktory przyjmie import (kopia do "
+                            "odtworzenia danych). Puste = csv."},
             {"title": "new_crm", "type": "Attachment",
-             "description": "Wygenerowany plik CSV (UTF-8). AUTOMATYCZNIE."},
+             "description": "Wygenerowany plik (csv lub xlsx). AUTOMATYCZNIE."},
             {"title": "report", "type": "LongText",
              "description": "Liczba wierszy lub blad. AUTOMATYCZNIE (n8n)."},
             {"title": "completion_status", "type": "SingleSelect",

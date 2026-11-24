@@ -187,3 +187,48 @@ def test_naive_updated_at_is_utc():
                 received_at="2026-10-19T00:00:00+02:00", orig={"email": "old@example.com"})
     assert row(p_updated="2026-11-08T22:01:15", **base)[C["email"]] == "new@example.com"
     assert row(p_updated="2026-11-08T21:10:21", **base)[C["email"]] == "old@example.com"
+
+
+# ------------------------------------------------------------------- xlsx
+def xlsx(rows, header=None):
+    import io
+    from openpyxl import load_workbook
+    header = header or le.DEFAULT_HEADER
+    data = le.to_xlsx(header, le.layout(header), rows)
+    return load_workbook(io.BytesIO(data)).active
+
+
+def test_xlsx_has_typed_dates_time_money_and_id():
+    import datetime as dt
+    r = row(opp_id=5, stage="Nowa", state="open", deal_value=Decimal("3900"),
+            opp_created="2026-10-14T12:00:00+02:00")
+    ws = xlsx([r])
+    cell = lambda k: ws.cell(2, C[k] + 1)
+    assert cell("id").value == 1704
+    assert cell("received_d").value == dt.datetime(2026, 10, 14)
+    assert cell("received_d").number_format == le.XLSX_DATE
+    assert cell("received_t").value == dt.time(14, 9)
+    assert cell("value").value == 3900 and cell("value").number_format == le.XLSX_MONEY
+    assert ws.cell(1, 1).value == "ID" and ws.freeze_panes == "A2"
+
+
+def test_xlsx_keeps_text_that_only_looks_like_something_else():
+    r = row(p_phone="+48 600 000 001", notes="=1+1\x0b", p_name="#N/A")
+    r[C["demo"]], r[C["lost_d"]], r[C["value"]] = "22.12.205", "13/40/2026", "ok. 3 tys."
+    ws = xlsx([r])
+    got = {k: (ws.cell(2, C[k] + 1).value, ws.cell(2, C[k] + 1).data_type)
+           for k in ("phone", "notes", "contact", "demo", "lost_d", "value")}
+    assert got == {"phone": ("+48 600 000 001", "s"), "notes": ("=1+1", "s"),
+                   "contact": ("#N/A", "s"), "demo": ("22.12.205", "s"),
+                   "lost_d": ("13/40/2026", "s"), "value": ("ok. 3 tys.", "s")}
+
+
+def test_xlsx_two_row_header_and_unknown_columns():
+    head = [["ID", "Forma", "", "Nowa"], ["", "kontaktu", "", ""]]
+    ws = xlsx([row()], head)
+    assert ws.freeze_panes == "A3" and ws.auto_filter.ref == "A2:D3"
+    assert [c.value for c in ws[3]] == [1704, "Mail", None, None]
+
+
+def test_xlsx_without_rows_is_a_valid_file():
+    assert xlsx([]).max_row == 1

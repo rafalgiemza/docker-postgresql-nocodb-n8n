@@ -7,11 +7,11 @@ Import i eksport historycznych danych CRM **prosto do PostgreSQL**
 
 - `legacy_import.py` — cała logika (parsowanie CSV, mapowanie, SQL). Bez
   zależności poza stdlib; baza jest wstrzykiwana (`db.run(sql, tuples=False)`).
-- `legacy_export.py` — eksport do CSV w formacie starego CRM (33 kolumny, daty
-  MM/DD/YYYY, UTF-8). Tylko odczyt; odwrotność importu (pola dopisane przez
+- `legacy_export.py` — eksport do CSV albo XLSX w układzie starego CRM (33 kolumny,
+  daty MM/DD/YYYY, UTF-8). Tylko odczyt; odwrotność importu (pola dopisane przez
   import do notatek wracają do swoich kolumn).
 - `app.py` — FastAPI: `POST /import?dry_run=&expect_sha256=` (plik CSV jako
-  surowe ciało żądania; multipart z n8n się wieszał), `POST /export`, `GET /health`. Woła go tylko n8n (W22 import,
+  surowe ciało żądania; multipart z n8n się wieszał), `POST /export?format=csv|xlsx` (domyślnie csv), `GET /health`. Woła go tylko n8n (W22 import,
   W23 eksport), brak portów na zewnątrz. Nagłówek `X-Token` = `CRM_LEGACY_TOKEN`.
 - CLI (ta sama logika przez `docker exec psql`):
   `make import-crm-legacy CSV=... [APPLY=1]`, `make export-crm-legacy OUT=...`.
@@ -84,6 +84,11 @@ Import i eksport historycznych danych CRM **prosto do PostgreSQL**
 - Wartości, których import nie umiał zapisać (spoza słowników, nieczytelne
   daty, Folder klienta, Data archiwizacji, kwota przy leadzie bez szansy) wracają
   z notatek do swoich kolumn.
+- Format wybiera pole `crm_exports.file_format` (puste = csv). **XLSX**: te same
+  wiersze i kolumny, ale ID, daty, godzina i kwota są wartościami Excela
+  (sortowanie, filtry, sumy); telefony i nieczytelne daty zostają tekstem,
+  zamrożony nagłówek i autofiltr. Import przyjmuje tylko CSV, więc kopię do
+  odtworzenia danych eksportuj jako csv. CLI (`make export-crm-legacy`) zapisuje CSV.
 - Test pełnego obiegu: `make export-crm-legacy OUT=…` potem
   `make compare-crm-export ORIG=<plik> EXPORT=<eksport>` - porównanie po
   znaczeniu (ta sama data/kwota w innym zapisie to nie różnica). Na pliku

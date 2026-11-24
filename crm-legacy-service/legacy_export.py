@@ -14,12 +14,14 @@ Odwrotnosc legacy_import.py. Kontrakt, na ktorym polegaja finanse i analiza:
 Pola, ktore import dopisal do notatek leada ("Planowane dzialanie (stary CRM):
 ..." itd.), wracaja do swoich kolumn, a Notatki zostaja czyste. Nazwy zastepcze
 osob ("Nieznany kontakt ...") wracaja jako puste komorki.
+Plik: csv (kontrakt powyzej, jedyny format, ktory przyjmuje import) albo xlsx - te
+same wiersze i kolumny, ale daty, godziny, kwoty i ID sa wartosciami Excela.
 """
 import csv
 import io
 import json
 import re
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 import legacy_import as li
@@ -328,20 +330,102 @@ def layout(header_rows):
             for i, h in enumerate(head)]
 
 
-def run_export(db, schema_map):
-    """Zwraca (bytes_csv, liczba_wierszy). Zapisuje do rejestru legacy.rows numery
-    nowych rekordow (jedyny zapis; dane CRM sie nie zmieniaja)."""
+def to_csv(header, keys, rows):
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\r\n")
+    for h in header:
+        w.writerow(h)
+    for row in rows:
+        w.writerow([row[C[k]] if k else "" for k in keys])
+    return b"\xef\xbb\xbf" + buf.getvalue().encode("utf-8")
+
+
+# Formaty Excela: "\\/" = ukosnik doslownie (zwykly "/" polski Excel pokazuje jako
+# kropke), $-409 = AM/PM takze w polskim Excelu.
+XLSX_DATE, XLSX_TIME = "m\\/d\\/yyyy", "[$-409]h:mm:ss AM/PM"
+XLSX_MONEY = '#,##0.00" PLN"'
+XLSX_DATE_KEYS = {"received_d", "client_created", "opp_created", "planned_d", "archived",
+                  *MILESTONE.values()}
+XLSX_MAX_WIDTH = 40
+# znaki sterujace, ktorych XML arkusza nie dopuszcza
+XLSX_ILLEGAL = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
+
+def xlsx_value(key, text):
+    """Tekst komorki CSV -> (wartosc, format Excela lub None). Tylko zapis, ktory
+    jednoznacznie jest data M/D/YYYY, godzina, kwota albo numerem ID, dostaje typ;
+    reszta (takze nieczytelne daty i telefony "+48...") zostaje tekstem."""
+    if key == "id" and text.isdecimal():
+        return int(text), "0"
+    if key in XLSX_DATE_KEYS and re.fullmatch(r"\d{1,2}/\d{1,2}/\d{4}", text):
+        m, d, y = map(int, text.split("/"))
+        try:
+            if y > 1900:  # Excel nie zna dat sprzed 1900
+                return date(y, m, d), XLSX_DATE
+        except ValueError:
+            pass
+    if key == "received_t":
+        try:
+            return datetime.strptime(text, "%I:%M:%S %p").time(), XLSX_TIME
+        except ValueError:
+            pass
+    if key == "value" and re.fullmatch(r"-?[\d,]+\.\d{2} PLN", text):
+        return Decimal(text[:-4].replace(",", "")), XLSX_MONEY
+    return XLSX_ILLEGAL.sub("", text), None
+
+
+def to_xlsx(header, keys, rows):
+    from openpyxl import Workbook  # tylko tu: CLI eksportu CSV dziala bez openpyxl
+    from openpyxl.styles import Alignment, Font
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "CRM"
+    bold, wrap = Font(bold=True), Alignment(wrap_text=True, vertical="top")
+    widths = [0] * len(keys)
+
+    def put(r, c, value, fmt):
+        cell = ws.cell(r, c, value)
+        if isinstance(value, str):
+            cell.data_type = "s"  # tekst "=..." to nie formula, "#N/A" to nie blad
+        if fmt:
+            cell.number_format = fmt
+        return cell
+
+    for r, h in enumerate(header, 1):
+        for c, text in enumerate(h, 1):
+            if text:
+                cell = put(r, c, text, None)
+                cell.font, cell.alignment = bold, wrap
+                if c <= len(widths):
+                    widths[c - 1] = max(widths[c - 1], *map(len, text.split("\n")))
+    for r, row in enumerate(rows, len(header) + 1):
+        for c, k in enumerate(keys, 1):
+            text = row[C[k]] if k else ""
+            if text:
+                put(r, c, *xlsx_value(k, text))
+                widths[c - 1] = max(widths[c - 1], *map(len, text.split("\n")))
+    for c, n in enumerate(widths, 1):
+        ws.column_dimensions[get_column_letter(c)].width = min(n + 3, XLSX_MAX_WIDTH)
+    ws.freeze_panes = ws.cell(len(header) + 1, 1)
+    ws.auto_filter.ref = (f"A{len(header)}:{get_column_letter(len(keys))}"
+                          f"{len(header) + len(rows)}")
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+FORMATS = {"csv": to_csv, "xlsx": to_xlsx}
+
+
+def run_export(db, schema_map, fmt="csv"):
+    """Zwraca (bytes_pliku, liczba_wierszy); fmt: klucz FORMATS. Zapisuje do rejestru
+    legacy.rows numery nowych rekordow (jedyny zapis; dane CRM sie nie zmieniaja)."""
     links = li.discover(db, schema_map)
     db.run(assign_sql(links))
     out = db.run(data_query(links), tuples=True)
     items = json.loads(out[0][0], parse_float=Decimal) if out else []
     header, sellers = load_meta(db)
-    keys = layout(header)
-    buf = io.StringIO()
-    w = csv.writer(buf, lineterminator="\r\n")
-    for h in header:
-        w.writerow(h)
-    for x in items:  # od najwyzszego ID
-        row = to_row(x, x["export_id"], sellers)
-        w.writerow([row[C[k]] if k else "" for k in keys])
-    return b"\xef\xbb\xbf" + buf.getvalue().encode("utf-8"), len(items)
+    rows = [to_row(x, x["export_id"], sellers) for x in items]  # od najwyzszego ID
+    return FORMATS[fmt](header, layout(header), rows), len(rows)

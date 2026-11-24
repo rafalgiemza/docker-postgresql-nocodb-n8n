@@ -33,6 +33,12 @@
               "name": "export_id",
               "type": "number",
               "value": "={{ $('Button: Eksportuj').first().json.body.data.rows[0].Id }}"
+            },
+            {
+              "id": "02-file_format",
+              "name": "file_format",
+              "type": "string",
+              "value": "={{ $('Button: Eksportuj').first().json.body.data.rows[0].file_format || 'csv' }}"
             }
           ]
         },
@@ -120,6 +126,15 @@
         "url": "http://crm-legacy-service:8000/export",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "format",
+              "value": "={{ $('Export from button').first().json.file_format }}"
+            }
+          ]
+        },
         "options": {
           "response": {
             "response": {
@@ -196,7 +211,7 @@
         "nodeCredentialType": "nocoDbApiToken",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify([{ Id: $('Export from button').first().json.export_id, new_crm: $json.body, report: 'Wyeksportowano wierszy: ' + $('Export CRM from Postgres (crm-legacy-service)').first().json.headers['x-rows'], completion_status: 'done' }]) }}",
+        "jsonBody": "={{ JSON.stringify([{ Id: $('Export from button').first().json.export_id, new_crm: $json.body, report: 'Wyeksportowano wierszy: ' + $('Export CRM from Postgres (crm-legacy-service)').first().json.headers['x-rows'] + ' (' + $('Export from button').first().json.file_format + ')', completion_status: 'done' }]) }}",
         "options": {}
       },
       "id": "w23-07",
